@@ -30,6 +30,12 @@ export default async function AppLayout({
             >
               Inicio
             </Link>
+            <Link
+              href="/clientes"
+              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              Clientes
+            </Link>
             {showAdmin && (
               <Link
                 href="/admin/users"

@@ -45,6 +45,7 @@ model User {
   accounts  Account[]
   sessions  Session[]
   auditLogs AuditLog[] @relation("AuditLogActor")
+  clients   Client[]   @relation("ClientOwner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,6 +93,65 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 1 — CRM núcleo: clientes (cuentas) y contactos
+// ---------------------------------------------------------------------------
+
+/// Condición frente al IVA (Argentina).
+enum IvaCondition {
+  RESPONSABLE_INSCRIPTO
+  MONOTRIBUTO
+  EXENTO
+  CONSUMIDOR_FINAL
+  NO_ALCANZADO
+}
+
+/// Cliente / cuenta (empresa). Pertenece a la cartera de un vendedor (owner);
+/// si ownerId es null, está en la cartera general sin asignar. La visibilidad
+/// se resuelve en lib/permissions (vendedor: solo los suyos; gerente/admin: todos).
+model Client {
+  id           String        @id @default(cuid())
+  legalName    String // Razón social
+  tradeName    String? // Nombre de fantasía
+  taxId        String?       @unique // CUIT
+  ivaCondition IvaCondition?
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  province     String?
+  industry     String? // Rubro
+  notes        String?
+
+  ownerId String?
+  owner   User?   @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  contacts Contact[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([legalName])
+}
+
+/// Persona de contacto dentro de un cliente.
+model Contact {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  position  String? // Cargo
+  email     String?
+  phone     String?
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
 }
 
 /// Registro de auditoría de acciones sensibles (logins, cambios de permisos,
