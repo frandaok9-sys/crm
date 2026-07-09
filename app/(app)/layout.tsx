@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireActiveUser } from "@/lib/auth";
 import { ROLE_LABELS, canManageUsers } from "@/lib/permissions";
+import { getCompanySettings } from "@/lib/company";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export default async function AppLayout({
@@ -12,17 +13,27 @@ export default async function AppLayout({
   const user = await requireActiveUser();
   const roleLabel = user.role ? ROLE_LABELS[user.role] : "Sin rol";
   const showAdmin = canManageUsers(user);
+  const settings = await getCompanySettings();
+  const brandName = settings?.tradeName ?? settings?.legalName ?? "CRM";
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <header className="border-b bg-white dark:bg-zinc-950">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <nav className="flex items-center gap-6">
-            <Link
-              href="/dashboard"
-              className="text-lg font-semibold tracking-tight"
-            >
-              CRM
+            <Link href="/dashboard" className="flex items-center">
+              {settings?.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={settings.logo}
+                  alt={brandName}
+                  className="h-8 w-auto"
+                />
+              ) : (
+                <span className="text-lg font-semibold tracking-tight">
+                  {brandName}
+                </span>
+              )}
             </Link>
             <Link
               href="/dashboard"
