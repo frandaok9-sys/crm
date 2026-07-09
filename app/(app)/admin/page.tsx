@@ -51,7 +51,7 @@ export default async function AdminPage() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        Administración
+        Panel de Control
       </h1>
 
       <AdminTabs
