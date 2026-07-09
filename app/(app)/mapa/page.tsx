@@ -56,7 +56,7 @@ export default async function MapPage() {
   const sellers = [...new Map(pins.map((p) => [p.ownerName, p.ownerTint]))];
 
   return (
-    <div className="flex h-full flex-col space-y-5">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-semibold leading-tight">Mapa</h1>
@@ -103,9 +103,12 @@ export default async function MapPage() {
       </div>
 
       {/* Mapa */}
-      <div className="min-h-[440px] flex-1 overflow-hidden rounded-[12px] border">
+      <div
+        className="overflow-hidden rounded-[12px] border"
+        style={{ height: "calc(100dvh - 250px)", minHeight: 460 }}
+      >
         {pins.length === 0 ? (
-          <div className="flex h-full min-h-[440px] items-center justify-center bg-panel px-6 text-center text-sm text-muted-foreground">
+          <div className="flex h-full items-center justify-center bg-panel px-6 text-center text-sm text-muted-foreground">
             Sin obras ubicadas todavía. Cargá la dirección de la obra en cada
             oportunidad y el pin aparece solo.
           </div>

@@ -107,6 +107,11 @@ export function OpportunityMap({ pins }: { pins: MapPin[] }) {
         });
 
         layerRef.current = L.layerGroup().addTo(map);
+
+        // El contenedor puede terminar de dimensionarse después del montaje:
+        // recalcular el tamaño evita el mapa en negro (tiles sin cargar).
+        map.whenReady(() => map.invalidateSize());
+        setTimeout(() => map.invalidateSize(), 200);
       }
 
       // (Re)dibujar los pines.
@@ -152,5 +157,5 @@ export function OpportunityMap({ pins }: { pins: MapPin[] }) {
     };
   }, []);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return <div ref={containerRef} style={{ height: "100%", width: "100%" }} />;
 }
