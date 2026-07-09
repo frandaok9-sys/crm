@@ -1,14 +1,25 @@
 import Link from "next/link";
+import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { opportunityScope, canCreateOpportunities } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
+import { stageHex } from "@/lib/stage-colors";
+import { sellerColor } from "@/components/initials-avatar";
 import { Button } from "@/components/ui/button";
-import {
-  PipelineBoard,
-  type BoardColumn,
-} from "@/components/pipeline-board";
+import { PipelineBoard, type BoardColumn } from "@/components/pipeline-board";
+
+function compactTotals(byCurrency: Map<string, Decimal>): string | null {
+  const parts = [...byCurrency.entries()].map(([currency, total]) => {
+    const symbol = currency === "USD" ? "US$" : "$";
+    return `${symbol} ${new Intl.NumberFormat("es-AR", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(total.toNumber())}`;
+  });
+  return parts.length ? parts.join(" · ") : null;
+}
 
 export default async function OpportunitiesPage() {
   const user = await requireActiveUser();
@@ -26,36 +37,55 @@ export default async function OpportunitiesPage() {
     }),
   ]);
 
-  const columns: BoardColumn[] = stages.map((stage) => ({
-    id: stage.id,
-    name: stage.name,
-    color: stage.color,
-    opportunities: opportunities
-      .filter((o) => o.stageId === stage.id)
-      .map((o) => ({
-        id: o.id,
-        title: o.title,
-        clientName: o.client.legalName,
-        amountLabel: formatMoney(o.amount ? o.amount.toString() : null, o.currency),
-        m2Label: o.estimatedM2 ? `${o.estimatedM2.toString()} m²` : null,
-        ownerName: o.owner ? o.owner.name ?? o.owner.email : null,
-        isPinned: o.isPinned,
-      })),
-  }));
+  const columns: BoardColumn[] = stages.map((stage) => {
+    const inStage = opportunities.filter((o) => o.stageId === stage.id);
+    const totals = new Map<string, Decimal>();
+    for (const o of inStage) {
+      if (!o.amount) continue;
+      totals.set(
+        o.currency,
+        (totals.get(o.currency) ?? new Decimal(0)).plus(o.amount.toString())
+      );
+    }
+    return {
+      id: stage.id,
+      name: stage.name,
+      hex: stageHex(stage.color),
+      totalLabel: compactTotals(totals),
+      opportunities: inStage.map((o) => {
+        const ownerName = o.owner ? o.owner.name ?? o.owner.email : null;
+        return {
+          id: o.id,
+          title: o.title,
+          clientName: o.client.legalName,
+          amountLabel: formatMoney(
+            o.amount ? o.amount.toString() : null,
+            o.currency
+          ),
+          m2Label: o.estimatedM2
+            ? `${Number(o.estimatedM2).toLocaleString("es-AR")} m²`
+            : null,
+          ownerName,
+          ownerTint: ownerName ? sellerColor(ownerName) : null,
+          isPinned: o.isPinned,
+        };
+      }),
+    };
+  });
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {opportunities.length} oportunidad(es).
-            {canEdit && " Arrastrá las tarjetas entre etapas."}
+          <h1 className="text-[26px] font-semibold leading-tight">Pipeline</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {opportunities.length} oportunidad(es) activas
+            {canEdit && " · arrastrá las tarjetas entre etapas"}.
           </p>
         </div>
         {canEdit && (
           <Link href="/oportunidades/nueva">
-            <Button>Nueva oportunidad</Button>
+            <Button size="cta">+ Nueva oportunidad</Button>
           </Link>
         )}
       </div>

@@ -1,11 +1,18 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
 
+import { prisma } from "@/lib/prisma";
+import { signOut } from "@/auth";
 import { requireActiveUser } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/permissions";
+import {
+  ROLE_LABELS,
+  canAccessAdminPanel,
+  canManageLedger,
+  clientScope,
+  opportunityScope,
+  quoteScope,
+} from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
-import { SignOutButton } from "@/components/sign-out-button";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AppSidebar, type SidebarItem } from "@/components/app-sidebar";
 
 export default async function AppLayout({
   children,
@@ -15,53 +22,53 @@ export default async function AppLayout({
   const user = await requireActiveUser();
   const roleLabel = user.role ? ROLE_LABELS[user.role] : "Sin rol";
   const settings = await getCompanySettings();
-  const brandName = settings?.tradeName ?? settings?.legalName ?? "RC CRM";
   const cookieStore = await cookies();
   const theme =
     cookieStore.get("theme")?.value === "light" ? "light" : "dark";
 
+  // Badges del nav (mismo alcance que cada módulo).
+  const [clientCount, opportunityCount, quoteCount] = await Promise.all([
+    prisma.client.count({ where: clientScope(user) }),
+    prisma.opportunity.count({ where: opportunityScope(user) }),
+    prisma.quote.count({ where: { ...quoteScope(user), version: 1 } }),
+  ]);
+
+  const items: SidebarItem[] = [
+    { href: "/dashboard", label: "Inicio" },
+    { href: "/clientes", label: "Clientes", badge: clientCount },
+    { href: "/oportunidades", label: "Pipeline", badge: opportunityCount },
+    { href: "/presupuestos", label: "Presupuestos", badge: quoteCount },
+    { href: "/productos", label: "Productos" },
+    ...(canManageLedger(user)
+      ? [{ href: "/cobranzas", label: "Cobranzas" }]
+      : []),
+    { href: "/metricas", label: "Métricas" },
+    ...(canAccessAdminPanel(user)
+      ? [{ href: "/admin", label: "Panel de control" }]
+      : []),
+  ];
+
+  async function signOutAction() {
+    "use server";
+    await signOut({ redirectTo: "/login" });
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Steel-dark header with brand-red baseline */}
-      <header className="border-b-2 border-primary bg-zinc-950">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-3">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="flex items-center">
-              {settings?.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={settings.logo}
-                  alt={brandName}
-                  className="h-9 w-auto"
-                />
-              ) : (
-                <span className="font-heading text-xl font-semibold uppercase tracking-wide text-white">
-                  <span className="text-primary">RC</span> CRM
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
-            >
-              <span aria-hidden>←</span> Inicio
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right text-sm">
-              <div className="font-medium text-zinc-100">
-                {user.name ?? user.email}
-              </div>
-              <div className="text-[11px] uppercase tracking-wider text-zinc-500">
-                {roleLabel}
-              </div>
-            </div>
-            <ThemeToggle initial={theme} />
-            <SignOutButton appearance="dark" />
-          </div>
+    <div className="flex h-screen overflow-hidden bg-background">
+      <AppSidebar
+        items={items}
+        brandName={settings?.tradeName ?? "RC CRM"}
+        brandTagline="Pisos Industriales"
+        userName={user.name ?? user.email ?? "Usuario"}
+        roleLabel={roleLabel}
+        initialTheme={theme}
+        signOutAction={signOutAction}
+      />
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1240px] px-9 pb-10 pt-8">
+          {children}
         </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      </main>
     </div>
   );
 }

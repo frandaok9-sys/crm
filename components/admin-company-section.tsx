@@ -1,22 +1,24 @@
 import { getCompanySettings } from "@/lib/company";
 import { IVA_LABELS } from "@/lib/clients";
 import { IvaCondition } from "@/lib/generated/prisma/enums";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { updateCompanySettings } from "@/app/(app)/admin/empresa/actions";
 
 const inputClass =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "w-full rounded-[8px] border border-border bg-field px-3 py-2 text-sm outline-none transition-colors focus:border-muted-foreground";
 
 function Field({
   label,
   children,
+  span2,
 }: {
   label: string;
   children: React.ReactNode;
+  span2?: boolean;
 }) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-zinc-500">
+    <label className={`block ${span2 ? "sm:col-span-2" : ""}`}>
+      <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
         {label}
       </span>
       {children}
@@ -28,27 +30,21 @@ export async function AdminCompanySection() {
   const settings = await getCompanySettings();
 
   return (
-    <div className="max-w-2xl">
-      <p className="mb-4 text-sm text-zinc-500">
-        Estos datos y el diseño base se usan en el título del sistema, los
-        presupuestos y su futuro PDF (logo, información fiscal, pie de página).
-      </p>
-
-      <form action={updateCompanySettings} className="space-y-6">
-        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
-          <h2 className="mb-4 text-sm font-medium text-zinc-500">
+    <form action={updateCompanySettings} className="space-y-4">
+      <div className="grid items-start gap-[14px] lg:grid-cols-[1.4fr_1fr]">
+        {/* Datos de la empresa */}
+        <section className="rounded-[12px] border bg-card p-5">
+          <h2 className="mb-4 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
             Datos de la empresa
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Field label="Razón social">
-                <input
-                  name="legalName"
-                  defaultValue={settings?.legalName ?? ""}
-                  className={inputClass}
-                />
-              </Field>
-            </div>
+            <Field label="Razón social" span2>
+              <input
+                name="legalName"
+                defaultValue={settings?.legalName ?? ""}
+                className={inputClass}
+              />
+            </Field>
             <Field label="Nombre de fantasía">
               <input
                 name="tradeName"
@@ -84,15 +80,13 @@ export async function AdminCompanySection() {
                 className={inputClass}
               />
             </Field>
-            <div className="sm:col-span-2">
-              <Field label="Dirección">
-                <input
-                  name="address"
-                  defaultValue={settings?.address ?? ""}
-                  className={inputClass}
-                />
-              </Field>
-            </div>
+            <Field label="Dirección" span2>
+              <input
+                name="address"
+                defaultValue={settings?.address ?? ""}
+                className={inputClass}
+              />
+            </Field>
             <Field label="Localidad">
               <input
                 name="city"
@@ -129,48 +123,12 @@ export async function AdminCompanySection() {
                 className={inputClass}
               />
             </Field>
-          </div>
-        </section>
-
-        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
-          <h2 className="mb-4 text-sm font-medium text-zinc-500">
-            Diseño base del presupuesto (para el PDF)
-          </h2>
-
-          <div className="mb-4 flex items-center gap-4">
-            {settings?.logo && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={settings.logo}
-                alt="Logo actual"
-                className="h-16 w-16 rounded-lg border object-contain p-1"
-              />
-            )}
-            <div className="flex-1">
-              <Field label="Logo (PNG/JPG, máx. 800 KB)">
-                <input
-                  type="file"
-                  name="logo"
-                  accept="image/*"
-                  className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-1.5 file:text-sm file:text-white dark:file:bg-zinc-100 dark:file:text-black"
-                />
-              </Field>
-              {settings?.logo && (
-                <label className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                  <input type="checkbox" name="removeLogo" />
-                  Quitar el logo actual
-                </label>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Color de marca">
               <input
                 type="color"
                 name="primaryColor"
-                defaultValue={settings?.primaryColor ?? "#2563eb"}
-                className="h-10 w-20 rounded-lg border border-zinc-300 dark:border-zinc-700"
+                defaultValue={settings?.primaryColor ?? "#E0503A"}
+                className="h-10 w-20 rounded-[8px] border border-border bg-field"
               />
             </Field>
             <Field label="Validez por defecto (días)">
@@ -182,34 +140,66 @@ export async function AdminCompanySection() {
                 className={inputClass}
               />
             </Field>
-            <div className="sm:col-span-2">
-              <Field label="Pie de página / condiciones por defecto">
-                <textarea
-                  name="quoteFooter"
-                  rows={3}
-                  defaultValue={settings?.quoteFooter ?? ""}
-                  placeholder="Ej: Precios sujetos a modificación sin previo aviso. Validez 30 días."
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-            <div className="sm:col-span-2">
-              <Field label="Datos de pago / banco">
-                <textarea
-                  name="bankInfo"
-                  rows={2}
-                  defaultValue={settings?.bankInfo ?? ""}
-                  className={inputClass}
-                />
-              </Field>
-            </div>
+            <Field label="Pie de página / condiciones por defecto" span2>
+              <textarea
+                name="quoteFooter"
+                rows={3}
+                defaultValue={settings?.quoteFooter ?? ""}
+                placeholder="Ej: Precios sujetos a modificación sin previo aviso."
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Datos de pago / banco" span2>
+              <textarea
+                name="bankInfo"
+                rows={2}
+                defaultValue={settings?.bankInfo ?? ""}
+                className={inputClass}
+              />
+            </Field>
           </div>
         </section>
 
-        <div className="flex justify-end">
-          <Button type="submit">Guardar configuración</Button>
-        </div>
-      </form>
-    </div>
+        {/* Logo */}
+        <section className="rounded-[12px] border bg-card p-5">
+          <h2 className="mb-4 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
+            Logo
+          </h2>
+          <label className="flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[10px] border border-dashed border-avbd p-4 transition-colors hover:border-muted-foreground">
+            {settings?.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={settings.logo}
+                alt="Logo actual"
+                className="max-h-20 w-auto"
+              />
+            ) : (
+              <span className="text-sm text-muted2">
+                Subí el logo (PNG/JPG, máx. 800 KB)
+              </span>
+            )}
+            <input type="file" name="logo" accept="image/*" className="hidden" />
+            <span className="text-xs font-semibold text-primary">
+              Elegir archivo
+            </span>
+          </label>
+          {settings?.logo && (
+            <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <input type="checkbox" name="removeLogo" />
+              Quitar el logo actual
+            </label>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Se muestra en la cabecera y en los PDF de presupuestos.
+          </p>
+        </section>
+      </div>
+
+      <div className="flex justify-end">
+        <SubmitButton size="cta" pendingText="Guardando…">
+          Guardar cambios
+        </SubmitButton>
+      </div>
+    </form>
   );
 }

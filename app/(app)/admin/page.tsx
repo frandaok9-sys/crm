@@ -14,9 +14,13 @@ import { AdminCompanySection } from "@/components/admin-company-section";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900">
-      <div className="text-2xl font-semibold">{value}</div>
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="rounded-[12px] border bg-card px-[18px] py-4">
+      <div className="font-heading text-[24px] font-semibold tabular-nums">
+        {value}
+      </div>
+      <div className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </div>
     </div>
   );
 }
@@ -35,8 +39,8 @@ export default async function AdminPage() {
     ]);
 
   const resumen = (
-    <div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-[14px] sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="Usuarios activos" value={activeUsers} />
         <Stat label="Usuarios pendientes" value={pendingUsers} />
         <Stat label="Clientes" value={clients} />
@@ -44,18 +48,21 @@ export default async function AdminPage() {
         <Stat label="Presupuestos" value={quotes} />
       </div>
       {pendingUsers > 0 && (
-        <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          Tenés {pendingUsers} usuario(s) esperando activación. Entrá a la
-          pestaña “Usuarios” para activarlos.
-        </p>
+        <div className="flex items-center gap-3 rounded-[10px] border border-[#D9A03C]/35 bg-[#D9A03C]/10 px-4 py-3">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-[#D9A03C]" />
+          <p className="text-[13px] text-text1">
+            Tenés {pendingUsers} usuario(s) esperando activación. Entrá a la
+            pestaña "Usuarios" para activarlos.
+          </p>
+        </div>
       )}
     </div>
   );
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        Panel de Control
+      <h1 className="mb-6 text-[26px] font-semibold leading-tight">
+        Panel de control
       </h1>
 
       <AdminTabs

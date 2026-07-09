@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=Oswald:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #0D0E10; }
+  * { box-sizing: border-box; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: inherit; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #56585E55; border-radius: 6px; }
+  .rc {
+    --bg: #0D0E10; --side: #111214; --panel: #101114; --card: #15161A; --card2: #17181C;
+    --border: #24262B; --border2: #1D1F24; --text: #FFFFFF; --text1: #E5E6E3; --text2: #C9CBD1;
+    --muted: #8A8D95; --muted2: #797D86; --hover: #191B1F; --navactive: #1E2025; --chip: #1E2025;
+    --avbg: #24262B; --avbd: #33363D; --input: #15161A;
+    --shadow: 0 6px 16px rgba(0,0,0,0.35);
+  }
+  .rc.light {
+    --bg: #F2F3F5; --side: #FFFFFF; --panel: #ECEDF0; --card: #FFFFFF; --card2: #FFFFFF;
+    --border: #E2E3E8; --border2: #E8E9ED; --text: #1B1C20; --text1: #24252A; --text2: #3F4147;
+    --muted: #6B6E76; --muted2: #83868E; --hover: #F5F6F8; --navactive: #EDEEF1; --chip: #EDEEF1;
+    --avbg: #EDEEF1; --avbd: #D8DAE0; --input: #FFFFFF;
+    --shadow: 0 6px 16px rgba(20,22,30,0.12);
+  }
+</style>
+</helmet>
+
+<div class="{{ rootClass }}" style="display: flex; width: 100%; height: 100vh; background: var(--bg); color: var(--text1); font-family: 'Archivo', Helvetica, sans-serif; font-size: 14px; overflow: hidden; transition: background 0.25s;">
+
+  <!-- ============ SIDEBAR ============ -->
+  <div style="width: 68px; flex-shrink: 0; position: relative; z-index: 5;">
+  <div onMouseEnter="{{ sidebarEnter }}" onMouseLeave="{{ sidebarLeave }}" style="position: absolute; top: 0; bottom: 0; left: 0; width: {{ sidebarWidth }}; display: flex; flex-direction: column; background: var(--side); border-right: 1px solid var(--border); transition: width 0.22s ease; box-shadow: {{ sidebarShadow }};">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 20px 16px 18px 16px; justify-content: {{ navJustify }};">
+      <div onClick="{{ goInicio }}" title="Inicio" style="width: 34px; height: 34px; flex-shrink: 0; border-radius: 8px; background: {{ accent }}; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; color: #FFFFFF; letter-spacing: 0.5px; font-family: 'Oswald', sans-serif; cursor: pointer;">RC</div>
+      <div style="display: {{ labelDisplay }}; flex-direction: column; gap: 1px; overflow: hidden;">
+        <div style="font-weight: 600; font-size: 15px; letter-spacing: 0.06em; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; white-space: nowrap;">RC CRM</div>
+        <div style="font-size: 10px; letter-spacing: 0.14em; color: var(--muted2); text-transform: uppercase; white-space: nowrap;">Pisos Industriales</div>
+      </div>
+    </div>
+
+    <div style="height: 1px; background: var(--border); margin: 0 16px 12px 16px;"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 12px; flex: 1; overflow-y: auto; overflow-x: hidden;">
+      <sc-for list="{{ navItems }}" as="nav" hint-placeholder-count="8">
+        <div onClick="{{ nav.onClick }}" title="{{ nav.label }}" style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; cursor: pointer; background: {{ nav.bg }}; justify-content: {{ navJustify }};" style-hover="background: var(--hover);">
+          <div style="width: 6px; height: 6px; flex-shrink: 0; border-radius: 2px; background: {{ nav.dot }};"></div>
+          <div style="display: {{ labelDisplay }}; font-weight: {{ nav.weight }}; font-size: 13.5px; color: {{ nav.color }}; letter-spacing: 0.01em; white-space: nowrap;">{{ nav.label }}</div>
+          <div style="display: {{ labelDisplay }}; margin-left: auto; font-size: 11px; color: var(--muted2); font-variant-numeric: tabular-nums;">{{ nav.badge }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px;">
+      <div onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; cursor: pointer; justify-content: {{ navJustify }};" style-hover="background: var(--hover);">
+        <div style="display: {{ iconOnlyDisplay }}; width: 21px; height: 21px; flex-shrink: 0; align-items: center; justify-content: center; font-size: 13px; line-height: 1; color: var(--muted);">{{ themeIcon }}</div>
+        <div style="position: relative; display: {{ pillDisplay }}; width: 38px; height: 21px; flex-shrink: 0; border-radius: 11px; background: {{ pillBg }}; border: 1px solid {{ pillBorder }}; transition: background 0.2s, border-color 0.2s;">
+          <div style="position: absolute; top: 50%; transform: translateY(-50%); left: {{ iconLeft }}; font-size: 10px; line-height: 1; color: {{ pillIconColor }}; transition: left 0.2s;">{{ themeIcon }}</div>
+          <div style="position: absolute; top: 2px; left: {{ knobLeft }}; width: 15px; height: 15px; border-radius: 50%; background: {{ knobBg }}; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: left 0.2s, background 0.2s;"></div>
+        </div>
+        <div style="display: {{ labelDisplay }}; font-size: 13px; color: var(--muted); white-space: nowrap;">{{ themeLabel }}</div>
+      </div>
+    </div>
+
+    <div style="padding: 14px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; justify-content: {{ navJustify }};">
+      <div style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; background: var(--avbg); border: 1px solid var(--avbd); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--text2);">UD</div>
+      <div style="display: {{ labelDisplay }}; flex-direction: column; gap: 1px; min-width: 0;">
+        <div style="font-size: 12.5px; font-weight: 600; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Usuario Demo</div>
+        <div style="font-size: 10.5px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.08em;">Administrador</div>
+      </div>
+      <div title="Cerrar sesión" style="display: {{ labelDisplay }}; margin-left: auto; font-size: 11px; color: var(--muted2); cursor: pointer; padding: 4px;" style-hover="color: var(--text1);">Salir</div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ============ MAIN ============ -->
+  <div style="flex: 1; display: flex; flex-direction: column; min-width: 0; overflow-y: auto;">
+
+    <!-- ============ INICIO ============ -->
+    <sc-if value="{{ showInicio }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="Inicio" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 28px; max-width: 1240px;">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: {{ accent }}; font-weight: 700;">Miércoles 9 de julio</div>
+            <div style="font-size: 30px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Hola, Usuario</div>
+          </div>
+          <div onClick="{{ goPipeline }}" style="background: {{ accent }}; color: #FFFFFF; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 9px; cursor: pointer;" style-hover="filter: brightness(1.1);">+ Nueva oportunidad</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">
+          <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+            <div style="background: var(--card); border: 1px solid var(--border); border-left: 3px solid {{ accent }}; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600;">{{ k.label }}</div>
+              <div style="font-size: 30px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; font-family: 'Oswald', 'Archivo', sans-serif;">{{ k.value }}</div>
+              <div style="font-size: 12px; color: {{ k.noteColor }};">{{ k.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; align-items: start;">
+          <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text1);">Pipeline por etapa</div>
+              <div onClick="{{ goPipeline }}" style="font-size: 12.5px; color: {{ accent }}; cursor: pointer; font-weight: 600;">Ver pipeline →</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <sc-for list="{{ etapasResumen }}" as="e" hint-placeholder-count="5">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 8px; height: 8px; border-radius: 50%; background: {{ e.color }}; flex-shrink: 0;"></div>
+                  <div style="font-size: 13.5px; color: var(--text2); width: 150px; flex-shrink: 0;">{{ e.label }}</div>
+                  <div style="flex: 1; height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; border-radius: 4px; background: {{ e.color }}; width: {{ e.pct }};"></div>
+                  </div>
+                  <div style="font-size: 13px; font-weight: 700; color: var(--text); width: 20px; text-align: right; font-variant-numeric: tabular-nums;">{{ e.count }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text1);">Requiere atención</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <sc-for list="{{ alertas }}" as="al" hint-placeholder-count="3">
+                <div style="display: flex; gap: 10px; padding: 11px 12px; background: var(--card2); border: 1px solid var(--border); border-radius: 9px; align-items: flex-start;">
+                  <div style="width: 3px; align-self: stretch; border-radius: 2px; background: {{ al.color }}; flex-shrink: 0;"></div>
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-size: 13px; font-weight: 600; color: var(--text1);">{{ al.title }}</div>
+                    <div style="font-size: 12px; color: var(--muted);">{{ al.sub }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PIPELINE ============ -->
+    <sc-if value="{{ showPipeline }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Pipeline" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 22px; min-height: 0;">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Pipeline</div>
+            <div style="font-size: 13px; color: var(--muted);">7 oportunidades activas · arrastrá las tarjetas entre etapas</div>
+          </div>
+          <div style="background: {{ accent }}; color: #FFFFFF; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 9px; cursor: pointer;" style-hover="filter: brightness(1.1);">+ Nueva oportunidad</div>
+        </div>
+
+        <div style="display: flex; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start;">
+          <sc-for list="{{ columnas }}" as="col" hint-placeholder-count="5">
+            <div style="width: 276px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 4px 4px 2px 4px;">
+                <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text1);">{{ col.label }}</div>
+                <div style="font-size: 11px; font-weight: 700; color: {{ col.color }}; background: {{ col.chipBg }}; border-radius: 10px; padding: 2px 8px; font-variant-numeric: tabular-nums;">{{ col.count }}</div>
+                <div style="margin-left: auto; font-size: 11.5px; color: var(--muted2); font-variant-numeric: tabular-nums;">{{ col.total }}</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px; background: var(--panel); border: 1px solid var(--border2); border-top: 3px solid {{ col.color }}; border-radius: 12px; padding: 8px; min-height: 140px;">
+                <sc-for list="{{ col.cards }}" as="card" hint-placeholder-count="2">
+                  <div style="background: var(--card2); border: 1px solid var(--border); border-left: 3px solid {{ col.color }}; outline: {{ card.outline }}; border-radius: 10px; padding: 13px 14px; display: flex; flex-direction: column; gap: 7px; cursor: grab; transition: transform 0.15s, box-shadow 0.15s;" style-hover="transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--avbd);">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                      <div style="font-size: 13.5px; font-weight: 700; color: var(--text); line-height: 1.3;">{{ card.title }}</div>
+                      <div onClick="{{ card.togglePin }}" title="{{ card.pinTitle }}" style="font-size: 13px; cursor: pointer; opacity: {{ card.pinOpacity }}; line-height: 1;" style-hover="opacity: 1;">📌</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                      <div style="font-size: 12px; color: var(--muted);">{{ card.cliente }}</div>
+                      <div style="display: {{ card.m2Display }}; font-size: 10.5px; font-weight: 600; color: var(--muted); background: var(--chip); border-radius: 10px; padding: 2px 8px;">{{ card.m2 }}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2px;">
+                      <div style="font-size: 14.5px; font-weight: 800; color: var(--text1); font-variant-numeric: tabular-nums;">{{ card.monto }}</div>
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <div title="{{ card.vendedor }}" style="width: 24px; height: 24px; border-radius: 50%; background: {{ card.avBg }}; display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 700; color: {{ card.avColor }};">{{ card.iniciales }}</div>
+                      </div>
+                    </div>
+                    <div style="font-size: 12px; color: {{ accent }}; font-weight: 600; cursor: pointer; margin-top: 2px;" style-hover="text-decoration: underline;">Ver / alertas →</div>
+                  </div>
+                </sc-for>
+                <div style="border: 1px dashed var(--avbd); border-radius: 9px; padding: 9px; text-align: center; font-size: 12px; color: var(--muted2); cursor: pointer;" style-hover="color: var(--text2); border-color: var(--muted);">＋ Agregar oportunidad</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ CLIENTES ============ -->
+    <sc-if value="{{ showClientes }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Clientes" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 22px; max-width: 1240px;">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Clientes</div>
+            <div style="font-size: 13px; color: var(--muted);">5 clientes en la cartera general</div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="background: transparent; border: 1px solid var(--avbd); color: var(--text2); font-weight: 600; font-size: 13.5px; padding: 10px 16px; border-radius: 9px; cursor: pointer;" style-hover="border-color: var(--muted); color: var(--text);">Importar Excel</div>
+            <div style="background: {{ accent }}; color: #FFFFFF; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 9px; cursor: pointer;" style-hover="filter: brightness(1.1);">+ Nuevo cliente</div>
+          </div>
+        </div>
+
+        <input placeholder="Buscar por razón social, CUIT o localidad…" style="background: var(--input); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; font-size: 13.5px; color: var(--text1); font-family: 'Archivo', Helvetica, sans-serif; outline: none; width: 380px;" style-focus="border-color: var(--muted);">
+
+        <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 2.2fr 1.3fr 1.5fr 1fr 0.8fr 1.2fr; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--card2);">
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Razón social</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">CUIT</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Condición IVA</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Localidad</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Contactos</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Vendedor</div>
+          </div>
+          <sc-for list="{{ clientes }}" as="c" hint-placeholder-count="5">
+            <div style="display: grid; grid-template-columns: 2.2fr 1.3fr 1.5fr 1fr 0.8fr 1.2fr; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border2); align-items: center; cursor: pointer;" style-hover="background: var(--hover);">
+              <div style="font-size: 13.5px; font-weight: 700; color: var(--text);">{{ c.nombre }}</div>
+              <div style="font-size: 13px; color: var(--text2); font-variant-numeric: tabular-nums;">{{ c.cuit }}</div>
+              <div style="display: flex;"><div style="font-size: 11.5px; font-weight: 600; color: {{ c.ivaColor }}; background: {{ c.ivaBg }}; border-radius: 6px; padding: 3px 9px;">{{ c.iva }}</div></div>
+              <div style="font-size: 13px; color: var(--text2);">{{ c.localidad }}</div>
+              <div style="font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;">{{ c.contactos }}</div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 22px; height: 22px; border-radius: 50%; background: var(--avbg); border: 1px solid var(--avbd); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--text2);">{{ c.vIniciales }}</div>
+                <div style="font-size: 13px; color: var(--text2);">{{ c.vendedor }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ MÉTRICAS ============ -->
+    <sc-if value="{{ showMetricas }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Métricas" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 24px; max-width: 1240px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Métricas</div>
+          <div style="font-size: 13px; color: var(--muted);">Visión general de toda la empresa · último semestre</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">
+          <sc-for list="{{ mkpis }}" as="k" hint-placeholder-count="4">
+            <div style="background: var(--card); border: 1px solid var(--border); border-left: 3px solid {{ accent }}; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600;">{{ k.label }}</div>
+              <div style="font-size: 28px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; font-family: 'Oswald', 'Archivo', sans-serif;">{{ k.value }}</div>
+              <div style="font-size: 12px; color: {{ k.noteColor }};">{{ k.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <sc-for list="{{ charts }}" as="ch" hint-placeholder-count="2">
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 18px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text1);">{{ ch.title }}</div>
+                <div style="display: flex; gap: 14px; align-items: center;">
+                  <div style="display: flex; gap: 6px; align-items: center;"><div style="width: 8px; height: 8px; border-radius: 2px; background: #5B82D6;"></div><div style="font-size: 11.5px; color: var(--muted);">Cotizado</div></div>
+                  <div style="display: flex; gap: 6px; align-items: center;"><div style="width: 8px; height: 8px; border-radius: 2px; background: {{ accent }};"></div><div style="font-size: 11.5px; color: var(--muted);">Aprobado</div></div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: flex-end; gap: 0; height: 180px; border-bottom: 1px solid var(--border);">
+                <sc-for list="{{ ch.meses }}" as="m" hint-placeholder-count="6">
+                  <div style="flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 100%;">
+                    <div style="width: 20px; border-radius: 4px 4px 0 0; background: #5B82D6; height: {{ m.cot }}px;"></div>
+                    <div style="width: 20px; border-radius: 4px 4px 0 0; background: {{ accent }}; height: {{ m.apr }}px;"></div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex;">
+                <sc-for list="{{ ch.meses }}" as="m" hint-placeholder-count="6">
+                  <div style="flex: 1; text-align: center; font-size: 11.5px; color: var(--muted2);">{{ m.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PRESUPUESTOS ============ -->
+    <sc-if value="{{ showPresupuestos }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Presupuestos" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 22px; max-width: 1240px;">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Presupuestos</div>
+            <div style="font-size: 13px; color: var(--muted);">2 presupuestos · cotizaciones por m², IVA y revisiones</div>
+          </div>
+          <div style="background: {{ accent }}; color: #FFFFFF; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 9px; cursor: pointer;" style-hover="filter: brightness(1.1);">+ Nuevo presupuesto</div>
+        </div>
+
+        <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 1.6fr 2fr 1.1fr 1.3fr 1fr 1.3fr; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--card2);">
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Número</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Cliente</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Estado</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">Total</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Fecha</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Vendedor</div>
+          </div>
+          <sc-for list="{{ presupuestos }}" as="p" hint-placeholder-count="2">
+            <div style="display: grid; grid-template-columns: 1.6fr 2fr 1.1fr 1.3fr 1fr 1.3fr; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border2); align-items: center; cursor: pointer;" style-hover="background: var(--hover);">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13.5px; font-weight: 700; color: var(--text);">{{ p.numero }}</div>
+                <div style="display: {{ p.revDisplay }}; font-size: 11px; color: var(--muted2);">{{ p.rev }}</div>
+              </div>
+              <div style="font-size: 13px; color: var(--text2);">{{ p.cliente }}</div>
+              <div style="display: flex;"><div style="font-size: 11.5px; font-weight: 600; color: {{ p.estColor }}; background: {{ p.estBg }}; border-radius: 6px; padding: 3px 9px;">{{ p.estado }}</div></div>
+              <div style="font-size: 13.5px; font-weight: 700; color: var(--text1); text-align: right; font-variant-numeric: tabular-nums;">{{ p.total }}</div>
+              <div style="font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;">{{ p.fecha }}</div>
+              <div style="font-size: 13px; color: var(--text2);">{{ p.vendedor }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PRODUCTOS ============ -->
+    <sc-if value="{{ showProductos }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Productos" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 18px; max-width: 1240px;">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Productos</div>
+            <div style="font-size: 13px; color: var(--muted);">{{ prodCountLabel }} · precios sin IVA</div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="background: transparent; border: 1px solid var(--avbd); color: var(--text2); font-weight: 600; font-size: 13.5px; padding: 10px 16px; border-radius: 9px; cursor: pointer;" style-hover="border-color: var(--muted); color: var(--text);">Importar Excel</div>
+            <div style="background: {{ accent }}; color: #FFFFFF; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 9px; cursor: pointer;" style-hover="filter: brightness(1.1);">+ Nuevo producto</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <input placeholder="Buscar por nombre, código o descripción…" style="background: var(--input); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; font-size: 13.5px; color: var(--text1); font-family: 'Archivo', Helvetica, sans-serif; outline: none; width: 320px;" style-focus="border-color: var(--muted);">
+          <div style="display: flex; gap: 6px;">
+            <sc-for list="{{ brandChips }}" as="b" hint-placeholder-count="3">
+              <div onClick="{{ b.onClick }}" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; cursor: pointer; background: {{ b.bg }}; color: {{ b.color }}; border: 1px solid {{ b.border }};" style-hover="border-color: var(--muted);">{{ b.label }}</div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 2.6fr 0.9fr 0.9fr 0.7fr 1.1fr 0.6fr 1fr; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--card2);">
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Producto</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Marca</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Código</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Unidad</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">Precio</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">IVA</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">Acciones</div>
+          </div>
+          <sc-for list="{{ productos }}" as="pr" hint-placeholder-count="5">
+            <div style="display: grid; grid-template-columns: 2.6fr 0.9fr 0.9fr 0.7fr 1.1fr 0.6fr 1fr; gap: 12px; padding: 13px 20px; border-bottom: 1px solid var(--border2); align-items: center; opacity: {{ pr.rowOpacity }};">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13.5px; font-weight: 700; color: var(--text);">{{ pr.nombre }}</div>
+                <div style="font-size: 11.5px; color: var(--muted);">{{ pr.desc }}</div>
+              </div>
+              <div style="font-size: 13px; color: var(--text2);">{{ pr.marca }}</div>
+              <div style="font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;">{{ pr.sku }}</div>
+              <div style="font-size: 13px; color: var(--text2);">{{ pr.unidad }}</div>
+              <div style="font-size: 13.5px; font-weight: 700; color: var(--text1); text-align: right; font-variant-numeric: tabular-nums;">{{ pr.precio }}</div>
+              <div style="font-size: 13px; color: var(--text2); text-align: right; font-variant-numeric: tabular-nums;">{{ pr.iva }}</div>
+              <div onClick="{{ pr.toggle }}" style="font-size: 12.5px; font-weight: 600; color: var(--muted); text-align: right; cursor: pointer;" style-hover="color: var(--text);">{{ pr.actLabel }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ COBRANZAS ============ -->
+    <sc-if value="{{ showCobranzas }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Cobranzas" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 22px; max-width: 1240px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Cobranzas</div>
+          <div style="font-size: 13px; color: var(--muted);">Cuentas corrientes con saldo deudor, facturas abiertas y pagos sin imputar</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
+          <sc-for list="{{ cobKpis }}" as="k" hint-placeholder-count="5">
+            <div style="background: var(--card); border: 1px solid var(--border); border-left: 3px solid {{ accent }}; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px;">
+              <div style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600;">{{ k.label }}</div>
+              <div style="font-size: 22px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; font-family: 'Oswald', 'Archivo', sans-serif;">{{ k.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 2fr 0.8fr 1.3fr 1.1fr 1.4fr 1fr; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--card2);">
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Cliente</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Moneda</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">Facturas abiertas</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">Antigüedad</div>
+            <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">Saldo deudor</div>
+            <div></div>
+          </div>
+          <sc-for list="{{ cobRows }}" as="r" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: 2fr 0.8fr 1.3fr 1.1fr 1.4fr 1fr; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border2); align-items: center;">
+              <div style="font-size: 13.5px; font-weight: 700; color: var(--text);">{{ r.cliente }}</div>
+              <div style="font-size: 13px; color: var(--text2);">{{ r.moneda }}</div>
+              <div style="font-size: 13px; color: var(--text2); text-align: right; font-variant-numeric: tabular-nums;">{{ r.facturas }}</div>
+              <div style="font-size: 13px; font-weight: {{ r.agingWeight }}; color: {{ r.agingColor }}; text-align: right; font-variant-numeric: tabular-nums;">{{ r.antiguedad }}</div>
+              <div style="font-size: 13.5px; font-weight: 700; color: var(--text1); text-align: right; font-variant-numeric: tabular-nums;">{{ r.saldo }}</div>
+              <div style="font-size: 12.5px; color: {{ accent }}; font-weight: 600; text-align: right; cursor: pointer;" style-hover="text-decoration: underline;">Ver cuenta →</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size: 12px; color: var(--muted2); margin-top: -8px;">Antigüedad: días desde la factura abierta más vieja · <span style="color: #D9A03C;">ámbar</span> más de 30 días · <span style="color: {{ accent }};">rojo</span> más de 60 días</div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PANEL DE CONTROL ============ -->
+    <sc-if value="{{ showPanel }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Panel de control" style="padding: 32px 36px 40px 36px; display: flex; flex-direction: column; gap: 20px; max-width: 1240px;">
+        <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">Panel de control</div>
+
+        <div style="display: flex; gap: 4px; border-bottom: 1px solid var(--border);">
+          <sc-for list="{{ adminTabs }}" as="t" hint-placeholder-count="3">
+            <div onClick="{{ t.onClick }}" style="font-size: 13.5px; font-weight: {{ t.weight }}; color: {{ t.color }}; padding: 10px 16px; cursor: pointer; border-bottom: 2px solid {{ t.border }}; margin-bottom: -1px;" style-hover="color: var(--text);">{{ t.label }}</div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ showTabResumen }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
+              <sc-for list="{{ adminStats }}" as="s" hint-placeholder-count="5">
+                <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px;">
+                  <div style="font-size: 24px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; font-family: 'Oswald', 'Archivo', sans-serif;">{{ s.value }}</div>
+                  <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600;">{{ s.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; gap: 10px; padding: 12px 16px; background: {{ warnBg }}; border: 1px solid {{ warnBorder }}; border-radius: 10px; align-items: center;">
+              <div style="width: 8px; height: 8px; border-radius: 50%; background: #D9A03C; flex-shrink: 0;"></div>
+              <div style="font-size: 13px; color: {{ warnText }};">Tenés 1 usuario esperando activación. Entrá a la pestaña "Usuarios" para activarlo.</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showTabUsuarios }}" hint-placeholder-val="{{ false }}">
+          <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+            <div style="display: grid; grid-template-columns: 2.4fr 1.2fr 1fr 1fr; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--card2);">
+              <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Usuario</div>
+              <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Rol</div>
+              <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700;">Estado</div>
+              <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; text-align: right;">Acciones</div>
+            </div>
+            <sc-for list="{{ usuarios }}" as="u" hint-placeholder-count="4">
+              <div style="display: grid; grid-template-columns: 2.4fr 1.2fr 1fr 1fr; gap: 12px; padding: 13px 20px; border-bottom: 1px solid var(--border2); align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--avbg); border: 1px solid var(--avbd); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--text2); flex-shrink: 0;">{{ u.iniciales }}</div>
+                  <div style="display: flex; flex-direction: column; gap: 1px;">
+                    <div style="font-size: 13.5px; font-weight: 700; color: var(--text);">{{ u.nombre }}</div>
+                    <div style="font-size: 11.5px; color: var(--muted);">{{ u.email }}</div>
+                  </div>
+                </div>
+                <div style="font-size: 13px; color: var(--text2);">{{ u.rol }}</div>
+                <div style="display: flex;"><div style="font-size: 11.5px; font-weight: 600; color: {{ u.estColor }}; background: {{ u.estBg }}; border-radius: 6px; padding: 3px 9px;">{{ u.estado }}</div></div>
+                <div style="font-size: 12.5px; font-weight: 600; color: {{ u.actColor }}; text-align: right; cursor: pointer;" style-hover="text-decoration: underline;">{{ u.accion }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showTabEmpresa }}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; align-items: start;">
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+              <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text1);">Datos de la empresa</div>
+              <sc-for list="{{ empresa }}" as="f" hint-placeholder-count="5">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600;">{{ f.label }}</div>
+                  <div style="background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13.5px; color: var(--text1);">{{ f.value }}</div>
+                </div>
+              </sc-for>
+              <div style="display: flex;"><div style="background: {{ accent }}; color: #FFFFFF; font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 8px; cursor: pointer;" style-hover="filter: brightness(1.1);">Guardar cambios</div></div>
+            </div>
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text1);">Logo</div>
+              <div style="border: 1px dashed var(--avbd); border-radius: 10px; height: 140px; display: flex; align-items: center; justify-content: center; background: var(--panel);">
+                <div style="font-family: monospace; font-size: 12px; color: var(--muted2);">logo de la empresa (PNG/SVG)</div>
+              </div>
+              <div style="font-size: 12px; color: var(--muted);">Se muestra en la cabecera y en los PDF de presupuestos.</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ============ PLACEHOLDER ============ -->
+    <sc-if value="{{ showOtros }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Sección" style="padding: 32px 36px; display: flex; flex-direction: column; gap: 14px; max-width: 1240px;">
+        <div style="font-size: 26px; font-weight: 600; color: var(--text); font-family: 'Oswald', 'Archivo', sans-serif; text-transform: uppercase; letter-spacing: 0.02em;">{{ otrosTitle }}</div>
+        <div style="border: 1px dashed var(--avbd); border-radius: 12px; padding: 60px; display: flex; align-items: center; justify-content: center; background: var(--panel);">
+          <div style="font-family: monospace; font-size: 13px; color: var(--muted2);">Sección pendiente de rediseño — pedímela cuando quieras</div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;1440px&quot;,&quot;height&quot;:&quot;900px&quot;},&quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#E0503A&quot;,&quot;options&quot;:[&quot;#E0503A&quot;,&quot;#D9A03C&quot;,&quot;#5B82D6&quot;,&quot;#4FA97A&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Marca&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;pipeline&quot;,&quot;options&quot;:[&quot;inicio&quot;,&quot;pipeline&quot;,&quot;clientes&quot;,&quot;metricas&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Navegación&quot;}}">
+class Component extends DCLogic {
+  state = { screen: 'inicio', theme: 'dark', hovered: false, pinned: { p1: true, p2: true } };
+
+  componentDidMount() {
+    const next = {};
+    const s = this.props.startScreen;
+    if (s) next.screen = s;
+    try {
+      const t = localStorage.getItem('rc-crm-theme');
+      if (t === 'light' || t === 'dark') next.theme = t;
+    } catch (e) {}
+    if (Object.keys(next).length) this.setState(next);
+  }
+
+  renderVals() {
+    const accent = this.props.accentColor ?? '#E0503A';
+    const { screen, theme, pinned } = this.state;
+    const collapsed = !this.state.hovered;
+    const light = theme === 'light';
+    const go = (id) => () => this.setState({ screen: id });
+
+    const hexA = (hex, a) => {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+    };
+
+    const navDefs = [
+      { id: 'inicio', label: 'Inicio', badge: '' },
+      { id: 'clientes', label: 'Clientes', badge: '5' },
+      { id: 'pipeline', label: 'Pipeline', badge: '7' },
+      { id: 'presupuestos', label: 'Presupuestos', badge: '2' },
+      { id: 'productos', label: 'Productos', badge: '' },
+      { id: 'cobranzas', label: 'Cobranzas', badge: '' },
+      { id: 'metricas', label: 'Métricas', badge: '' },
+      { id: 'panel', label: 'Panel de control', badge: '' },
+    ];
+    const navItems = navDefs.map(n => {
+      const active = screen === n.id || (screen === 'otros' && this.state.otros === n.label);
+      return {
+        label: n.label,
+        badge: n.badge,
+        bg: active ? 'var(--navactive)' : 'transparent',
+        color: active ? 'var(--text)' : 'var(--muted)',
+        weight: active ? 700 : 500,
+        dot: active ? accent : 'var(--avbd)',
+        onClick: go(n.id),
+      };
+    });
+
+    const stageColors = {
+      prospecto: '#8A8D95', contactado: '#5B82D6', propuesta: '#D9A03C',
+      negociacion: '#9B7BE8', ganado: '#4FA97A',
+    };
+
+    const sellers = {
+      'María González': { bg: hexA('#5B82D6', 0.18), color: light ? '#3D62B8' : '#9DB8ED' },
+      'Lucía Fernández': { bg: hexA('#9B7BE8', 0.18), color: light ? '#7452C4' : '#C0ABF2' },
+    };
+
+    const mkCard = (c) => {
+      const isPinned = !!pinned[c.id];
+      const sel = sellers[c.vendedor] || { bg: 'var(--avbg)', color: 'var(--text2)' };
+      return {
+        ...c,
+        iniciales: c.vendedor.split(' ').map(w => w[0]).join(''),
+        avBg: sel.bg,
+        avColor: sel.color,
+        m2Display: c.m2 ? 'inline-flex' : 'none',
+        m2: c.m2 || '',
+        outline: isPinned ? '1px solid #D9A03C' : 'none',
+        pinOpacity: isPinned ? 1 : 0.25,
+        pinTitle: isPinned ? 'Quitar fijado' : 'Fijar',
+        togglePin: () => this.setState(s => ({ pinned: { ...s.pinned, [c.id]: !s.pinned[c.id] } })),
+      };
+    };
+
+    const columnas = [
+      { label: 'Prospecto', color: stageColors.prospecto, count: 2, total: '$ 2,52 M', cards: [
+        { id: 'p1', title: 'Provisión de 10 equipos', cliente: 'Metalúrgica del Sur S.A.', monto: '$ 2.500.000,00', vendedor: 'María González', m2: '1.200 m²' },
+        { id: 'p2', title: 'Venta de 18 equipos', cliente: 'Servicios Patagónicos SRL', monto: '$ 15.000,00', vendedor: 'Lucía Fernández' },
+      ]},
+      { label: 'Contactado', color: stageColors.contactado, count: 1, total: '$ 850 mil', cards: [
+        { id: 'c1', title: 'Mantenimiento anual', cliente: 'Distribuidora Norte SRL', monto: '$ 850.000,00', vendedor: 'María González' },
+      ]},
+      { label: 'Propuesta enviada', color: stageColors.propuesta, count: 1, total: 'US$ 15 mil', cards: [
+        { id: 'pe1', title: 'Exportación de insumos', cliente: 'Insumos Industriales Cuyo S.A.', monto: 'US$ 15.000,00', vendedor: 'María González' },
+      ]},
+      { label: 'Negociación', color: stageColors.negociacion, count: 2, total: '$ 8 M +', cards: [
+        { id: 'n1', title: 'Contrato de servicios', cliente: 'Servicios Patagónicos SRL', monto: 'US$ 4.200,00', vendedor: 'María González' },
+        { id: 'n2', title: 'Ampliación de planta', cliente: 'Metalúrgica del Sur S.A.', monto: '$ 8.000.000,00', vendedor: 'María González', m2: '3.400 m²' },
+      ]},
+      { label: 'Ganado', color: stageColors.ganado, count: 1, total: '$ 25 mil', cards: [
+        { id: 'g1', title: 'Piso epoxi depósito', cliente: 'Talleres Rivadavia', monto: '$ 25.354,55', vendedor: 'María González' },
+      ]},
+    ].map(col => ({ ...col, chipBg: hexA(col.color, 0.16), cards: col.cards.map(mkCard) }));
+
+    const etapasResumen = columnas.map(c => ({
+      label: c.label, color: c.color, count: c.count, pct: (c.count / 2 * 100) + '%',
+    }));
+
+    const ivaStyles = {
+      'Responsable Inscripto': { c: light ? '#3D62B8' : '#8FAEE8', b: hexA('#5B82D6', 0.14) },
+      'Exento': { c: light ? '#A5721E' : '#E0B45E', b: hexA('#D9A03C', 0.14) },
+      'Monotributo': { c: light ? '#2E7D54' : '#7CC8A2', b: hexA('#4FA97A', 0.14) },
+    };
+    const clientesData = [
+      { nombre: 'Distribuidora Norte SRL', cuit: '30-71234567-8', iva: 'Responsable Inscripto', localidad: 'Salta', contactos: '0', vendedor: 'María González' },
+      { nombre: 'Insumos Industriales Cuyo S.A.', cuit: '30-69987654-3', iva: 'Responsable Inscripto', localidad: 'San Rafael', contactos: '0', vendedor: 'María González' },
+      { nombre: 'Metalúrgica del Sur S.A.', cuit: '30-70123456-7', iva: 'Responsable Inscripto', localidad: 'Avellaneda', contactos: '0', vendedor: 'María González' },
+      { nombre: 'Servicios Patagónicos SRL', cuit: '30-72345678-9', iva: 'Exento', localidad: 'Bariloche', contactos: '0', vendedor: 'María González' },
+      { nombre: 'Talleres Rivadavia', cuit: '20-28456789-1', iva: 'Monotributo', localidad: 'Mendoza', contactos: '0', vendedor: 'María González' },
+    ];
+    const clientes = clientesData.map(c => ({
+      ...c,
+      ivaColor: ivaStyles[c.iva].c,
+      ivaBg: ivaStyles[c.iva].b,
+      vIniciales: c.vendedor.split(' ').map(w => w[0]).join(''),
+    }));
+
+    const kpis = [
+      { label: 'Clientes', value: '5', note: 'Cartera general', noteColor: 'var(--muted2)' },
+      { label: 'Oportunidades', value: '7', note: '2 en negociación', noteColor: light ? '#7452C4' : '#B79DF0' },
+      { label: 'Presupuestos enviados', value: '0', note: 'Este mes', noteColor: 'var(--muted2)' },
+      { label: 'Presupuestos aprobados', value: '1', note: '$ 25.354,55 ARS', noteColor: light ? '#2E7D54' : '#7CC8A2' },
+    ];
+
+    const mkpis = [
+      { label: 'Aprobado ARS', value: '$ 25.354,55', note: 'Julio 2026', noteColor: 'var(--muted2)' },
+      { label: 'Aprobado USD', value: 'US$ 0,00', note: 'Sin operaciones', noteColor: 'var(--muted2)' },
+      { label: 'Conversión', value: '50%', note: '1 de 2 presupuestos', noteColor: light ? '#2E7D54' : '#7CC8A2' },
+      { label: 'M² en pipeline', value: '0 m²', note: 'Sin cotizaciones por m²', noteColor: 'var(--muted2)' },
+    ];
+
+    const mesesBase = ['feb 26', 'mar 26', 'abr 26', 'may 26', 'jun 26', 'jul 26'];
+    const charts = [
+      { title: 'Presupuestos por mes · USD', meses: mesesBase.map((m, i) => ({ label: m, cot: i === 5 ? 160 : 3, apr: 3 })) },
+      { title: 'Presupuestos por mes · ARS', meses: mesesBase.map((m, i) => ({ label: m, cot: i === 5 ? 160 : 3, apr: i === 5 ? 62 : 3 })) },
+    ];
+
+    // ---- Presupuestos ----
+    const estStyles = {
+      'Aprobado': { c: light ? '#2E7D54' : '#7CC8A2', b: hexA('#4FA97A', 0.14) },
+      'Borrador': { c: 'var(--muted)', b: 'var(--chip)' },
+      'Enviado': { c: light ? '#3D62B8' : '#8FAEE8', b: hexA('#5B82D6', 0.14) },
+      'Rechazado': { c: light ? '#B8402E' : '#EE9585', b: hexA('#E0503A', 0.14) },
+    };
+    const presupuestos = [
+      { numero: 'PRE-2026-0002', rev: 'Rev. 2 · 2 versiones', cliente: 'Talleres Rivadavia', estado: 'Aprobado', total: '$ 25.354,55', fecha: '08/07/2026', vendedor: 'María González' },
+      { numero: 'PRE-2026-0001', rev: '', cliente: 'Insumos Industriales Cuyo S.A.', estado: 'Borrador', total: 'US$ 15.000,00', fecha: '03/07/2026', vendedor: 'María González' },
+    ].map(p => ({
+      ...p,
+      revDisplay: p.rev ? 'block' : 'none',
+      estColor: estStyles[p.estado].c,
+      estBg: estStyles[p.estado].b,
+    }));
+
+    // ---- Productos ----
+    const brand = this.state.brand || 'Todas';
+    const productosData = [
+      { id: 'sp1', nombre: 'Sintepox 400 Autonivelante', desc: 'Revestimiento epoxi autonivelante 3 mm', marca: 'Sinteplast', sku: 'SPX-400', unidad: 'kg', precio: '$ 18.500,00', iva: '21%' },
+      { id: 'sp2', nombre: 'Sintepox Imprimación', desc: 'Primer epoxi bicomponente', marca: 'Sinteplast', sku: 'SPX-100', unidad: 'kg', precio: '$ 12.300,00', iva: '21%' },
+      { id: 'sp3', nombre: 'Sinteplast Poliuretano UV', desc: 'Terminación poliuretánica resistente a UV', marca: 'Sinteplast', sku: 'SPU-210', unidad: 'kg', precio: '$ 15.900,00', iva: '21%' },
+      { id: 'af1', nombre: 'Ashford Formula', desc: 'Densificador y sellador de hormigón', marca: 'Ashford', sku: 'AF-01', unidad: 'litro', precio: 'US$ 28,00', iva: '21%' },
+      { id: 'af2', nombre: 'Ashford Sellador de Juntas', desc: 'Sellador semirrígido para juntas de piso', marca: 'Ashford', sku: 'AF-22', unidad: 'unidad', precio: 'US$ 46,00', iva: '10,5%' },
+    ];
+    const inactive = this.state.inactive || {};
+    const productos = productosData
+      .filter(p => brand === 'Todas' || p.marca === brand)
+      .map(p => ({
+        ...p,
+        rowOpacity: inactive[p.id] ? 0.45 : 1,
+        actLabel: inactive[p.id] ? 'Reactivar' : 'Desactivar',
+        toggle: () => this.setState(s => ({ inactive: { ...(s.inactive || {}), [p.id]: !(s.inactive || {})[p.id] } })),
+      }));
+    const brandChips = ['Todas', 'Sinteplast', 'Ashford'].map(b => ({
+      label: b,
+      bg: b === brand ? accent : 'transparent',
+      color: b === brand ? '#FFFFFF' : 'var(--muted)',
+      border: b === brand ? accent : 'var(--avbd)',
+      onClick: () => this.setState({ brand: b }),
+    }));
+    const prodCountLabel = productos.length + ' producto(s) en el catálogo';
+
+    // ---- Cobranzas ----
+    const cobKpis = [
+      { label: 'Por cobrar ARS', value: '$ 1.310.000' },
+      { label: 'Por cobrar USD', value: 'US$ 4.200' },
+      { label: 'Cuentas con deuda', value: '3' },
+      { label: 'Facturas abiertas', value: '4' },
+      { label: 'Pagos sin imputar', value: '1' },
+    ];
+    const agingStyle = (d) => d > 60
+      ? { c: light ? '#B8402E' : '#EE9585', w: 700 }
+      : d > 30
+        ? { c: light ? '#A5721E' : '#E0B45E', w: 600 }
+        : { c: 'var(--muted)', w: 400 };
+    const cobRows = [
+      { cliente: 'Metalúrgica del Sur S.A.', moneda: 'ARS', facturas: '2', dias: 74, saldo: '$ 960.000,00' },
+      { cliente: 'Distribuidora Norte SRL', moneda: 'ARS', facturas: '1', dias: 38, saldo: '$ 350.000,00' },
+      { cliente: 'Servicios Patagónicos SRL', moneda: 'USD', facturas: '1', dias: 12, saldo: 'US$ 4.200,00' },
+    ].map(r => {
+      const a = agingStyle(r.dias);
+      return { ...r, antiguedad: r.dias + ' días', agingColor: a.c, agingWeight: a.w };
+    });
+
+    // ---- Panel de control ----
+    const adminTab = this.state.adminTab || 'resumen';
+    const adminTabs = [
+      { id: 'resumen', label: 'Resumen' },
+      { id: 'usuarios', label: 'Usuarios' },
+      { id: 'empresa', label: 'Empresa' },
+    ].map(t => ({
+      ...t,
+      weight: t.id === adminTab ? 700 : 500,
+      color: t.id === adminTab ? 'var(--text)' : 'var(--muted)',
+      border: t.id === adminTab ? accent : 'transparent',
+      onClick: () => this.setState({ adminTab: t.id }),
+    }));
+    const adminStats = [
+      { label: 'Usuarios activos', value: '3' },
+      { label: 'Usuarios pendientes', value: '1' },
+      { label: 'Clientes', value: '5' },
+      { label: 'Oportunidades', value: '7' },
+      { label: 'Presupuestos', value: '2' },
+    ];
+    const uEst = {
+      'Activo': { c: light ? '#2E7D54' : '#7CC8A2', b: hexA('#4FA97A', 0.14) },
+      'Pendiente': { c: light ? '#A5721E' : '#E0B45E', b: hexA('#D9A03C', 0.14) },
+    };
+    const usuarios = [
+      { nombre: 'Usuario Demo', email: 'prueba@gmail.com', rol: 'Administrador', estado: 'Activo', accion: 'Editar' },
+      { nombre: 'María González', email: 'maria@rcpisos.com.ar', rol: 'Vendedor', estado: 'Activo', accion: 'Editar' },
+      { nombre: 'Lucía Fernández', email: 'lucia@rcpisos.com.ar', rol: 'Vendedor', estado: 'Activo', accion: 'Editar' },
+      { nombre: 'Carlos Ruiz', email: 'carlos@rcpisos.com.ar', rol: 'Sin rol', estado: 'Pendiente', accion: 'Activar' },
+    ].map(u => ({
+      ...u,
+      iniciales: u.nombre.split(' ').map(w => w[0]).join('').slice(0, 2),
+      estColor: uEst[u.estado].c,
+      estBg: uEst[u.estado].b,
+      actColor: u.accion === 'Activar' ? accent : 'var(--muted)',
+    }));
+    const empresa = [
+      { label: 'Razón social', value: 'RC Pisos Industriales S.R.L.' },
+      { label: 'Nombre comercial', value: 'RC Pisos Industriales' },
+      { label: 'CUIT', value: '30-71456789-0' },
+      { label: 'Condición IVA', value: 'Responsable Inscripto' },
+      { label: 'Domicilio', value: 'Av. Industrial 1450, Avellaneda, Buenos Aires' },
+    ];
+
+    const alertas = [
+      { title: '2 oportunidades sin actividad', sub: 'Prospecto · más de 7 días sin contacto', color: '#D9A03C' },
+      { title: 'Propuesta enviada sin respuesta', sub: 'Insumos Industriales Cuyo · US$ 15.000', color: accent },
+      { title: 'Negociación por cerrar', sub: 'Ampliación de planta · $ 8.000.000', color: '#9B7BE8' },
+    ];
+
+    return {
+      accent,
+      navItems,
+      rootClass: light ? 'rc light' : 'rc',
+      sidebarWidth: collapsed ? '68px' : '236px',
+      labelDisplay: collapsed ? 'none' : 'flex',
+      navJustify: collapsed ? 'center' : 'flex-start',
+      themeIcon: light ? '☀' : '☾',
+      themeLabel: light ? 'Modo claro' : 'Modo oscuro',
+      pillDisplay: collapsed ? 'none' : 'block',
+      iconOnlyDisplay: collapsed ? 'flex' : 'none',
+      pillBg: light ? accent : 'var(--chip)',
+      pillBorder: light ? accent : 'var(--avbd)',
+      pillIconColor: light ? '#FFFFFF' : 'var(--muted)',
+      knobBg: '#FFFFFF',
+      iconLeft: light ? '7px' : '22px',
+      knobLeft: light ? '19px' : '2px',
+      toggleTheme: () => {
+        const t = light ? 'dark' : 'light';
+        try { localStorage.setItem('rc-crm-theme', t); } catch (e) {}
+        this.setState({ theme: t });
+      },
+      goInicio: go('inicio'),
+      sidebarEnter: () => this.setState({ hovered: true }),
+      sidebarLeave: () => this.setState({ hovered: false }),
+      sidebarShadow: collapsed ? 'none' : 'var(--shadow)',
+      showInicio: screen === 'inicio',
+      showPipeline: screen === 'pipeline',
+      showClientes: screen === 'clientes',
+      showMetricas: screen === 'metricas',
+      showPresupuestos: screen === 'presupuestos',
+      showProductos: screen === 'productos',
+      showCobranzas: screen === 'cobranzas',
+      showPanel: screen === 'panel',
+      showOtros: screen === 'otros',
+      otrosTitle: this.state.otros ?? '',
+      presupuestos, productos, brandChips, prodCountLabel, cobKpis, cobRows,
+      adminTabs, adminStats, usuarios, empresa,
+      showTabResumen: adminTab === 'resumen',
+      showTabUsuarios: adminTab === 'usuarios',
+      showTabEmpresa: adminTab === 'empresa',
+      warnBg: light ? hexA('#D9A03C', 0.10) : hexA('#D9A03C', 0.08),
+      warnBorder: hexA('#D9A03C', 0.35),
+      warnText: light ? '#8A5F16' : '#E0B45E',
+      goPipeline: go('pipeline'),
+      kpis, mkpis, columnas, etapasResumen, clientes, charts, alertas,
+    };
+  }
+}
+</script>
+</body>
+</html>

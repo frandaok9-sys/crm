@@ -46,34 +46,64 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Tokens del rediseño RC (handoff hifi) — habilitan bg-side, bg-card2, etc. */
+  --color-side: var(--side);
+  --color-panel: var(--panel);
+  --color-card2: var(--card2);
+  --color-border2: var(--border2);
+  --color-text1: var(--text1);
+  --color-text2: var(--text2);
+  --color-muted2: var(--muted2);
+  --color-hoverbg: var(--hoverbg);
+  --color-chip: var(--chip);
+  --color-navactive: var(--navactive);
+  --color-avbg: var(--avbg);
+  --color-avbd: var(--avbd);
+  --color-field: var(--field);
 }
 
 :root {
-  /* RC Pisos Industriales — light "concrete" surface + brand red accent */
-  --background: oklch(0.962 0.003 255);
-  --foreground: oklch(0.17 0.006 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.006 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.006 260);
-  --primary: oklch(0.55 0.21 28);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.94 0.004 255);
-  --secondary-foreground: oklch(0.22 0.006 260);
-  --muted: oklch(0.94 0.004 255);
-  --muted-foreground: oklch(0.5 0.01 260);
-  --accent: oklch(0.94 0.004 255);
-  --accent-foreground: oklch(0.22 0.006 260);
+  /* RC Pisos Industriales — modo claro "concrete" (handoff hifi) */
+  --background: #f2f3f5;
+  --foreground: #1b1c20;
+  --card: #ffffff;
+  --card-foreground: #1b1c20;
+  --popover: #ffffff;
+  --popover-foreground: #1b1c20;
+  --primary: #e0503a;
+  --primary-foreground: #ffffff;
+  --secondary: #edeef1;
+  --secondary-foreground: #24252a;
+  --muted: #edeef1;
+  --muted-foreground: #6b6e76;
+  --accent: #f5f6f8;
+  --accent-foreground: #24252a;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.895 0.005 255);
-  --input: oklch(0.895 0.005 255);
-  --ring: oklch(0.62 0.18 28);
-  --chart-1: oklch(0.55 0.21 28);
-  --chart-2: oklch(0.35 0.01 260);
-  --chart-3: oklch(0.55 0.01 260);
-  --chart-4: oklch(0.72 0.12 28);
-  --chart-5: oklch(0.75 0.005 255);
-  --radius: 0.625rem; /* esquinas suaves (aprobado en la guía de diseño) */
+  --border: #e2e3e8;
+  --input: #d8dae0;
+  --ring: #e0503a;
+  --chart-1: #e0503a;
+  --chart-2: #5b82d6;
+  --chart-3: #6b6e76;
+  --chart-4: #d9a03c;
+  --chart-5: #9b7be8;
+  --radius: 0.5625rem; /* 9px: botones/filas; cards usan 12px explícitos */
+
+  --side: #ffffff;
+  --panel: #ecedf0;
+  --card2: #ffffff;
+  --border2: #e8e9ed;
+  --text1: #24252a;
+  --text2: #3f4147;
+  --muted2: #83868e;
+  --hoverbg: #f5f6f8;
+  --chip: #edeef1;
+  --navactive: #edeef1;
+  --avbg: #edeef1;
+  --avbd: #d8dae0;
+  --field: #ffffff;
+  --shadow-panel: 0 6px 16px rgba(20, 22, 30, 0.12);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -85,30 +115,45 @@
 }
 
 .dark {
-  /* Modo grafito RC — el modo oficial del CRM */
-  --background: oklch(0.155 0.005 260);
-  --foreground: oklch(0.96 0.002 260);
-  --card: oklch(0.205 0.006 260);
-  --card-foreground: oklch(0.96 0.002 260);
-  --popover: oklch(0.205 0.006 260);
-  --popover-foreground: oklch(0.96 0.002 260);
-  --primary: oklch(0.6 0.21 28);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Modo grafito RC — por defecto (handoff hifi) */
+  --background: #0d0e10;
+  --foreground: #ffffff;
+  --card: #15161a;
+  --card-foreground: #ffffff;
+  --popover: #17181c;
+  --popover-foreground: #ffffff;
+  --primary: #e0503a;
+  --primary-foreground: #ffffff;
+  --secondary: #1e2025;
+  --secondary-foreground: #e5e6e3;
+  --muted: #1e2025;
+  --muted-foreground: #8a8d95;
+  --accent: #191b1f;
+  --accent-foreground: #e5e6e3;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: #24262b;
+  --input: #33363d;
+  --ring: #e0503a;
+  --chart-1: #e0503a;
+  --chart-2: #5b82d6;
+  --chart-3: #8a8d95;
+  --chart-4: #d9a03c;
+  --chart-5: #9b7be8;
+
+  --side: #111214;
+  --panel: #101114;
+  --card2: #17181c;
+  --border2: #1d1f24;
+  --text1: #e5e6e3;
+  --text2: #c9cbd1;
+  --muted2: #797d86;
+  --hoverbg: #191b1f;
+  --chip: #1e2025;
+  --navactive: #1e2025;
+  --avbg: #24262b;
+  --avbd: #33363d;
+  --field: #15161a;
+  --shadow-panel: 0 6px 16px rgba(0, 0, 0, 0.35);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -125,6 +170,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
   html {
     @apply font-sans;
@@ -134,6 +180,6 @@
   h2 {
     font-family: var(--font-oswald), var(--font-geist-sans), sans-serif;
     text-transform: uppercase;
-    letter-spacing: 0.015em;
+    letter-spacing: 0.02em;
   }
 }

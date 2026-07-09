@@ -2,12 +2,14 @@ import { requireActiveUser } from "@/lib/auth";
 import { canViewAllRecords } from "@/lib/permissions";
 import { getMetrics, type CurrencySeries } from "@/lib/metrics";
 import { formatMoney } from "@/lib/opportunities";
+import { stageHex } from "@/lib/stage-colors";
 import { Currency } from "@/lib/generated/prisma/enums";
+import { KpiCard } from "@/components/kpi-card";
+import { InitialsAvatar, sellerColor } from "@/components/initials-avatar";
 
-// Paleta de series validada (scripts/validate_palette.js · modo oscuro · 4/4):
-// rojo RC = Aprobado · azul acero = Cotizado. CVD ΔE 78.5.
-const APPROVED_COLOR = "#e0503a";
-const QUOTED_COLOR = "#5b82d6";
+// Paleta de series validada (dataviz · modo oscuro · 4/4 checks)
+const APPROVED_COLOR = "#E0503A";
+const QUOTED_COLOR = "#5B82D6";
 
 function compact(value: string, currency: string): string {
   const symbol = currency === "USD" ? "US$" : "$";
@@ -21,32 +23,27 @@ function toCurrency(code: string): Currency {
   return code === "USD" ? Currency.USD : Currency.ARS;
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border-l-4 border-primary bg-card p-4 shadow-sm">
-      <div className="font-heading text-2xl font-semibold tabular-nums">
-        {value}
-      </div>
-      <div className="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-    </div>
+    <h2 className="text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
+      {children}
+    </h2>
   );
 }
 
 function Legend() {
   return (
-    <div className="flex gap-4 text-xs text-zinc-400">
+    <div className="flex gap-4 text-xs text-muted-foreground">
       <span className="flex items-center gap-1.5">
         <span
-          className="h-2.5 w-2.5 rounded-full"
+          className="h-2 w-2 rounded-[2px]"
           style={{ background: QUOTED_COLOR }}
         />
         Cotizado
       </span>
       <span className="flex items-center gap-1.5">
         <span
-          className="h-2.5 w-2.5 rounded-full"
+          className="h-2 w-2 rounded-[2px]"
           style={{ background: APPROVED_COLOR }}
         />
         Aprobado
@@ -61,15 +58,13 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
   const currency = toCurrency(series.currency);
 
   return (
-    <section className="rounded-xl border bg-white p-5 dark:bg-zinc-900">
+    <section className="rounded-[12px] border bg-card p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-zinc-500">
-          Presupuestos por mes · {series.currency}
-        </h2>
+        <SectionTitle>Presupuestos por mes · {series.currency}</SectionTitle>
         <Legend />
       </div>
 
-      <div className="flex h-44 items-end gap-3 border-b border-zinc-200 pb-px dark:border-zinc-700">
+      <div className="flex h-44 items-end gap-3 border-b border-border pb-px">
         {series.months.map((m) => {
           const qh = Math.round((Number(m.quoted) / max) * 100);
           const ah = Math.round((Number(m.approved) / max) * 100);
@@ -78,13 +73,12 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
               key={m.label}
               className="group relative flex h-full flex-1 items-end justify-center gap-[2px]"
             >
-              {/* Tooltip */}
-              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border bg-white px-3 py-2 text-xs shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-800">
-                <div className="font-medium">{m.label}</div>
-                <div className="text-zinc-500">
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-[8px] border bg-popover px-3 py-2 text-xs shadow-[var(--shadow-panel)] group-hover:block">
+                <div className="font-semibold">{m.label}</div>
+                <div className="text-muted-foreground">
                   Cotizado: {formatMoney(m.quoted, currency)}
                 </div>
-                <div className="text-zinc-500">
+                <div className="text-muted-foreground">
                   Aprobado: {formatMoney(m.approved, currency)}
                 </div>
               </div>
@@ -112,7 +106,7 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
         {series.months.map((m) => (
           <div
             key={m.label}
-            className="flex-1 text-center text-[11px] text-zinc-500"
+            className="flex-1 text-center text-[11.5px] text-muted2"
           >
             {m.label}
           </div>
@@ -120,11 +114,11 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
       </div>
 
       <details className="mt-3 text-sm">
-        <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+        <summary className="cursor-pointer text-xs text-muted2 transition-colors hover:text-text2">
           Ver tabla
         </summary>
         <table className="mt-2 w-full text-xs">
-          <thead className="text-left text-zinc-500">
+          <thead className="text-left text-muted-foreground">
             <tr>
               <th className="py-1 font-medium">Mes</th>
               <th className="py-1 text-right font-medium">Cotizado</th>
@@ -133,7 +127,7 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
           </thead>
           <tbody className="tabular-nums">
             {series.months.map((m) => (
-              <tr key={m.label} className="border-t border-zinc-200 dark:border-zinc-800/40">
+              <tr key={m.label} className="border-t border-border2">
                 <td className="py-1">{m.label}</td>
                 <td className="py-1 text-right">
                   {formatMoney(m.quoted, currency)}
@@ -150,6 +144,9 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
   );
 }
 
+const SELLER_GRID =
+  "grid grid-cols-[1.8fr_1.2fr_1.2fr_1fr_1fr] items-center";
+
 export default async function MetricsPage() {
   const user = await requireActiveUser();
   const companyWide = canViewAllRecords(user);
@@ -160,83 +157,88 @@ export default async function MetricsPage() {
   const usdTotals = data.totals.find((t) => t.currency === "USD");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Métricas</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="text-[26px] font-semibold leading-tight">Métricas</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           {companyWide
             ? "Visión general de toda la empresa."
             : "Tu actividad comercial."}
         </p>
       </div>
 
-      {/* Indicadores principales */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {arsTotals && (
-          <Tile
-            label="Aprobado ARS"
-            value={formatMoney(arsTotals.approved, Currency.ARS) ?? "—"}
+      <div>
+        <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-4">
+          {arsTotals && (
+            <KpiCard
+              size="md"
+              label="Aprobado ARS"
+              value={formatMoney(arsTotals.approved, Currency.ARS) ?? "—"}
+            />
+          )}
+          {usdTotals && (
+            <KpiCard
+              size="md"
+              label="Aprobado USD"
+              value={formatMoney(usdTotals.approved, Currency.USD) ?? "—"}
+            />
+          )}
+          <KpiCard
+            size="md"
+            label="Conversión"
+            value={`${data.conversion.ratePct}%`}
+            note={`${data.conversion.approved} aprobado(s) de ${data.conversion.issued} emitido(s)`}
           />
-        )}
-        {usdTotals && (
-          <Tile
-            label="Aprobado USD"
-            value={formatMoney(usdTotals.approved, Currency.USD) ?? "—"}
+          <KpiCard
+            size="md"
+            label="m² en pipeline"
+            value={`${Number(data.pipelineM2).toLocaleString("es-AR")} m²`}
           />
-        )}
-        <Tile
-          label="Conversión"
-          value={`${data.conversion.ratePct}%`}
-        />
-        <Tile label="m² en pipeline" value={`${Number(data.pipelineM2).toLocaleString("es-AR")} m²`} />
+        </div>
       </div>
-      <p className="-mt-5 text-xs text-zinc-500">
-        Conversión: {data.conversion.approved} aprobado(s) sobre{" "}
-        {data.conversion.issued} presupuesto(s) emitido(s).
-      </p>
 
       {!hasQuotes ? (
-        <div className="rounded-xl border bg-white p-10 text-center text-sm text-zinc-500 dark:bg-zinc-900">
+        <div className="rounded-[12px] border bg-card px-5 py-10 text-center text-sm text-muted-foreground">
           Todavía no hay presupuestos para graficar.
         </div>
       ) : (
         <>
-          {/* Serie mensual por moneda */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-[14px] lg:grid-cols-2">
             {data.monthly.map((series) => (
               <MonthlyChart key={series.currency} series={series} />
             ))}
           </div>
 
-          {/* Aprobado por segmento */}
           {data.bySegment.length > 0 && (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-[14px] lg:grid-cols-2">
               {data.bySegment.map(({ currency, rows }) => {
                 const max = Number(rows[0]?.total) || 1;
                 const cur = toCurrency(currency);
                 return (
                   <section
                     key={currency}
-                    className="rounded-xl border bg-white p-5 dark:bg-zinc-900"
+                    className="rounded-[12px] border bg-card p-5"
                   >
-                    <h2 className="mb-4 text-sm font-medium text-zinc-500">
-                      Aprobado por segmento · {currency}
-                    </h2>
+                    <div className="mb-4">
+                      <SectionTitle>
+                        Aprobado por segmento · {currency}
+                      </SectionTitle>
+                    </div>
                     <div className="space-y-3">
                       {rows.map((row) => (
                         <div key={row.label}>
-                          <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-                            <span>{row.label}</span>
+                          <div className="mb-1 flex items-baseline justify-between gap-3 text-[13px]">
+                            <span className="text-text2">{row.label}</span>
                             <span
-                              className="tabular-nums text-zinc-400"
+                              className="tabular-nums text-muted-foreground"
                               title={formatMoney(row.total, cur) ?? ""}
                             >
                               {compact(row.total, currency)}
                             </span>
                           </div>
-                          <div className="h-3 rounded-r-[4px] bg-zinc-100 dark:bg-zinc-800">
+                          <div className="h-2 rounded-[4px] bg-chip">
                             <div
-                              className="h-3 rounded-r-[4px]"
+                              className="h-2 rounded-[4px]"
                               style={{
                                 background: APPROVED_COLOR,
                                 width: `${Math.max((Number(row.total) / max) * 100, 2)}%`,
@@ -254,89 +256,98 @@ export default async function MetricsPage() {
         </>
       )}
 
-      {/* Comparativa por vendedor — solo visión general (Admin/Gerencia) */}
+      {/* Por vendedor — solo visión general */}
       {data.bySeller && data.bySeller.length > 0 && (
-        <section className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
-          <div className="border-b px-5 py-4">
-            <h2 className="text-sm font-medium text-zinc-500">
-              Por vendedor
-            </h2>
+        <section className="overflow-hidden rounded-[12px] border bg-card">
+          <div className="border-b border-border2 px-5 py-4">
+            <SectionTitle>Por vendedor</SectionTitle>
           </div>
-          <table className="w-full text-sm">
-            <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
-              <tr>
-                <th className="px-5 py-3 font-medium">Vendedor</th>
-                <th className="px-5 py-3 text-right font-medium">Cotizado</th>
-                <th className="px-5 py-3 text-right font-medium">Aprobado</th>
-                <th className="px-5 py-3 text-right font-medium">Conversión</th>
-                <th className="px-5 py-3 text-right font-medium">
-                  m² en pipeline
-                </th>
-              </tr>
-            </thead>
-            <tbody className="tabular-nums">
-              {data.bySeller.map((seller) => (
-                <tr key={seller.name} className="border-b last:border-0">
-                  <td className="px-5 py-3 font-medium">{seller.name}</td>
-                  <td className="px-5 py-3 text-right">
-                    {seller.quoted.length === 0
-                      ? "—"
-                      : seller.quoted.map((q) => (
-                          <div key={q.currency}>
-                            {formatMoney(q.total, toCurrency(q.currency))}
-                          </div>
-                        ))}
-                  </td>
-                  <td className="px-5 py-3 text-right font-semibold">
-                    {seller.approved.length === 0
-                      ? "—"
-                      : seller.approved.map((a) => (
-                          <div key={a.currency}>
-                            {formatMoney(a.total, toCurrency(a.currency))}
-                          </div>
-                        ))}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    {seller.issued > 0 ? (
-                      <>
-                        {seller.ratePct}%{" "}
-                        <span className="text-xs text-zinc-500">
-                          ({seller.approvedCount}/{seller.issued})
-                        </span>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    {Number(seller.pipelineM2) > 0
-                      ? `${Number(seller.pipelineM2).toLocaleString("es-AR")} m²`
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div
+            className={`${SELLER_GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
+          >
+            <span>Vendedor</span>
+            <span className="text-right">Cotizado</span>
+            <span className="text-right">Aprobado</span>
+            <span className="text-right">Conversión</span>
+            <span className="text-right">m² pipeline</span>
+          </div>
+          {data.bySeller.map((seller) => (
+            <div
+              key={seller.name}
+              className={`${SELLER_GRID} border-b border-border2 px-5 py-[13px] text-[13px] last:border-0 hover:bg-hoverbg`}
+            >
+              <span className="flex min-w-0 items-center gap-2 pr-3">
+                <InitialsAvatar
+                  name={seller.name}
+                  size={22}
+                  tint={sellerColor(seller.name)}
+                />
+                <span className="truncate font-semibold">{seller.name}</span>
+              </span>
+              <span className="text-right tabular-nums text-text2">
+                {seller.quoted.length === 0
+                  ? "—"
+                  : seller.quoted.map((q) => (
+                      <span key={q.currency} className="block">
+                        {formatMoney(q.total, toCurrency(q.currency))}
+                      </span>
+                    ))}
+              </span>
+              <span className="text-right font-bold tabular-nums">
+                {seller.approved.length === 0
+                  ? "—"
+                  : seller.approved.map((a) => (
+                      <span key={a.currency} className="block">
+                        {formatMoney(a.total, toCurrency(a.currency))}
+                      </span>
+                    ))}
+              </span>
+              <span className="text-right tabular-nums text-text2">
+                {seller.issued > 0 ? (
+                  <>
+                    {seller.ratePct}%{" "}
+                    <span className="text-[11px] text-muted-foreground">
+                      ({seller.approvedCount}/{seller.issued})
+                    </span>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </span>
+              <span className="text-right tabular-nums text-text2">
+                {Number(seller.pipelineM2) > 0
+                  ? `${Number(seller.pipelineM2).toLocaleString("es-AR")} m²`
+                  : "—"}
+              </span>
+            </div>
+          ))}
         </section>
       )}
 
       {/* Embudo del pipeline */}
       {data.funnel.length > 0 && (
-        <section className="rounded-xl border bg-white p-5 dark:bg-zinc-900">
-          <h2 className="mb-4 text-sm font-medium text-zinc-500">
-            Embudo del pipeline
-          </h2>
+        <section className="rounded-[12px] border bg-card p-5">
+          <div className="mb-4">
+            <SectionTitle>Embudo del pipeline</SectionTitle>
+          </div>
           <div className="space-y-3">
             {data.funnel.map((row) => {
               const maxCount = Math.max(...data.funnel.map((f) => f.count), 1);
+              const hex = stageHex(row.color);
               return (
                 <div key={row.stage}>
-                  <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-                    <span>
+                  <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 text-[13px]">
+                    <span className="flex items-center gap-2 text-text2">
+                      <span
+                        className="h-[6px] w-[6px] rounded-[2px]"
+                        style={{ background: hex }}
+                      />
                       {row.stage}{" "}
-                      <span className="text-zinc-500">· {row.count}</span>
+                      <span className="text-muted-foreground">
+                        · {row.count}
+                      </span>
                     </span>
-                    <span className="text-xs tabular-nums text-zinc-400">
+                    <span className="text-xs tabular-nums text-muted2">
                       {row.amounts
                         .map((a) => compact(a.total, a.currency))
                         .join(" · ")}
@@ -344,11 +355,11 @@ export default async function MetricsPage() {
                         ` · ${Number(row.m2).toLocaleString("es-AR")} m²`}
                     </span>
                   </div>
-                  <div className="h-3 rounded-r-[4px] bg-zinc-100 dark:bg-zinc-800">
+                  <div className="h-2 rounded-[4px] bg-chip">
                     <div
-                      className="h-3 rounded-r-[4px]"
+                      className="h-2 rounded-[4px]"
                       style={{
-                        background: QUOTED_COLOR,
+                        background: hex,
                         width: `${Math.max((row.count / maxCount) * 100, 2)}%`,
                       }}
                     />

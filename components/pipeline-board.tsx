@@ -10,6 +10,7 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd";
 
+import { InitialsAvatar } from "@/components/initials-avatar";
 import { moveOpportunity, togglePin } from "@/app/(app)/oportunidades/actions";
 
 export type BoardCard = {
@@ -19,32 +20,16 @@ export type BoardCard = {
   amountLabel: string | null;
   m2Label: string | null;
   ownerName: string | null;
+  ownerTint: string | null;
   isPinned: boolean;
 };
 
 export type BoardColumn = {
   id: string;
   name: string;
-  color: string;
+  hex: string; // color de etapa (handoff)
+  totalLabel: string | null; // total monetario compacto
   opportunities: BoardCard[];
-};
-
-const DOT: Record<string, string> = {
-  gray: "bg-zinc-400",
-  red: "bg-red-500",
-  amber: "bg-amber-500",
-  green: "bg-emerald-500",
-  blue: "bg-blue-500",
-  purple: "bg-purple-500",
-};
-
-const BORDER: Record<string, string> = {
-  gray: "border-l-zinc-400",
-  red: "border-l-red-500",
-  amber: "border-l-amber-500",
-  green: "border-l-emerald-500",
-  blue: "border-l-blue-500",
-  purple: "border-l-purple-500",
 };
 
 export function PipelineBoard({
@@ -106,28 +91,37 @@ export function PipelineBoard({
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {board.map((col) => {
-          const border = BORDER[col.color] ?? BORDER.gray;
-          return (
-            <div key={col.id} className="w-72 flex-shrink-0">
-              <div className="mb-2 flex items-center gap-2 px-1">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${DOT[col.color] ?? DOT.gray}`}
-                />
-                <h2 className="text-sm font-semibold">{col.name}</h2>
-                <span className="text-xs text-zinc-400">
-                  {col.opportunities.length}
+      <div className="flex gap-[14px] overflow-x-auto pb-4">
+        {board.map((col) => (
+          <div key={col.id} className="w-[276px] flex-shrink-0">
+            {/* Header de columna */}
+            <div className="mb-2 flex items-center gap-2 px-1">
+              <h2 className="font-sans text-[12px] font-bold uppercase tracking-[0.08em] text-text2">
+                {col.name}
+              </h2>
+              <span
+                className="rounded-[10px] px-1.5 py-px text-[11px] font-bold tabular-nums"
+                style={{ color: col.hex, background: `${col.hex}29` }}
+              >
+                {col.opportunities.length}
+              </span>
+              {col.totalLabel && (
+                <span className="ml-auto text-[11.5px] tabular-nums text-muted2">
+                  {col.totalLabel}
                 </span>
-              </div>
+              )}
+            </div>
 
-              <Droppable droppableId={col.id}>
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="min-h-24 space-y-2 rounded-xl border bg-zinc-50 p-2 dark:bg-zinc-900/50"
-                  >
+            {/* Contenedor */}
+            <Droppable droppableId={col.id}>
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="min-h-[140px] rounded-[12px] border border-border2 bg-panel p-2"
+                  style={{ borderTop: `3px solid ${col.hex}` }}
+                >
+                  <div className="space-y-2">
                     {col.opportunities.map((card, index) => (
                       <Draggable
                         key={card.id}
@@ -140,12 +134,21 @@ export function PipelineBoard({
                             ref={prov.innerRef}
                             {...prov.draggableProps}
                             {...prov.dragHandleProps}
-                            className={`rounded-lg border border-l-4 bg-white p-3 shadow-sm dark:bg-zinc-900 ${border} ${
-                              snapshot.isDragging ? "ring-2 ring-primary" : ""
-                            } ${card.isPinned ? "ring-1 ring-amber-400" : ""}`}
+                            className={`group rounded-[10px] border bg-card2 px-[14px] py-[13px] transition-all duration-150 hover:-translate-y-0.5 hover:border-avbd hover:shadow-[var(--shadow-panel)] ${
+                              snapshot.isDragging
+                                ? "border-avbd shadow-[var(--shadow-panel)]"
+                                : "border-border"
+                            }`}
+                            style={{
+                              borderLeft: `3px solid ${col.hex}`,
+                              ...(card.isPinned
+                                ? { outline: "1px solid #D9A03C" }
+                                : {}),
+                              ...prov.draggableProps.style,
+                            }}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-medium leading-tight">
+                              <p className="text-[13.5px] font-bold leading-snug">
                                 {card.title}
                               </p>
                               {canEdit && (
@@ -155,40 +158,40 @@ export function PipelineBoard({
                                   title={
                                     card.isPinned ? "Quitar fijado" : "Fijar"
                                   }
-                                  className={`text-sm ${
+                                  className={`text-[13px] leading-none transition-opacity ${
                                     card.isPinned
-                                      ? ""
-                                      : "opacity-30 hover:opacity-70"
+                                      ? "opacity-100"
+                                      : "opacity-25 hover:opacity-70"
                                   }`}
                                 >
                                   📌
                                 </button>
                               )}
                             </div>
-                            <p className="mt-1 text-xs text-zinc-500">
-                              {card.clientName}
+                            <p className="mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                              <span className="truncate">{card.clientName}</span>
                               {card.m2Label && (
-                                <span className="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                <span className="shrink-0 rounded-[10px] bg-chip px-1.5 py-px text-[10.5px] font-medium text-text2">
                                   {card.m2Label}
                                 </span>
                               )}
                             </p>
                             <div className="mt-2 flex items-center justify-between">
-                              {card.amountLabel && (
-                                <span className="text-sm font-semibold">
-                                  {card.amountLabel}
-                                </span>
-                              )}
+                              <span className="text-[14.5px] font-extrabold tabular-nums">
+                                {card.amountLabel ?? ""}
+                              </span>
                               {card.ownerName && (
-                                <span className="text-xs text-zinc-400">
-                                  {card.ownerName}
-                                </span>
+                                <InitialsAvatar
+                                  name={card.ownerName}
+                                  size={24}
+                                  tint={card.ownerTint ?? undefined}
+                                />
                               )}
                             </div>
                             <Link
                               href={`/oportunidades/${card.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="mt-2 block text-xs text-primary hover:underline"
+                              className="mt-2 block text-[12px] font-semibold text-primary hover:underline"
                             >
                               Ver / alertas →
                             </Link>
@@ -198,11 +201,20 @@ export function PipelineBoard({
                     ))}
                     {provided.placeholder}
                   </div>
-                )}
-              </Droppable>
-            </div>
-          );
-        })}
+
+                  {canEdit && (
+                    <Link
+                      href="/oportunidades/nueva"
+                      className="mt-2 block rounded-[9px] border border-dashed border-avbd px-3 py-2 text-center text-[12px] text-muted2 transition-colors hover:border-muted-foreground hover:text-text2"
+                    >
+                      ＋ Agregar oportunidad
+                    </Link>
+                  )}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        ))}
       </div>
     </DragDropContext>
   );

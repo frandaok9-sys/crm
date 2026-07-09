@@ -8,8 +8,21 @@ import {
   canCreateQuotes,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
-import { QUOTE_STATUS_LABELS, QUOTE_STATUS_STYLES } from "@/lib/quotes";
+import { QUOTE_STATUS_LABELS } from "@/lib/quotes";
+import { QuoteStatus } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import { TintBadge, type TintVariant } from "@/components/tint-badge";
+import { InitialsAvatar } from "@/components/initials-avatar";
+
+const GRID = "grid grid-cols-[1.6fr_2fr_1.1fr_1.3fr_1fr_1.3fr] items-center";
+
+const STATUS_VARIANT: Record<QuoteStatus, TintVariant> = {
+  [QuoteStatus.DRAFT]: "gray",
+  [QuoteStatus.SENT]: "blue",
+  [QuoteStatus.APPROVED]: "green",
+  [QuoteStatus.REJECTED]: "red",
+  [QuoteStatus.EXPIRED]: "amber",
+};
 
 export default async function QuotesPage() {
   const user = await requireActiveUser();
@@ -25,7 +38,7 @@ export default async function QuotesPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Show ONE row per quote (its latest revision), not every revision.
+  // Una fila por presupuesto (su última revisión).
   const revisionCount = new Map<string, number>();
   const latestByGroup = new Map<string, (typeof allQuotes)[number]>();
   for (const quote of allQuotes) {
@@ -41,82 +54,92 @@ export default async function QuotesPage() {
   );
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Presupuestos</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-[26px] font-semibold leading-tight">
+            Presupuestos
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {quotes.length} presupuesto(s).
           </p>
         </div>
         {canCreate && (
           <Link href="/presupuestos/nuevo">
-            <Button>Nuevo presupuesto</Button>
+            <Button size="cta">+ Nuevo presupuesto</Button>
           </Link>
         )}
       </div>
 
-      {quotes.length === 0 ? (
-        <div className="rounded-xl border bg-white p-10 text-center text-sm text-zinc-500 dark:bg-zinc-900">
-          Todavía no hay presupuestos.
+      <section className="overflow-hidden rounded-[12px] border bg-card">
+        <div
+          className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
+        >
+          <span>Número</span>
+          <span>Cliente</span>
+          <span>Estado</span>
+          <span className="text-right">Total</span>
+          <span>Fecha</span>
+          <span>Vendedor</span>
         </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
-              <tr>
-                <th className="px-4 py-3 font-medium">Número</th>
-                <th className="px-4 py-3 font-medium">Cliente</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 font-medium">Total</th>
-                <th className="px-4 py-3 font-medium">Fecha</th>
-                {showOwner && <th className="px-4 py-3 font-medium">Vendedor</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.map((quote) => (
-                <tr key={quote.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/presupuestos/${quote.id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {quote.code}
-                    </Link>
-                    {quote.version > 1 && (
-                      <span className="ml-1 text-xs text-zinc-400">
-                        Rev.{quote.version} ·{" "}
-                        {revisionCount.get(quote.rootId ?? quote.id) ?? 1} versiones
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">{quote.client.legalName}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${QUOTE_STATUS_STYLES[quote.status]}`}
-                    >
-                      {QUOTE_STATUS_LABELS[quote.status]}
+
+        {quotes.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+            Todavía no hay presupuestos.
+          </div>
+        ) : (
+          quotes.map((quote) => {
+            const versions = revisionCount.get(quote.rootId ?? quote.id) ?? 1;
+            const ownerName = quote.owner
+              ? quote.owner.name ?? quote.owner.email
+              : null;
+            return (
+              <div
+                key={quote.id}
+                className={`${GRID} border-b border-border2 px-5 py-[14px] text-[13px] transition-colors last:border-0 hover:bg-hoverbg`}
+              >
+                <span className="min-w-0 pr-3">
+                  <Link
+                    href={`/presupuestos/${quote.id}`}
+                    className="block text-[13.5px] font-bold text-foreground hover:underline"
+                  >
+                    {quote.code}
+                  </Link>
+                  {quote.version > 1 && (
+                    <span className="block text-[11px] text-muted-foreground">
+                      Rev. {quote.version} · {versions} versiones
                     </span>
-                  </td>
-                  <td className="px-4 py-3 font-medium">
-                    {formatMoney(quote.total.toString(), quote.currency)}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500">
-                    {quote.createdAt.toLocaleDateString("es-AR")}
-                  </td>
-                  {showOwner && (
-                    <td className="px-4 py-3">
-                      {quote.owner
-                        ? quote.owner.name ?? quote.owner.email
-                        : "—"}
-                    </td>
                   )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </span>
+                <span className="truncate pr-3 text-text2">
+                  {quote.client.legalName}
+                </span>
+                <span>
+                  <TintBadge variant={STATUS_VARIANT[quote.status]}>
+                    {QUOTE_STATUS_LABELS[quote.status]}
+                  </TintBadge>
+                </span>
+                <span className="text-right font-bold tabular-nums">
+                  {formatMoney(quote.total.toString(), quote.currency)}
+                </span>
+                <span className="pl-4 tabular-nums text-muted-foreground">
+                  {quote.createdAt.toLocaleDateString("es-AR")}
+                </span>
+                <span className="flex min-w-0 items-center gap-2 pl-2">
+                  {ownerName ? (
+                    <>
+                      <InitialsAvatar name={ownerName} size={22} />
+                      <span className="truncate text-text2">{ownerName}</span>
+                    </>
+                  ) : (
+                    <span className="text-muted2">—</span>
+                  )}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </section>
     </div>
   );
 }

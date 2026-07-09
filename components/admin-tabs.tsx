@@ -9,16 +9,16 @@ export function AdminTabs({ tabs }: { tabs: Tab[] }) {
 
   return (
     <div>
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b">
+      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActive(tab.id)}
-            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
+            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-[13.5px] transition-colors ${
               active === tab.id
-                ? "border-primary text-primary"
-                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                ? "border-primary font-bold text-foreground"
+                : "border-transparent font-medium text-muted-foreground hover:text-text2"
             }`}
           >
             {tab.label}

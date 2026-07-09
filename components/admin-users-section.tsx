@@ -3,47 +3,30 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { Role, UserStatus } from "@/lib/generated/prisma/enums";
-import { Button } from "@/components/ui/button";
+import { TintBadge, type TintVariant } from "@/components/tint-badge";
+import { InitialsAvatar } from "@/components/initials-avatar";
+import { SubmitButton } from "@/components/submit-button";
 import {
   activateUser,
   changeUserRole,
   setUserStatus,
 } from "@/app/(app)/admin/users/actions";
 
-const STATUS_STYLES: Record<UserStatus, { label: string; className: string }> = {
-  [UserStatus.PENDING]: {
-    label: "Pendiente",
-    className:
-      "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  },
-  [UserStatus.ACTIVE]: {
-    label: "Activo",
-    className:
-      "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  },
-  [UserStatus.DISABLED]: {
-    label: "Deshabilitado",
-    className: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  },
-};
+const GRID = "grid grid-cols-[2.4fr_1.2fr_1fr_1.8fr] items-center";
 
-function StatusBadge({ status }: { status: UserStatus }) {
-  const s = STATUS_STYLES[status];
-  return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${s.className}`}
-    >
-      {s.label}
-    </span>
-  );
-}
+const STATUS_META: Record<UserStatus, { label: string; variant: TintVariant }> =
+  {
+    [UserStatus.ACTIVE]: { label: "Activo", variant: "green" },
+    [UserStatus.PENDING]: { label: "Pendiente", variant: "amber" },
+    [UserStatus.DISABLED]: { label: "Deshabilitado", variant: "gray" },
+  };
 
 function RoleSelect({ defaultValue }: { defaultValue?: Role }) {
   return (
     <select
       name="role"
       defaultValue={defaultValue ?? Role.SALES}
-      className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+      className="rounded-[8px] border border-border bg-field px-2 py-1.5 text-xs"
     >
       {Object.values(Role).map((role) => (
         <option key={role} value={role}>
@@ -63,118 +46,139 @@ export async function AdminUsersSection({ adminId }: { adminId: string }) {
   ).length;
 
   return (
-    <div>
-      <p className="mb-4 text-sm text-zinc-500">
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
         {pendingCount > 0
           ? `${pendingCount} usuario(s) pendiente(s) de activación.`
           : "No hay usuarios pendientes."}
       </p>
 
-      <div className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
-            <tr>
-              <th className="px-4 py-3 font-medium">Usuario</th>
-              <th className="px-4 py-3 font-medium">Rol</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => {
-              const isSelf = user.id === adminId;
-              return (
-                <tr key={user.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{user.name ?? "—"}</div>
-                    <div className="text-xs text-zinc-500">{user.email}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.role ? ROLE_LABELS[user.role] : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={user.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {isSelf ? (
-                      <span className="text-xs text-zinc-400">Vos</span>
-                    ) : (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {user.status === UserStatus.PENDING && (
-                          <form
-                            action={activateUser}
-                            className="flex items-center gap-2"
-                          >
-                            <input type="hidden" name="userId" value={user.id} />
-                            <RoleSelect />
-                            <Button type="submit" size="sm">
-                              Activar
-                            </Button>
-                          </form>
-                        )}
+      <section className="overflow-hidden rounded-[12px] border bg-card">
+        <div
+          className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
+        >
+          <span>Usuario</span>
+          <span>Rol</span>
+          <span>Estado</span>
+          <span className="text-right">Acciones</span>
+        </div>
 
-                        {user.status === UserStatus.ACTIVE && (
-                          <>
-                            <Link
-                              href={`/admin/users/${user.id}`}
-                              className="text-sm font-medium text-primary hover:underline"
-                            >
-                              Permisos
-                            </Link>
-                            <form
-                              action={changeUserRole}
-                              className="flex items-center gap-2"
-                            >
-                              <input
-                                type="hidden"
-                                name="userId"
-                                value={user.id}
-                              />
-                              <RoleSelect defaultValue={user.role ?? undefined} />
-                              <Button type="submit" size="sm" variant="outline">
-                                Guardar rol
-                              </Button>
-                            </form>
-                            <form action={setUserStatus}>
-                              <input
-                                type="hidden"
-                                name="userId"
-                                value={user.id}
-                              />
-                              <input
-                                type="hidden"
-                                name="status"
-                                value={UserStatus.DISABLED}
-                              />
-                              <Button type="submit" size="sm" variant="ghost">
-                                Deshabilitar
-                              </Button>
-                            </form>
-                          </>
-                        )}
-
-                        {user.status === UserStatus.DISABLED && (
-                          <form action={setUserStatus}>
-                            <input type="hidden" name="userId" value={user.id} />
-                            <input
-                              type="hidden"
-                              name="status"
-                              value={UserStatus.ACTIVE}
-                            />
-                            <Button type="submit" size="sm" variant="outline">
-                              Rehabilitar
-                            </Button>
-                          </form>
-                        )}
-                      </div>
+        {users.map((user) => {
+          const isSelf = user.id === adminId;
+          const status = STATUS_META[user.status];
+          const displayName = user.name ?? user.email ?? "";
+          return (
+            <div
+              key={user.id}
+              className={`${GRID} border-b border-border2 px-5 py-[13px] text-[13px] transition-colors last:border-0 hover:bg-hoverbg`}
+            >
+              <span className="flex min-w-0 items-center gap-2.5 pr-3">
+                <InitialsAvatar name={displayName} size={30} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[13.5px] font-bold">
+                    {user.name ?? "—"}
+                  </span>
+                  <span className="block truncate text-[11.5px] text-muted-foreground">
+                    {user.email}
+                  </span>
+                </span>
+              </span>
+              <span className="text-text2">
+                {user.role ? ROLE_LABELS[user.role] : "—"}
+              </span>
+              <span>
+                <TintBadge variant={status.variant}>{status.label}</TintBadge>
+              </span>
+              <span className="flex items-center justify-end gap-2.5">
+                {isSelf ? (
+                  <span className="text-xs text-muted2">Vos</span>
+                ) : (
+                  <>
+                    {user.status === UserStatus.PENDING && (
+                      <form
+                        action={activateUser}
+                        className="flex items-center gap-2"
+                      >
+                        <input type="hidden" name="userId" value={user.id} />
+                        <RoleSelect />
+                        <SubmitButton
+                          size="sm"
+                          variant="ghost"
+                          pendingText="…"
+                          className="h-auto p-0 text-[12.5px] font-bold text-primary hover:bg-transparent hover:underline"
+                        >
+                          Activar
+                        </SubmitButton>
+                      </form>
                     )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+
+                    {user.status === UserStatus.ACTIVE && (
+                      <>
+                        <form
+                          action={changeUserRole}
+                          className="flex items-center gap-2"
+                        >
+                          <input type="hidden" name="userId" value={user.id} />
+                          <RoleSelect defaultValue={user.role ?? undefined} />
+                          <SubmitButton
+                            size="sm"
+                            variant="ghost"
+                            pendingText="…"
+                            className="h-auto p-0 text-[12.5px] font-medium text-muted-foreground hover:bg-transparent hover:text-foreground"
+                          >
+                            Guardar
+                          </SubmitButton>
+                        </form>
+                        <Link
+                          href={`/admin/users/${user.id}`}
+                          className="text-[12.5px] font-semibold text-primary hover:underline"
+                        >
+                          Permisos
+                        </Link>
+                        <form action={setUserStatus}>
+                          <input type="hidden" name="userId" value={user.id} />
+                          <input
+                            type="hidden"
+                            name="status"
+                            value={UserStatus.DISABLED}
+                          />
+                          <SubmitButton
+                            size="sm"
+                            variant="ghost"
+                            pendingText="…"
+                            className="h-auto p-0 text-[12.5px] font-medium text-muted-foreground hover:bg-transparent hover:text-foreground"
+                          >
+                            Deshabilitar
+                          </SubmitButton>
+                        </form>
+                      </>
+                    )}
+
+                    {user.status === UserStatus.DISABLED && (
+                      <form action={setUserStatus}>
+                        <input type="hidden" name="userId" value={user.id} />
+                        <input
+                          type="hidden"
+                          name="status"
+                          value={UserStatus.ACTIVE}
+                        />
+                        <SubmitButton
+                          size="sm"
+                          variant="ghost"
+                          pendingText="…"
+                          className="h-auto p-0 text-[12.5px] font-bold text-primary hover:bg-transparent hover:underline"
+                        >
+                          Rehabilitar
+                        </SubmitButton>
+                      </form>
+                    )}
+                  </>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </section>
     </div>
   );
 }
