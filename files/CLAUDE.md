@@ -45,6 +45,16 @@ CRM comercial y administrativo B2B para una empresa argentina que vende producto
 - **Validación:** validar entradas del lado del servidor, no confiar solo en la pantalla.
 - **Errores de dinero:** ante cualquier duda en cálculos financieros, priorizar corrección sobre velocidad y escribir un test.
 
+## Migraciones de base de datos
+
+El proyecto usa migraciones formales de Prisma (ya no `db push`). El pooler de Supabase no soporta "shadow database", así que el flujo compara la base real contra `schema.prisma` en vez de reproducir el historial:
+
+1. Editar `prisma/schema.prisma`.
+2. `npm run db:migrate -- nombre_descriptivo` → genera el SQL en `prisma/migrations/<timestamp>_nombre/migration.sql`. Revisar el SQL antes de aplicarlo.
+3. `npm run db:deploy` → aplica las migraciones pendientes a la base.
+4. `npm run db:status` → confirma que todo esté sincronizado.
+5. Commitear la carpeta de migración generada.
+
 ## Testing
 
 - Escribir tests para la lógica sensible: cálculo de IVA y totales de presupuesto, saldo de cuenta corriente, imputación de pagos, y verificación de permisos.
