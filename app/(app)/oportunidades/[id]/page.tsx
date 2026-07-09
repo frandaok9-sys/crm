@@ -96,6 +96,10 @@ export default async function OpportunityDetailPage({
           </Link>{" "}
           · {opportunity.stage.name}
           {amountLabel && <> · {amountLabel}</>}
+          {opportunity.estimatedM2 && (
+            <> · {opportunity.estimatedM2.toString()} m²</>
+          )}
+          {opportunity.siteAddress && <> · {opportunity.siteAddress}</>}
         </p>
       </div>
 
@@ -146,6 +150,33 @@ export default async function OpportunityDetailPage({
                     </option>
                   ))}
                 </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Ubicación de la obra
+                </span>
+                <input
+                  name="siteAddress"
+                  defaultValue={opportunity.siteAddress ?? ""}
+                  className={inputClass}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Superficie estimada (m²)
+                </span>
+                <input
+                  name="estimatedM2"
+                  inputMode="decimal"
+                  defaultValue={
+                    opportunity.estimatedM2
+                      ? opportunity.estimatedM2.toString()
+                      : ""
+                  }
+                  className={inputClass}
+                />
               </label>
 
               <label className="block">

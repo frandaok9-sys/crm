@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { IVA_LABELS } from "@/lib/clients";
-import { IvaCondition } from "@/lib/generated/prisma/enums";
+import { IVA_LABELS, SEGMENT_LABELS } from "@/lib/clients";
+import { IvaCondition, ClientSegment } from "@/lib/generated/prisma/enums";
 
 type ClientDefaults = {
   id?: string;
@@ -16,6 +16,7 @@ type ClientDefaults = {
   city?: string | null;
   province?: string | null;
   industry?: string | null;
+  segment?: ClientSegment | null;
   notes?: string | null;
 };
 
@@ -94,7 +95,21 @@ export function ClientForm({
             ))}
           </select>
         </Field>
-        <Field label="Rubro">
+        <Field label="Segmento">
+          <select
+            name="segment"
+            defaultValue={client?.segment ?? ""}
+            className={inputClass}
+          >
+            <option value="">— Sin especificar —</option>
+            {Object.values(ClientSegment).map((segment) => (
+              <option key={segment} value={segment}>
+                {SEGMENT_LABELS[segment]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Rubro (detalle)">
           <input
             name="industry"
             defaultValue={client?.industry ?? ""}

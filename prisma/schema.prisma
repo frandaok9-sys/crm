@@ -111,6 +111,17 @@ enum IvaCondition {
   NO_ALCANZADO
 }
 
+/// Segmento de cliente según el negocio de RC Pisos Industriales.
+enum ClientSegment {
+  BODEGA
+  AGROINDUSTRIA
+  CONSTRUCTORA
+  FABRICA
+  LOGISTICA
+  COMERCIO
+  OTRO
+}
+
 /// Cliente / cuenta (empresa). Pertenece a la cartera de un vendedor (owner);
 /// si ownerId es null, está en la cartera general sin asignar. La visibilidad
 /// se resuelve en lib/permissions (vendedor: solo los suyos; gerente/admin: todos).
@@ -125,7 +136,8 @@ model Client {
   address      String?
   city         String?
   province     String?
-  industry     String? // Rubro
+  industry     String? // Rubro (texto libre)
+  segment      ClientSegment? // Segmento (bodega, constructora, fábrica…)
   notes        String?
 
   ownerId String?
@@ -199,6 +211,10 @@ model Opportunity {
 
   amount   Decimal? @db.Decimal(14, 2)
   currency Currency @default(ARS)
+
+  // Datos de obra (proyectos por m²)
+  siteAddress String? // Ubicación de la obra
+  estimatedM2 Decimal? @db.Decimal(12, 2) // Superficie estimada en m²
 
   color    String? // Etiqueta de color de la tarjeta
   isPinned Boolean @default(false)
@@ -304,6 +320,7 @@ model QuoteItem {
   type        QuoteItemType @default(PRODUCT)
   description String
   quantity    Decimal       @default(1) @db.Decimal(14, 2)
+  unit        String        @default("m²") // Unidad: m², un, h, ml, kg, global
   unitPrice   Decimal       @default(0) @db.Decimal(14, 2)
   ivaRate     Decimal       @default(0) @db.Decimal(5, 2)
   lineNet     Decimal       @default(0) @db.Decimal(14, 2)

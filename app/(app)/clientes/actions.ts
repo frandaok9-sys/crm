@@ -11,7 +11,7 @@ import {
   canEditClient,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
-import { IvaCondition } from "@/lib/generated/prisma/enums";
+import { IvaCondition, ClientSegment } from "@/lib/generated/prisma/enums";
 import { Prisma } from "@/lib/generated/prisma/client";
 import ExcelJS from "exceljs";
 import {
@@ -37,6 +37,14 @@ function parseIva(formData: FormData): IvaCondition | null {
     : null;
 }
 
+function parseSegment(formData: FormData): ClientSegment | null {
+  const value = opt(formData, "segment");
+  if (!value) return null;
+  return (Object.values(ClientSegment) as string[]).includes(value)
+    ? (value as ClientSegment)
+    : null;
+}
+
 function duplicateTaxId(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -56,6 +64,7 @@ function clientData(formData: FormData) {
     city: opt(formData, "city"),
     province: opt(formData, "province"),
     industry: opt(formData, "industry"),
+    segment: parseSegment(formData),
     notes: opt(formData, "notes"),
   };
 }

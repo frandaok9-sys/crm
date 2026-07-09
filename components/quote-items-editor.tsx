@@ -8,9 +8,13 @@ export type QuoteRow = {
   type: string;
   description: string;
   quantity: string;
+  unit: string;
   unitPrice: string;
   ivaRate: string;
 };
+
+/** Units used in industrial flooring quotes (m² is the default). */
+export const UNITS = ["m²", "un", "h", "ml", "kg", "global"] as const;
 
 type TaxRateOption = { rate: string; name: string };
 
@@ -48,9 +52,10 @@ export function QuoteItemsEditor({
       ? initial
       : [
           {
-            type: "PRODUCT",
+            type: "SERVICE",
             description: "",
             quantity: "1",
+            unit: "m²",
             unitPrice: "0",
             ivaRate: defaultRate,
           },
@@ -67,9 +72,10 @@ export function QuoteItemsEditor({
     setRows((prev) => [
       ...prev,
       {
-        type: "PRODUCT",
+        type: "SERVICE",
         description: "",
         quantity: "1",
+        unit: "m²",
         unitPrice: "0",
         ivaRate: defaultRate,
       },
@@ -111,6 +117,7 @@ export function QuoteItemsEditor({
               <th className="px-1 py-2 font-medium">Tipo</th>
               <th className="px-1 py-2 font-medium">Descripción</th>
               <th className="px-1 py-2 font-medium">Cant.</th>
+              <th className="px-1 py-2 font-medium">Unidad</th>
               <th className="px-1 py-2 font-medium">P. unitario</th>
               <th className="px-1 py-2 font-medium">IVA</th>
               <th className="px-1 py-2" />
@@ -149,6 +156,19 @@ export function QuoteItemsEditor({
                     onChange={(e) => update(index, { quantity: e.target.value })}
                     className={`${cell} w-16`}
                   />
+                </td>
+                <td className="px-1 py-1">
+                  <select
+                    value={row.unit}
+                    onChange={(e) => update(index, { unit: e.target.value })}
+                    className={cell}
+                  >
+                    {UNITS.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td className="px-1 py-1">
                   <input

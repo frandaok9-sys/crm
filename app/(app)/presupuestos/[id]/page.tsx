@@ -175,7 +175,8 @@ export default async function QuoteDetailPage({
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {item.quantity.toString()}
+                  {item.quantity.toString()}{" "}
+                  <span className="text-zinc-400">{item.unit}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   {fmt(item.unitPrice.toString())}

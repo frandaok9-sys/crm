@@ -85,6 +85,8 @@ export async function createOpportunity(formData: FormData): Promise<void> {
       ownerId,
       currency,
       amount,
+      siteAddress: opt(formData, "siteAddress"),
+      estimatedM2: parseAmount(opt(formData, "estimatedM2")),
       notes: opt(formData, "notes"),
       position,
     },
@@ -148,6 +150,8 @@ export async function updateOpportunity(formData: FormData): Promise<void> {
       amount,
       ownerId,
       position,
+      siteAddress: opt(formData, "siteAddress"),
+      estimatedM2: parseAmount(opt(formData, "estimatedM2")),
       notes: opt(formData, "notes"),
     },
   });

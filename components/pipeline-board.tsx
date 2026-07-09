@@ -17,6 +17,7 @@ export type BoardCard = {
   title: string;
   clientName: string;
   amountLabel: string | null;
+  m2Label: string | null;
   ownerName: string | null;
   isPinned: boolean;
 };
@@ -166,6 +167,11 @@ export function PipelineBoard({
                             </div>
                             <p className="mt-1 text-xs text-zinc-500">
                               {card.clientName}
+                              {card.m2Label && (
+                                <span className="ml-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                  {card.m2Label}
+                                </span>
+                              )}
                             </p>
                             <div className="mt-2 flex items-center justify-between">
                               {card.amountLabel && (

@@ -96,6 +96,7 @@ export default async function EditQuotePage({
               type: it.type,
               description: it.description,
               quantity: it.quantity.toString(),
+              unit: it.unit,
               unitPrice: it.unitPrice.toString(),
               ivaRate: it.ivaRate.toString(),
             })),

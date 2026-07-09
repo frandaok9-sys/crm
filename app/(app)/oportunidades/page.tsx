@@ -37,6 +37,7 @@ export default async function OpportunitiesPage() {
         title: o.title,
         clientName: o.client.legalName,
         amountLabel: formatMoney(o.amount ? o.amount.toString() : null, o.currency),
+        m2Label: o.estimatedM2 ? `${o.estimatedM2.toString()} m²` : null,
         ownerName: o.owner ? o.owner.name ?? o.owner.email : null,
         isPinned: o.isPinned,
       })),

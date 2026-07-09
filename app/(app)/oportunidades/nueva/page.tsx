@@ -97,6 +97,29 @@ export default async function NewOpportunityPage() {
 
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Ubicación de la obra
+                </span>
+                <input
+                  name="siteAddress"
+                  placeholder="Ej: Parque Industrial, Maipú"
+                  className={inputClass}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Superficie estimada (m²)
+                </span>
+                <input
+                  name="estimatedM2"
+                  inputMode="decimal"
+                  placeholder="Ej: 1200"
+                  className={inputClass}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
                   Monto estimado
                 </span>
                 <input

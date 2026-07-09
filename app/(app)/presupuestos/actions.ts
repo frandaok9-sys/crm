@@ -39,10 +39,13 @@ function parseDate(value: FormDataEntryValue | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+const VALID_UNITS = ["m²", "un", "h", "ml", "kg", "global"];
+
 type ParsedItem = {
   type: string;
   description: string;
   quantity: string;
+  unit: string;
   unitPrice: string;
   ivaRate: string;
 };
@@ -66,6 +69,7 @@ function parseItems(formData: FormData): ParsedItem[] {
           : QuoteItemType.PRODUCT,
         description: String(r.description ?? "").trim(),
         quantity: num(r.quantity),
+        unit: VALID_UNITS.includes(String(r.unit)) ? String(r.unit) : "m²",
         unitPrice: num(r.unitPrice),
         ivaRate: num(r.ivaRate),
       };
@@ -78,6 +82,7 @@ function itemCreateData(items: ParsedItem[]) {
     type: it.type as QuoteItemType,
     description: it.description,
     quantity: it.quantity,
+    unit: it.unit,
     unitPrice: it.unitPrice,
     ivaRate: it.ivaRate,
     lineNet: lineNet(it.quantity, it.unitPrice),
@@ -265,6 +270,7 @@ export async function reviseQuote(formData: FormData): Promise<void> {
           type: it.type,
           description: it.description,
           quantity: it.quantity,
+          unit: it.unit,
           unitPrice: it.unitPrice,
           ivaRate: it.ivaRate,
           lineNet: it.lineNet,
