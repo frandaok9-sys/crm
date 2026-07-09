@@ -10,6 +10,7 @@ import {
 } from "@/lib/permissions";
 import { UserStatus, Currency } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import { ClientCombobox } from "@/components/client-combobox";
 import { createOpportunity } from "../actions";
 
 const inputClass =
@@ -78,13 +79,7 @@ export default async function NewOpportunityPage() {
                 <span className="mb-1 block text-xs font-medium text-zinc-500">
                   Cliente *
                 </span>
-                <select name="clientId" required className={inputClass}>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.legalName}
-                    </option>
-                  ))}
-                </select>
+                <ClientCombobox clients={clients} name="clientId" />
               </label>
 
               <label className="block">
