@@ -120,7 +120,7 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
       </div>
 
       <details className="mt-3 text-sm">
-        <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-300">
+        <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
           Ver tabla
         </summary>
         <table className="mt-2 w-full text-xs">
@@ -133,7 +133,7 @@ function MonthlyChart({ series }: { series: CurrencySeries }) {
           </thead>
           <tbody className="tabular-nums">
             {series.months.map((m) => (
-              <tr key={m.label} className="border-t border-zinc-800/40">
+              <tr key={m.label} className="border-t border-zinc-200 dark:border-zinc-800/40">
                 <td className="py-1">{m.label}</td>
                 <td className="py-1 text-right">
                   {formatMoney(m.quoted, currency)}

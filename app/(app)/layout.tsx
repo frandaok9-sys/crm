@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import { requireActiveUser } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function AppLayout({
   children,
@@ -14,6 +16,9 @@ export default async function AppLayout({
   const roleLabel = user.role ? ROLE_LABELS[user.role] : "Sin rol";
   const settings = await getCompanySettings();
   const brandName = settings?.tradeName ?? settings?.legalName ?? "RC CRM";
+  const cookieStore = await cookies();
+  const theme =
+    cookieStore.get("theme")?.value === "light" ? "light" : "dark";
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,7 +47,7 @@ export default async function AppLayout({
               <span aria-hidden>←</span> Inicio
             </Link>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="text-right text-sm">
               <div className="font-medium text-zinc-100">
                 {user.name ?? user.email}
@@ -51,6 +56,7 @@ export default async function AppLayout({
                 {roleLabel}
               </div>
             </div>
+            <ThemeToggle initial={theme} />
             <SignOutButton appearance="dark" />
           </div>
         </div>

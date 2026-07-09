@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono, Oswald } from "next/font/google";
 import "./globals.css";
 
@@ -24,16 +25,20 @@ export const metadata: Metadata = {
   description: "CRM comercial y administrativo de RC Pisos Industriales",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Preferencia de tema por usuario (cookie). Oscuro grafito por defecto.
+  const cookieStore = await cookies();
+  const theme =
+    cookieStore.get("theme")?.value === "light" ? "light" : "dark";
+
   return (
     <html
       lang="es"
-      // "dark" fijo: el CRM usa siempre el modo oscuro grafito (identidad RC).
-      className={`dark ${geistSans.variable} ${geistMono.variable} ${oswald.variable} h-full antialiased`}
+      className={`${theme === "dark" ? "dark " : ""}${geistSans.variable} ${geistMono.variable} ${oswald.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
