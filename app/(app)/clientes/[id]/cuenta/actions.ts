@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { canManageLedger, canViewRecord } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { allocateFifo } from "@/lib/ledger-calc";
 import {
   Currency,
   LedgerMovementType,
@@ -56,10 +58,15 @@ export async function addMovement(formData: FormData): Promise<void> {
   const date = dateRaw ? new Date(dateRaw) : new Date();
   if (Number.isNaN(date.getTime())) throw new Error("Fecha inválida.");
 
-  // Written inside a transaction so the derived balance can never be left
-  // inconsistent (and to stay atomic with any future related writes).
-  const movement = await prisma.$transaction((tx) =>
-    tx.ledgerMovement.create({
+  const isCredit =
+    type === LedgerMovementType.PAYMENT ||
+    type === LedgerMovementType.CREDIT_NOTE;
+  const autoAllocate = isCredit && formData.get("autoAllocate") === "on";
+
+  // Movement + FIFO allocation happen in ONE transaction: the balance and
+  // the imputations can never be left inconsistent.
+  const movement = await prisma.$transaction(async (tx) => {
+    const created = await tx.ledgerMovement.create({
       data: {
         clientId,
         type: type as LedgerMovementType,
@@ -70,8 +77,46 @@ export async function addMovement(formData: FormData): Promise<void> {
         reference: opt(formData, "reference"),
         createdById: user.id,
       },
-    })
-  );
+    });
+
+    if (autoAllocate) {
+      // Open debits of the same client AND currency, oldest first.
+      const debits = await tx.ledgerMovement.findMany({
+        where: {
+          clientId,
+          currency,
+          type: {
+            in: [LedgerMovementType.INVOICE, LedgerMovementType.DEBIT_NOTE],
+          },
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+        include: { allocationsAsInvoice: { select: { amount: true } } },
+      });
+      const open = debits.map((debit) => ({
+        id: debit.id,
+        remaining: new Decimal(debit.amount.toString())
+          .minus(
+            debit.allocationsAsInvoice.reduce(
+              (sum, a) => sum.plus(a.amount.toString()),
+              new Decimal(0)
+            )
+          )
+          .toFixed(2),
+      }));
+      const allocations = allocateFifo(open, amount);
+      if (allocations.length > 0) {
+        await tx.paymentAllocation.createMany({
+          data: allocations.map((a) => ({
+            paymentId: created.id,
+            invoiceId: a.invoiceId,
+            amount: a.amount,
+          })),
+        });
+      }
+    }
+
+    return created;
+  });
 
   await logAudit({
     action: "ledger.movement_created",

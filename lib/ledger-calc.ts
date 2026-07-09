@@ -33,6 +33,38 @@ export type CurrencyBalance = {
   balance: string; // debit − credit (positive ⇒ the client owes us)
 };
 
+export type OpenInvoice = {
+  id: string;
+  remaining: string | number; // saldo pendiente de la factura
+};
+
+export type Allocation = {
+  invoiceId: string;
+  amount: string; // 2 decimales
+};
+
+/**
+ * FIFO payment allocation: applies a payment to open invoices in the given
+ * order (oldest first) until the payment runs out. Returns the allocations;
+ * any surplus simply stays unallocated (client credit).
+ */
+export function allocateFifo(
+  openInvoices: OpenInvoice[],
+  paymentAmount: string | number
+): Allocation[] {
+  let left = new Decimal(paymentAmount || 0).toDecimalPlaces(2);
+  const allocations: Allocation[] = [];
+  for (const invoice of openInvoices) {
+    if (left.lessThanOrEqualTo(0)) break;
+    const remaining = new Decimal(invoice.remaining || 0).toDecimalPlaces(2);
+    if (remaining.lessThanOrEqualTo(0)) continue;
+    const applied = Decimal.min(left, remaining);
+    allocations.push({ invoiceId: invoice.id, amount: applied.toFixed(2) });
+    left = left.minus(applied);
+  }
+  return allocations;
+}
+
 export function computeBalances(
   movements: LedgerMovementInput[]
 ): CurrencyBalance[] {

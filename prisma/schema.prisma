@@ -388,8 +388,27 @@ model LedgerMovement {
   createdById String?
   createdAt   DateTime @default(now())
 
+  // Imputaciones: como pago (aplica a facturas) o como factura (recibe pagos)
+  allocationsAsPayment PaymentAllocation[] @relation("AllocPayment")
+  allocationsAsInvoice PaymentAllocation[] @relation("AllocInvoice")
+
   @@index([clientId, currency])
   @@index([quoteId])
+}
+
+/// Imputación de un pago/nota de crédito a una factura/nota de débito.
+/// Siempre mismo cliente y misma moneda; se crea dentro de una transacción.
+model PaymentAllocation {
+  id        String   @id @default(cuid())
+  paymentId String
+  payment   LedgerMovement @relation("AllocPayment", fields: [paymentId], references: [id], onDelete: Cascade)
+  invoiceId String
+  invoice   LedgerMovement @relation("AllocInvoice", fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Decimal  @db.Decimal(14, 2)
+  createdAt DateTime @default(now())
+
+  @@index([paymentId])
+  @@index([invoiceId])
 }
 
 /// Configuración de la empresa: datos fiscales y branding (logo, colores, pie

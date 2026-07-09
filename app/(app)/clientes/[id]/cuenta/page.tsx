@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
@@ -48,7 +49,19 @@ export default async function LedgerPage({
   const movements = await prisma.ledgerMovement.findMany({
     where: { clientId: id },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    include: {
+      allocationsAsInvoice: { select: { amount: true } },
+      allocationsAsPayment: { select: { amount: true } },
+    },
   });
+
+  // Por movimiento: cuánto tiene imputado (como factura o como pago).
+  function allocated(rows: { amount: unknown }[]): Decimal {
+    return rows.reduce(
+      (sum, a) => sum.plus(String(a.amount)),
+      new Decimal(0)
+    );
+  }
 
   const balances = computeBalances(
     movements.map((m) => ({
@@ -172,7 +185,12 @@ export default async function LedgerPage({
               </span>
               <input name="description" className={inputClass} />
             </label>
-            <div className="sm:col-span-3 flex justify-end">
+            <label className="sm:col-span-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+              <input type="checkbox" name="autoAllocate" defaultChecked />
+              Imputar automáticamente a las facturas más antiguas (solo pagos
+              y notas de crédito)
+            </label>
+            <div className="flex justify-end">
               <SubmitButton pendingText="Registrando…">Registrar</SubmitButton>
             </div>
           </form>
@@ -209,6 +227,41 @@ export default async function LedgerPage({
                   m.currency === Currency.USD ? Currency.USD : Currency.ARS;
                 const amountLabel = formatMoney(m.amount.toString(), currency);
                 const debit = isDebit(m.type);
+
+                // Estado de imputación del movimiento.
+                const total = new Decimal(m.amount.toString());
+                const applied = debit
+                  ? allocated(m.allocationsAsInvoice)
+                  : allocated(m.allocationsAsPayment);
+                const pending = total.minus(applied);
+                let chip: { label: string; className: string } | null = null;
+                if (debit) {
+                  if (applied.greaterThanOrEqualTo(total) && total.gt(0)) {
+                    chip = {
+                      label: "Cancelada",
+                      className:
+                        "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+                    };
+                  } else if (applied.gt(0)) {
+                    chip = {
+                      label: `Parcial · pagado ${formatMoney(applied.toFixed(2), currency)}`,
+                      className:
+                        "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+                    };
+                  } else {
+                    chip = {
+                      label: "Pendiente",
+                      className:
+                        "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+                    };
+                  }
+                } else if (pending.gt(0)) {
+                  chip = {
+                    label: `Sin imputar ${formatMoney(pending.toFixed(2), currency)}`,
+                    className: "bg-primary/10 text-primary",
+                  };
+                }
+
                 return (
                   <tr key={m.id} className="border-b last:border-0">
                     <td className="px-4 py-3 text-zinc-500">
@@ -220,6 +273,13 @@ export default async function LedgerPage({
                         <span className="font-medium">{m.reference} </span>
                       )}
                       <span className="text-zinc-500">{m.description}</span>
+                      {chip && (
+                        <span
+                          className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${chip.className}`}
+                        >
+                          {chip.label}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">{m.currency}</td>
                     <td className="px-4 py-3 text-right">
