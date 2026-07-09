@@ -9,25 +9,12 @@ import {
   quoteScope,
   canManageLedger,
 } from "@/lib/permissions";
-import { getReceivables } from "@/lib/receivables";
-import { formatMoney } from "@/lib/opportunities";
-import { QuoteStatus, Currency } from "@/lib/generated/prisma/enums";
+import { QuoteStatus } from "@/lib/generated/prisma/enums";
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border-l-4 border-primary bg-card p-4 shadow-sm">
       <div className="font-heading text-3xl font-semibold">{value}</div>
-      <div className="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function MoneyMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border-l-4 border-primary bg-card p-4 shadow-sm">
-      <div className="font-heading text-2xl font-semibold">{value}</div>
       <div className="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
         {label}
       </div>
@@ -68,7 +55,7 @@ export default async function DashboardPage() {
   const firstName = (user.name ?? user.email ?? "").split(" ")[0];
 
   const showReceivables = canManageLedger(user);
-  const [clients, opportunities, quotesSent, quotesApproved, receivables] =
+  const [clients, opportunities, quotesSent, quotesApproved] =
     await Promise.all([
       prisma.client.count({ where: clientScope(user) }),
       prisma.opportunity.count({ where: opportunityScope(user) }),
@@ -78,7 +65,6 @@ export default async function DashboardPage() {
       prisma.quote.count({
         where: { ...quoteScope(user), status: QuoteStatus.APPROVED },
       }),
-      showReceivables ? getReceivables() : Promise.resolve(null),
     ]);
 
   return (
@@ -97,46 +83,7 @@ export default async function DashboardPage() {
         <Metric label="Presupuestos aprobados" value={quotesApproved} />
       </div>
 
-      {/* Cobranzas — visible para Admin / Gerente / Administración */}
-      {receivables && (
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-heading text-sm font-semibold uppercase tracking-wide text-zinc-400">
-              Cobranzas
-            </h2>
-            <Link
-              href="/cobranzas"
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Ver panel completo →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MoneyMetric
-              label="Por cobrar ARS"
-              value={
-                formatMoney(receivables.summary.totalARS, Currency.ARS) ?? "—"
-              }
-            />
-            <MoneyMetric
-              label="Por cobrar USD"
-              value={
-                formatMoney(receivables.summary.totalUSD, Currency.USD) ?? "—"
-              }
-            />
-            <Metric
-              label="Facturas abiertas"
-              value={receivables.summary.openInvoices}
-            />
-            <Metric
-              label="Pagos sin imputar"
-              value={receivables.summary.unallocatedPayments}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <QuickLink
           href="/clientes"
           title="Clientes"
@@ -156,6 +103,18 @@ export default async function DashboardPage() {
           href="/productos"
           title="Productos"
           description="Catálogo Sinteplast y Ashford con precios."
+        />
+        {showReceivables && (
+          <QuickLink
+            href="/cobranzas"
+            title="Cobranzas"
+            description="Saldos deudores, facturas abiertas y pagos."
+          />
+        )}
+        <QuickLink
+          href="/metricas"
+          title="Métricas"
+          description="Ventas, conversión, segmentos y embudo."
         />
       </div>
     </div>
