@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "PowerShell(Write-Output \"node: $\\(\\(Get-Command node -ErrorAction SilentlyContinue\\).Source\\)\"; Write-Output \"npm: $\\(\\(Get-Command npm -ErrorAction SilentlyContinue\\).Source\\)\"; Write-Output \"git: $\\(\\(Get-Command git -ErrorAction SilentlyContinue\\).Source\\)\"; Write-Output \"gh: $\\(\\(Get-Command gh -ErrorAction SilentlyContinue\\).Source\\)\")",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\nodejs\\\\node.exe\", \"${env:ProgramFiles\\(x86\\)}\\\\nodejs\\\\node.exe\", \"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\", \"$env:APPDATA\\\\npm\\\\node.exe\", \"$env:LOCALAPPDATA\\\\fnm_multishells\", \"$env:USERPROFILE\\\\.volta\\\\bin\\\\node.exe\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { Write-Output \"FOUND: $p\" } }; Write-Output \"winget: $\\(\\(Get-Command winget -ErrorAction SilentlyContinue\\).Source\\)\")",
+      "PowerShell(winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements --silent)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); Write-Output \"node: $\\(node --version\\)\"; Write-Output \"npm: $\\(npm --version\\)\")",
+      "PowerShell($src = \"C:\\\\Users\\\\usuario\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-usuario-OneDrive-Escritorio-Proyecto-CRM\\\\2ed57b18-3f60-449f-9bd3-ab838a64ec3c\\\\scratchpad\\\\scaffold\\\\crm\"; $dst = \"C:\\\\Users\\\\usuario\\\\OneDrive\\\\Escritorio\\\\Proyecto CRM\"; Get-ChildItem -Path $src -Force | ForEach-Object { Move-Item -Path $_.FullName -Destination $dst -Force }; Write-Output \"--- Contenido de la carpeta del proyecto ---\"; Get-ChildItem -Path $dst -Force | Select-Object Name | Format-Table -HideTableHeaders)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); npm install 2>&1 | Select-Object -Last 15)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); npm install prisma --save-dev 2>&1 | Select-Object -Last 3; npm install @prisma/client 2>&1 | Select-Object -Last 3; Write-Output \"--- prisma init ---\"; npx --yes prisma init --datasource-provider postgresql 2>&1 | Select-Object -Last 20)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); npx --yes prisma generate 2>&1 | Select-Object -Last 25)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); npm run build 2>&1 | Select-Object -Last 30)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); npm install @prisma/adapter-pg 2>&1 | Select-Object -Last 4)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); npm run build 2>&1 | Select-Object -Last 22)"
+    ]
+  }
+}
