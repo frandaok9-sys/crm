@@ -103,14 +103,15 @@ export default async function QuoteDetailPage({
             )}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled
-          title="Disponible próximamente"
+        <a
+          href={`/presupuestos/${quote.id}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
         >
-          Descargar PDF (próximamente)
-        </Button>
+          <Button variant="outline" size="sm">
+            Descargar PDF
+          </Button>
+        </a>
       </div>
 
       {canEdit && (
