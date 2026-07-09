@@ -7,6 +7,18 @@ describe("lineNet", () => {
     expect(lineNet(2, 100)).toBe("200.00");
     expect(lineNet("3", "33.33")).toBe("99.99");
   });
+
+  it("applies a percentage discount", () => {
+    expect(lineNet(100, 10, 10)).toBe("900.00");
+    expect(lineNet(1, 1000, "12.5")).toBe("875.00");
+    expect(lineNet(2, 100, 0)).toBe("200.00");
+    expect(lineNet(2, 100, 100)).toBe("0.00");
+  });
+
+  it("clamps out-of-range discounts", () => {
+    expect(lineNet(1, 100, 150)).toBe("0.00");
+    expect(lineNet(1, 100, -20)).toBe("100.00");
+  });
 });
 
 describe("computeQuoteTotals", () => {
@@ -65,6 +77,16 @@ describe("computeQuoteTotals", () => {
     // 99.99 * 0.21 = 20.9979 -> 21.00
     expect(totals.ivaTotal).toBe("21.00");
     expect(totals.total).toBe("120.99");
+  });
+
+  it("applies discounts before computing IVA", () => {
+    const totals = computeQuoteTotals([
+      { quantity: 1, unitPrice: 1000, ivaRate: 21, discount: 10 },
+    ]);
+    // 1000 − 10% = 900 neto; IVA 21% de 900 = 189
+    expect(totals.net).toBe("900.00");
+    expect(totals.ivaTotal).toBe("189.00");
+    expect(totals.total).toBe("1089.00");
   });
 
   it("returns zeros for an empty quote", () => {

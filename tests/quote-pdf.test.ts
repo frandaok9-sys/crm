@@ -38,8 +38,9 @@ const sample: QuotePdfData = {
       quantity: "2500",
       unit: "m²",
       unitPrice: "18500",
+      discount: "10",
       ivaRate: "21.00",
-      lineNet: "46250000.00",
+      lineNet: "41625000.00",
     },
     {
       type: QuoteItemType.PRODUCT,
@@ -47,6 +48,7 @@ const sample: QuotePdfData = {
       quantity: "320",
       unit: "ml",
       unitPrice: "4200",
+      discount: "0",
       ivaRate: "10.50",
       lineNet: "1344000.00",
     },

@@ -45,8 +45,16 @@ type ParsedItem = {
   quantity: string;
   unit: string;
   unitPrice: string;
+  discount: string;
   ivaRate: string;
 };
+
+/** Clamp a percentage string to 0–100. */
+function pct(value: string): string {
+  const n = Number(value);
+  if (Number.isNaN(n) || n < 0) return "0";
+  return n > 100 ? "100" : value;
+}
 
 function parseItems(formData: FormData): ParsedItem[] {
   const raw = formData.get("items");
@@ -69,6 +77,7 @@ function parseItems(formData: FormData): ParsedItem[] {
         quantity: num(r.quantity),
         unit: String(r.unit ?? "").trim().slice(0, 12) || "m²",
         unitPrice: num(r.unitPrice),
+        discount: pct(num(r.discount)),
         ivaRate: num(r.ivaRate),
       };
     })
@@ -82,8 +91,9 @@ function itemCreateData(items: ParsedItem[]) {
     quantity: it.quantity,
     unit: it.unit,
     unitPrice: it.unitPrice,
+    discount: it.discount,
     ivaRate: it.ivaRate,
-    lineNet: lineNet(it.quantity, it.unitPrice),
+    lineNet: lineNet(it.quantity, it.unitPrice, it.discount),
     position: index,
   }));
 }
@@ -274,6 +284,7 @@ export async function reviseQuote(formData: FormData): Promise<void> {
             quantity: it.quantity,
             unit: it.unit,
             unitPrice: it.unitPrice,
+            discount: it.discount,
             ivaRate: it.ivaRate,
             lineNet: it.lineNet,
             position: it.position,

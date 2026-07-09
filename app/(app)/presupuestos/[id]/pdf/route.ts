@@ -72,6 +72,7 @@ export async function GET(
       quantity: it.quantity.toString(),
       unit: it.unit,
       unitPrice: it.unitPrice.toString(),
+      discount: it.discount.toString(),
       ivaRate: it.ivaRate.toString(),
       lineNet: it.lineNet.toString(),
     })),

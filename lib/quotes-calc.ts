@@ -12,6 +12,7 @@ export type QuoteLineInput = {
   quantity: string | number;
   unitPrice: string | number;
   ivaRate: string | number; // percentage: 21, 10.5, 27, 0…
+  discount?: string | number; // percentage: 0–100
 };
 
 export type IvaBreakdownRow = {
@@ -37,12 +38,27 @@ function money(value: Decimal): string {
   return value.toFixed(SCALE);
 }
 
-/** Net amount of a single line (quantity × unit price), rounded to 2 decimals. */
+/** Discount multiplier: 10% → 0.9. Values outside 0–100 are clamped. */
+function discountFactor(discount: string | number | undefined): Decimal {
+  const pct = Decimal.min(Decimal.max(d(discount ?? 0), 0), 100);
+  return new Decimal(1).minus(pct.dividedBy(100));
+}
+
+/**
+ * Net amount of a single line: quantity × unit price × (1 − discount%),
+ * rounded to 2 decimals.
+ */
 export function lineNet(
   quantity: string | number,
-  unitPrice: string | number
+  unitPrice: string | number,
+  discount: string | number = 0
 ): string {
-  return money(d(quantity).times(d(unitPrice)).toDecimalPlaces(SCALE));
+  return money(
+    d(quantity)
+      .times(d(unitPrice))
+      .times(discountFactor(discount))
+      .toDecimalPlaces(SCALE)
+  );
 }
 
 /**
@@ -56,6 +72,7 @@ export function computeQuoteTotals(lines: QuoteLineInput[]): QuoteTotals {
   for (const line of lines) {
     const lineNetValue = d(line.quantity)
       .times(d(line.unitPrice))
+      .times(discountFactor(line.discount))
       .toDecimalPlaces(SCALE);
     net = net.plus(lineNetValue);
 

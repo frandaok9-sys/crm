@@ -32,6 +32,7 @@ export type QuotePdfItem = {
   quantity: string;
   unit: string;
   unitPrice: string;
+  discount: string;
   ivaRate: string;
   lineNet: string;
 };
@@ -168,11 +169,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 8,
   },
-  cDesc: { flex: 5 },
-  cQty: { flex: 1.6, textAlign: "right" },
-  cPrice: { flex: 2, textAlign: "right" },
-  cIva: { flex: 1.2, textAlign: "right" },
-  cNet: { flex: 2.2, textAlign: "right" },
+  cDesc: { flex: 4.6 },
+  cQty: { flex: 1.5, textAlign: "right" },
+  cPrice: { flex: 1.9, textAlign: "right" },
+  cDisc: { flex: 1, textAlign: "right" },
+  cIva: { flex: 1, textAlign: "right" },
+  cNet: { flex: 2.1, textAlign: "right" },
   itemType: { color: STEEL, fontSize: 7, marginTop: 1.5 },
 
   totalsWrap: { flexDirection: "row", justifyContent: "flex-end", marginTop: 12 },
@@ -221,9 +223,11 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
     data.items.map((it) => ({
       quantity: it.quantity,
       unitPrice: it.unitPrice,
+      discount: it.discount,
       ivaRate: it.ivaRate,
     }))
   );
+  const hasDiscounts = data.items.some((it) => Number(it.discount) > 0);
   const fmt = (v: string) => money(v, data.currency);
   const companyName = data.company.name ?? "RC Pisos Industriales";
 
@@ -324,6 +328,9 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
           <Text style={[styles.thText, styles.cDesc]}>Descripción</Text>
           <Text style={[styles.thText, styles.cQty]}>Cantidad</Text>
           <Text style={[styles.thText, styles.cPrice]}>P. Unitario</Text>
+          {hasDiscounts && (
+            <Text style={[styles.thText, styles.cDisc]}>Desc.</Text>
+          )}
           <Text style={[styles.thText, styles.cIva]}>IVA</Text>
           <Text style={[styles.thText, styles.cNet]}>Neto</Text>
         </View>
@@ -339,6 +346,11 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
               {Number(item.quantity).toLocaleString("es-AR")} {item.unit}
             </Text>
             <Text style={styles.cPrice}>{fmt(item.unitPrice)}</Text>
+            {hasDiscounts && (
+              <Text style={styles.cDisc}>
+                {Number(item.discount) > 0 ? `${Number(item.discount)}%` : "—"}
+              </Text>
+            )}
             <Text style={styles.cIva}>{Number(item.ivaRate)}%</Text>
             <Text style={styles.cNet}>{fmt(item.lineNet)}</Text>
           </View>

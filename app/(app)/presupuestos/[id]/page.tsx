@@ -63,9 +63,11 @@ export default async function QuoteDetailPage({
     quote.items.map((it) => ({
       quantity: it.quantity.toString(),
       unitPrice: it.unitPrice.toString(),
+      discount: it.discount.toString(),
       ivaRate: it.ivaRate.toString(),
     }))
   );
+  const hasDiscounts = quote.items.some((it) => Number(it.discount) > 0);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -163,6 +165,9 @@ export default async function QuoteDetailPage({
               <th className="px-4 py-3 font-medium">Detalle</th>
               <th className="px-4 py-3 text-right font-medium">Cant.</th>
               <th className="px-4 py-3 text-right font-medium">P. unit.</th>
+              {hasDiscounts && (
+                <th className="px-4 py-3 text-right font-medium">Desc.</th>
+              )}
               <th className="px-4 py-3 text-right font-medium">IVA</th>
               <th className="px-4 py-3 text-right font-medium">Neto</th>
             </tr>
@@ -183,8 +188,15 @@ export default async function QuoteDetailPage({
                 <td className="px-4 py-3 text-right">
                   {fmt(item.unitPrice.toString())}
                 </td>
+                {hasDiscounts && (
+                  <td className="px-4 py-3 text-right">
+                    {Number(item.discount) > 0
+                      ? `${Number(item.discount)}%`
+                      : "—"}
+                  </td>
+                )}
                 <td className="px-4 py-3 text-right">
-                  {item.ivaRate.toString()}%
+                  {Number(item.ivaRate)}%
                 </td>
                 <td className="px-4 py-3 text-right">
                   {fmt(item.lineNet.toString())}
@@ -203,7 +215,7 @@ export default async function QuoteDetailPage({
           </div>
           {totals.ivaBreakdown.map((iva) => (
             <div key={iva.rate} className="flex justify-between text-zinc-500">
-              <span>IVA {iva.rate}%</span>
+              <span>IVA {Number(iva.rate)}%</span>
               <span>{fmt(iva.amount)}</span>
             </div>
           ))}

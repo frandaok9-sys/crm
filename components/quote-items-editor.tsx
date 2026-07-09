@@ -10,6 +10,7 @@ export type QuoteRow = {
   quantity: string;
   unit: string;
   unitPrice: string;
+  discount: string; // % por ítem
   ivaRate: string;
 };
 
@@ -73,6 +74,7 @@ export function QuoteItemsEditor({
             quantity: "1",
             unit: "m²",
             unitPrice: "0",
+            discount: "0",
             ivaRate: defaultRate,
           },
         ]
@@ -100,6 +102,7 @@ export function QuoteItemsEditor({
         quantity: "1",
         unit: product.unit,
         unitPrice: product.price,
+        discount: "0",
         ivaRate: product.ivaRate,
       };
       return isBlank ? [newRow] : [...prev, newRow];
@@ -123,6 +126,7 @@ export function QuoteItemsEditor({
         quantity: "1",
         unit: "m²",
         unitPrice: "0",
+        discount: "0",
         ivaRate: defaultRate,
       },
     ]);
@@ -138,6 +142,7 @@ export function QuoteItemsEditor({
         rows.map((r) => ({
           quantity: sanitize(r.quantity || "0"),
           unitPrice: sanitize(r.unitPrice || "0"),
+          discount: sanitize(r.discount || "0"),
           ivaRate: sanitize(r.ivaRate || "0"),
         }))
       );
@@ -211,10 +216,11 @@ export function QuoteItemsEditor({
           <thead>
             <tr className="text-left text-xs uppercase text-zinc-500">
               <th className="px-1 py-2 font-medium">Tipo</th>
-              <th className="px-1 py-2 font-medium">Descripción</th>
+              <th className="w-full px-1 py-2 font-medium">Descripción</th>
               <th className="px-1 py-2 font-medium">Cant.</th>
               <th className="px-1 py-2 font-medium">Unidad</th>
               <th className="px-1 py-2 font-medium">P. unitario</th>
+              <th className="px-1 py-2 font-medium">Desc. %</th>
               <th className="px-1 py-2 font-medium">IVA</th>
               <th className="px-1 py-2" />
             </tr>
@@ -235,14 +241,15 @@ export function QuoteItemsEditor({
                     ))}
                   </select>
                 </td>
-                <td className="px-1 py-1">
+                <td className="w-full px-1 py-1">
                   <input
                     value={row.description}
                     onChange={(e) =>
                       update(index, { description: e.target.value })
                     }
                     placeholder="Detalle"
-                    className={`${cell} w-full min-w-40`}
+                    title={row.description}
+                    className={`${cell} w-full min-w-72`}
                   />
                 </td>
                 <td className="px-1 py-1">
@@ -276,7 +283,15 @@ export function QuoteItemsEditor({
                     onChange={(e) =>
                       update(index, { unitPrice: e.target.value })
                     }
-                    className={`${cell} w-24`}
+                    className={`${cell} w-28`}
+                  />
+                </td>
+                <td className="px-1 py-1">
+                  <input
+                    value={row.discount}
+                    inputMode="decimal"
+                    onChange={(e) => update(index, { discount: e.target.value })}
+                    className={`${cell} w-16 text-right`}
                   />
                 </td>
                 <td className="px-1 py-1">
@@ -328,7 +343,7 @@ export function QuoteItemsEditor({
             </div>
             {totals.ivaBreakdown.map((iva) => (
               <div key={iva.rate} className="flex justify-between text-zinc-500">
-                <span>IVA {iva.rate}%</span>
+                <span>IVA {Number(iva.rate)}%</span>
                 <span>{fmt(iva.amount)}</span>
               </div>
             ))}

@@ -345,6 +345,7 @@ model QuoteItem {
   quantity    Decimal       @default(1) @db.Decimal(14, 2)
   unit        String        @default("m²") // Unidad: m², un, h, ml, kg, global
   unitPrice   Decimal       @default(0) @db.Decimal(14, 2)
+  discount    Decimal       @default(0) @db.Decimal(5, 2) // Descuento % por ítem
   ivaRate     Decimal       @default(0) @db.Decimal(5, 2)
   lineNet     Decimal       @default(0) @db.Decimal(14, 2)
   position    Int           @default(0)
