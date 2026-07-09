@@ -3,11 +3,18 @@ import { notFound, redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canViewRecord, canEditOpportunity } from "@/lib/permissions";
+import {
+  canViewRecord,
+  canEditOpportunity,
+  canAssignClients,
+  clientScope,
+} from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { hasGoogleTasksAccess } from "@/lib/google-tasks";
+import { UserStatus, Currency } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
-import { createReminder, deleteReminder } from "../actions";
+import { ClientCombobox } from "@/components/client-combobox";
+import { createReminder, deleteReminder, updateOpportunity } from "../actions";
 
 const inputClass =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
@@ -43,11 +50,30 @@ export default async function OpportunityDetailPage({
   if (!canViewRecord(user, opportunity)) redirect("/oportunidades");
 
   const canEdit = canEditOpportunity(user, opportunity);
+  const canAssign = canAssignClients(user);
   const googleConnected = canEdit ? await hasGoogleTasksAccess(user.id) : false;
   const amountLabel = formatMoney(
     opportunity.amount ? opportunity.amount.toString() : null,
     opportunity.currency
   );
+
+  const [stages, clients, owners] = await Promise.all([
+    prisma.stage.findMany({ orderBy: { position: "asc" } }),
+    prisma.client.findMany({
+      where: clientScope(user),
+      select: { id: true, legalName: true },
+      orderBy: { legalName: "asc" },
+    }),
+    canAssign
+      ? prisma.user.findMany({
+          where: { status: UserStatus.ACTIVE },
+          select: { id: true, name: true, email: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve(
+          [] as { id: string; name: string | null; email: string }[]
+        ),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -72,6 +98,123 @@ export default async function OpportunityDetailPage({
           {amountLabel && <> · {amountLabel}</>}
         </p>
       </div>
+
+      {canEdit && (
+        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+          <h2 className="mb-4 text-sm font-medium text-zinc-500">
+            Datos de la oportunidad
+          </h2>
+          <form action={updateOpportunity} className="space-y-4">
+            <input type="hidden" name="id" value={opportunity.id} />
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                Título *
+              </span>
+              <input
+                name="title"
+                required
+                defaultValue={opportunity.title}
+                className={inputClass}
+              />
+            </label>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Cliente *
+                </span>
+                <ClientCombobox
+                  clients={clients}
+                  name="clientId"
+                  defaultId={opportunity.client.id}
+                  defaultLabel={opportunity.client.legalName}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Etapa *
+                </span>
+                <select
+                  name="stageId"
+                  defaultValue={opportunity.stageId}
+                  className={inputClass}
+                >
+                  {stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Monto estimado
+                </span>
+                <input
+                  name="amount"
+                  inputMode="decimal"
+                  defaultValue={
+                    opportunity.amount ? opportunity.amount.toString() : ""
+                  }
+                  className={inputClass}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">
+                  Moneda
+                </span>
+                <select
+                  name="currency"
+                  defaultValue={opportunity.currency}
+                  className={inputClass}
+                >
+                  <option value={Currency.ARS}>Pesos (ARS)</option>
+                  <option value={Currency.USD}>Dólares (USD)</option>
+                </select>
+              </label>
+
+              {canAssign && (
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block text-xs font-medium text-zinc-500">
+                    Vendedor asignado
+                  </span>
+                  <select
+                    name="ownerId"
+                    defaultValue={opportunity.ownerId ?? ""}
+                    className={inputClass}
+                  >
+                    <option value="">Sin asignar</option>
+                    {owners.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name ?? o.email}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                Notas
+              </span>
+              <textarea
+                name="notes"
+                rows={3}
+                defaultValue={opportunity.notes ?? ""}
+                className={inputClass}
+              />
+            </label>
+
+            <div className="flex justify-end">
+              <Button type="submit">Guardar cambios</Button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
         <div className="mb-4 flex items-center justify-between">

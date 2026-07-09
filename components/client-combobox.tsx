@@ -18,12 +18,16 @@ function normalize(value: string): string {
 export function ClientCombobox({
   clients,
   name,
+  defaultId = "",
+  defaultLabel = "",
 }: {
   clients: Item[];
   name: string;
+  defaultId?: string;
+  defaultLabel?: string;
 }) {
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState("");
+  const [query, setQuery] = useState(defaultLabel);
+  const [selectedId, setSelectedId] = useState(defaultId);
   const [open, setOpen] = useState(false);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

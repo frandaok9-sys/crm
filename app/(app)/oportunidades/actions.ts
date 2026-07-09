@@ -101,6 +101,69 @@ export async function createOpportunity(formData: FormData): Promise<void> {
   redirect("/oportunidades");
 }
 
+export async function updateOpportunity(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const existing = await prisma.opportunity.findUnique({ where: { id } });
+  if (!existing) throw new Error("Oportunidad no encontrada.");
+  if (!canEditOpportunity(user, existing)) {
+    throw new Error("No tenés permisos para editar esta oportunidad.");
+  }
+
+  const title = opt(formData, "title");
+  if (!title) throw new Error("El título es obligatorio.");
+
+  const clientId = opt(formData, "clientId");
+  if (!clientId) throw new Error("Elegí un cliente.");
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!client || !canViewRecord(user, client)) {
+    throw new Error("Cliente inválido.");
+  }
+
+  const stageId = opt(formData, "stageId");
+  if (!stageId) throw new Error("Elegí una etapa.");
+
+  const currency =
+    opt(formData, "currency") === Currency.USD ? Currency.USD : Currency.ARS;
+  const amount = parseAmount(opt(formData, "amount"));
+
+  // Only admins/managers can reassign; a salesperson keeps the current owner.
+  const ownerId = canAssignClients(user)
+    ? opt(formData, "ownerId") ?? existing.ownerId
+    : existing.ownerId;
+
+  // If moved to another stage, place it at the end of that column.
+  const position =
+    stageId === existing.stageId
+      ? existing.position
+      : await prisma.opportunity.count({ where: { stageId } });
+
+  await prisma.opportunity.update({
+    where: { id },
+    data: {
+      title,
+      clientId,
+      stageId,
+      currency,
+      amount,
+      ownerId,
+      position,
+      notes: opt(formData, "notes"),
+    },
+  });
+
+  await logAudit({
+    action: "opportunity.updated",
+    actorId: user.id,
+    targetType: "Opportunity",
+    targetId: id,
+    metadata: { title },
+  });
+  revalidatePath("/oportunidades");
+  revalidatePath(`/oportunidades/${id}`);
+  redirect(`/oportunidades/${id}`);
+}
+
 /** Persists a drag: sets the moved card's stage and reorders the target column. */
 export async function moveOpportunity(
   movedId: string,
