@@ -42,13 +42,13 @@ export default async function QuotesPage() {
       </div>
 
       {quotes.length === 0 ? (
-        <div className="rounded-xl border bg-white p-10 text-center text-sm text-zinc-500 dark:bg-zinc-950">
+        <div className="rounded-xl border bg-white p-10 text-center text-sm text-zinc-500 dark:bg-zinc-900">
           Todavía no hay presupuestos.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-950">
+        <div className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
           <table className="w-full text-sm">
-            <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
+            <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
               <tr>
                 <th className="px-4 py-3 font-medium">Número</th>
                 <th className="px-4 py-3 font-medium">Cliente</th>

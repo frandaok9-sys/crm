@@ -29,7 +29,7 @@ export default async function NewClientPage() {
       <select
         name="ownerId"
         defaultValue=""
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
       >
         <option value="">Sin asignar (cartera general)</option>
         {owners.map((o) => (
@@ -57,7 +57,7 @@ export default async function NewClientPage() {
         )}
       </div>
 
-      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <ClientForm
           action={createClient}
           submitLabel="Crear cliente"

@@ -4,7 +4,7 @@ import { QuoteItemsEditor, type QuoteRow } from "@/components/quote-items-editor
 import { Currency } from "@/lib/generated/prisma/enums";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 type Owner = { id: string; name: string | null; email: string };
 

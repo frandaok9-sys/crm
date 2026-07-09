@@ -17,7 +17,7 @@ import { ClientCombobox } from "@/components/client-combobox";
 import { createReminder, deleteReminder, updateOpportunity } from "../actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 function formatDate(date: Date): string {
   return date.toLocaleString("es-AR", {
@@ -104,7 +104,7 @@ export default async function OpportunityDetailPage({
       </div>
 
       {canEdit && (
-        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
           <h2 className="mb-4 text-sm font-medium text-zinc-500">
             Datos de la oportunidad
           </h2>
@@ -247,7 +247,7 @@ export default async function OpportunityDetailPage({
         </section>
       )}
 
-      <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+      <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-medium text-zinc-500">
             Alertas ({opportunity.reminders.length})

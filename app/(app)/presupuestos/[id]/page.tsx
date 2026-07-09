@@ -154,9 +154,9 @@ export default async function QuoteDetailPage({
         </div>
       )}
 
-      <section className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-950">
+      <section className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
         <table className="w-full text-sm">
-          <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
+          <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
             <tr>
               <th className="px-4 py-3 font-medium">Detalle</th>
               <th className="px-4 py-3 text-right font-medium">Cant.</th>
@@ -213,7 +213,7 @@ export default async function QuoteDetailPage({
       </div>
 
       {quote.notes && (
-        <section className="rounded-xl border bg-white p-4 text-sm dark:bg-zinc-950">
+        <section className="rounded-xl border bg-white p-4 text-sm dark:bg-zinc-900">
           <h2 className="mb-1 text-xs font-medium uppercase text-zinc-500">
             Notas / condiciones
           </h2>

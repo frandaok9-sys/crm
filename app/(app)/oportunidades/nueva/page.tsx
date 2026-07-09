@@ -14,7 +14,7 @@ import { ClientCombobox } from "@/components/client-combobox";
 import { createOpportunity } from "../actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 export default async function NewOpportunityPage() {
   const user = await requireActiveUser();
@@ -52,7 +52,7 @@ export default async function NewOpportunityPage() {
       </div>
 
       {clients.length === 0 ? (
-        <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-950">
+        <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900">
           Primero necesitás tener al menos un cliente en tu cartera.{" "}
           <Link href="/clientes/nuevo" className="text-primary hover:underline">
             Crear un cliente
@@ -60,7 +60,7 @@ export default async function NewOpportunityPage() {
           .
         </div>
       ) : (
-        <div className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+        <div className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
           <form action={createOpportunity} className="space-y-4">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-zinc-500">

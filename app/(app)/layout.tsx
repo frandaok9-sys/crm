@@ -22,7 +22,7 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen bg-background">
       {/* Steel-dark header with brand-red baseline */}
-      <header className="border-b-2 border-primary bg-zinc-900">
+      <header className="border-b-2 border-primary bg-zinc-950">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-3">
           <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <Link href="/dashboard" className="mr-2 flex items-center">

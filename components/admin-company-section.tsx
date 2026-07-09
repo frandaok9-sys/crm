@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { updateCompanySettings } from "@/app/(app)/admin/empresa/actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 function Field({
   label,
@@ -35,7 +35,7 @@ export async function AdminCompanySection() {
       </p>
 
       <form action={updateCompanySettings} className="space-y-6">
-        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
           <h2 className="mb-4 text-sm font-medium text-zinc-500">
             Datos de la empresa
           </h2>
@@ -132,7 +132,7 @@ export async function AdminCompanySection() {
           </div>
         </section>
 
-        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
           <h2 className="mb-4 text-sm font-medium text-zinc-500">
             Diseño base del presupuesto (para el PDF)
           </h2>

@@ -12,8 +12,8 @@ export default async function PendingPage() {
   const disabled = session.user.status === UserStatus.DISABLED;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 p-6 dark:bg-black">
-      <div className="w-full max-w-md rounded-xl border bg-white p-8 text-center shadow-sm dark:bg-zinc-950">
+    <main className="flex min-h-screen items-center justify-center bg-zinc-50 p-6 dark:bg-zinc-950">
+      <div className="w-full max-w-md rounded-xl border bg-white p-8 text-center shadow-sm dark:bg-zinc-900">
         <h1 className="text-xl font-semibold tracking-tight">
           {disabled ? "Cuenta deshabilitada" : "Cuenta pendiente de aprobación"}
         </h1>

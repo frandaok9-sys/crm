@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { addMovement, deleteMovement } from "./actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 function balanceLabel(balance: string): { text: string; className: string } {
   const value = Number(balance);
@@ -77,7 +77,7 @@ export default async function LedgerPage({
       {/* Saldos por moneda */}
       <div className="grid gap-3 sm:grid-cols-2">
         {balances.length === 0 ? (
-          <div className="rounded-xl border bg-white p-4 text-sm text-zinc-500 dark:bg-zinc-950">
+          <div className="rounded-xl border bg-white p-4 text-sm text-zinc-500 dark:bg-zinc-900">
             Sin movimientos.
           </div>
         ) : (
@@ -88,7 +88,7 @@ export default async function LedgerPage({
             return (
               <div
                 key={b.currency}
-                className="rounded-xl border bg-white p-4 dark:bg-zinc-950"
+                className="rounded-xl border bg-white p-4 dark:bg-zinc-900"
               >
                 <div className="text-xs text-zinc-500">{b.currency}</div>
                 <div className={`text-2xl font-semibold ${info.className}`}>
@@ -106,7 +106,7 @@ export default async function LedgerPage({
 
       {/* Alta de movimiento */}
       {canManage && (
-        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
           <h2 className="mb-4 text-sm font-medium text-zinc-500">
             Registrar movimiento
           </h2>
@@ -179,9 +179,9 @@ export default async function LedgerPage({
       )}
 
       {/* Movimientos */}
-      <section className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-950">
+      <section className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
         <table className="w-full text-sm">
-          <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
+          <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
             <tr>
               <th className="px-4 py-3 font-medium">Fecha</th>
               <th className="px-4 py-3 font-medium">Tipo</th>

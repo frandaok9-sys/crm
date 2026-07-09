@@ -73,7 +73,7 @@ export default async function EditQuotePage({
         </h1>
       </div>
 
-      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <QuoteForm
           action={updateQuote}
           clients={clients}

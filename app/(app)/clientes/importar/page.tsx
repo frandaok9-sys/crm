@@ -37,7 +37,7 @@ export default async function ImportClientsPage() {
         </p>
       </div>
 
-      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <h2 className="text-sm font-medium">Cómo preparar el archivo</h2>
         <p className="mt-2 text-sm text-zinc-500">
           La primera fila debe tener los títulos de las columnas. La única
@@ -63,7 +63,7 @@ export default async function ImportClientsPage() {
         </a>
       </div>
 
-      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+      <div className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <ImportClientsForm owners={owners} canAssign={canAssign} />
       </div>
     </div>

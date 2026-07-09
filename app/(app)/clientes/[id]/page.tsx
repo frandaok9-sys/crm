@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { updateClient, assignClient, addContact } from "../actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 export default async function ClientDetailPage({
   params,
@@ -74,7 +74,7 @@ export default async function ClientDetailPage({
       </div>
 
       {/* Datos del cliente */}
-      <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+      <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <h2 className="mb-4 text-sm font-medium text-zinc-500">
           Datos del cliente
         </h2>
@@ -107,7 +107,7 @@ export default async function ClientDetailPage({
 
       {/* Asignación de cartera */}
       {canAssign && (
-        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+        <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
           <h2 className="mb-4 text-sm font-medium text-zinc-500">
             Asignar cartera
           </h2>
@@ -138,7 +138,7 @@ export default async function ClientDetailPage({
       )}
 
       {/* Contactos */}
-      <section className="rounded-xl border bg-white p-6 dark:bg-zinc-950">
+      <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <h2 className="mb-4 text-sm font-medium text-zinc-500">
           Contactos ({client.contacts.length})
         </h2>

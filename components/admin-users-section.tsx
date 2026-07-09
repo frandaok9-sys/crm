@@ -41,7 +41,7 @@ function RoleSelect({ defaultValue }: { defaultValue?: Role }) {
     <select
       name="role"
       defaultValue={defaultValue ?? Role.SALES}
-      className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
     >
       {Object.values(Role).map((role) => (
         <option key={role} value={role}>
@@ -68,9 +68,9 @@ export async function AdminUsersSection({ adminId }: { adminId: string }) {
           : "No hay usuarios pendientes."}
       </p>
 
-      <div className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-950">
+      <div className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
         <table className="w-full text-sm">
-          <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-900">
+          <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
             <tr>
               <th className="px-4 py-3 font-medium">Usuario</th>
               <th className="px-4 py-3 font-medium">Rol</th>

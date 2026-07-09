@@ -10,7 +10,7 @@ import { AdminCompanySection } from "@/components/admin-company-section";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border bg-white p-4 dark:bg-zinc-950">
+    <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900">
       <div className="text-2xl font-semibold">{value}</div>
       <div className="text-xs text-zinc-500">{label}</div>
     </div>

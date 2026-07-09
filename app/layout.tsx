@@ -32,7 +32,8 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} ${oswald.variable} h-full antialiased`}
+      // "dark" fijo: el CRM usa siempre el modo oscuro grafito (identidad RC).
+      className={`dark ${geistSans.variable} ${geistMono.variable} ${oswald.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

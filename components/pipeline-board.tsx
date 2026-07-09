@@ -140,7 +140,7 @@ export function PipelineBoard({
                             ref={prov.innerRef}
                             {...prov.draggableProps}
                             {...prov.dragHandleProps}
-                            className={`rounded-lg border border-l-4 bg-white p-3 shadow-sm dark:bg-zinc-950 ${border} ${
+                            className={`rounded-lg border border-l-4 bg-white p-3 shadow-sm dark:bg-zinc-900 ${border} ${
                               snapshot.isDragging ? "ring-2 ring-primary" : ""
                             } ${card.isPinned ? "ring-1 ring-amber-400" : ""}`}
                           >

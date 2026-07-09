@@ -73,7 +73,7 @@
   --chart-3: oklch(0.55 0.01 260);
   --chart-4: oklch(0.72 0.12 28);
   --chart-5: oklch(0.75 0.005 255);
-  --radius: 0.45rem;
+  --radius: 0.625rem; /* esquinas suaves (aprobado en la guía de diseño) */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -85,12 +85,13 @@
 }
 
 .dark {
-  --background: oklch(0.16 0.005 260);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.21 0.006 260);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.21 0.006 260);
-  --popover-foreground: oklch(0.97 0 0);
+  /* Modo grafito RC — el modo oficial del CRM */
+  --background: oklch(0.155 0.005 260);
+  --foreground: oklch(0.96 0.002 260);
+  --card: oklch(0.205 0.006 260);
+  --card-foreground: oklch(0.96 0.002 260);
+  --popover: oklch(0.205 0.006 260);
+  --popover-foreground: oklch(0.96 0.002 260);
   --primary: oklch(0.6 0.21 28);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.269 0 0);
