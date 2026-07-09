@@ -184,6 +184,14 @@ enum Currency {
   USD
 }
 
+/// Estado de geocodificación de la obra (pin en el mapa).
+enum GeocodeStatus {
+  PENDING // Dirección cargada, falta convertir a coordenadas
+  OK // Pin listo
+  FAILED // No se pudo resolver la dirección
+  MANUAL // Pin fijado a mano (no pisar con automatismos)
+}
+
 /// Etapa del pipeline (columna del tablero). Configurable: nombre, color y orden.
 model Stage {
   id       String @id @default(cuid())
@@ -218,6 +226,13 @@ model Opportunity {
   // Datos de obra (proyectos por m²)
   siteAddress String? // Ubicación de la obra
   estimatedM2 Decimal? @db.Decimal(12, 2) // Superficie estimada en m²
+
+  // Geolocalización de la obra (mapa de oportunidades)
+  latitude        Decimal?      @db.Decimal(9, 6)
+  longitude       Decimal?      @db.Decimal(9, 6)
+  geocodeStatus   GeocodeStatus @default(PENDING)
+  geocodedAddress String? // Dirección normalizada devuelta por el geocodificador
+  geocodedAt      DateTime?
 
   color    String? // Etiqueta de color de la tarjeta
   isPinned Boolean @default(false)

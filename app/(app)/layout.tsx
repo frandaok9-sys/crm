@@ -37,6 +37,7 @@ export default async function AppLayout({
     { href: "/dashboard", label: "Inicio" },
     { href: "/clientes", label: "Clientes", badge: clientCount },
     { href: "/oportunidades", label: "Pipeline", badge: opportunityCount },
+    { href: "/mapa", label: "Mapa" },
     { href: "/presupuestos", label: "Presupuestos", badge: quoteCount },
     { href: "/productos", label: "Productos" },
     ...(canManageLedger(user)

@@ -13,7 +13,8 @@ import {
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { createGoogleTask, deleteGoogleTask } from "@/lib/google-tasks";
-import { Currency } from "@/lib/generated/prisma/enums";
+import { geocodeOpportunity } from "@/lib/geocode";
+import { Currency, GeocodeStatus } from "@/lib/generated/prisma/enums";
 
 function opt(formData: FormData, key: string): string | null {
   const value = formData.get(key);
@@ -99,7 +100,12 @@ export async function createOpportunity(formData: FormData): Promise<void> {
     targetId: opportunity.id,
     metadata: { title },
   });
+
+  // Pin en el mapa: convertir la dirección de la obra en coordenadas.
+  await geocodeOpportunity(opportunity.id);
+
   revalidatePath("/oportunidades");
+  revalidatePath("/mapa");
   redirect("/oportunidades");
 }
 
@@ -163,8 +169,18 @@ export async function updateOpportunity(formData: FormData): Promise<void> {
     targetId: id,
     metadata: { title },
   });
+
+  // Re-geocodificar si cambió la dirección de la obra (o si nunca se ubicó).
+  const newAddress = opt(formData, "siteAddress");
+  if (newAddress !== existing.siteAddress) {
+    await geocodeOpportunity(id, { force: true });
+  } else if (existing.geocodeStatus === GeocodeStatus.PENDING) {
+    await geocodeOpportunity(id);
+  }
+
   revalidatePath("/oportunidades");
   revalidatePath(`/oportunidades/${id}`);
+  revalidatePath("/mapa");
   redirect(`/oportunidades/${id}`);
 }
 
