@@ -131,9 +131,10 @@ model Client {
   ownerId String?
   owner   User?   @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
-  contacts      Contact[]
-  opportunities Opportunity[]
-  quotes        Quote[]
+  contacts        Contact[]
+  opportunities   Opportunity[]
+  quotes          Quote[]
+  ledgerMovements LedgerMovement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -283,7 +284,8 @@ model Quote {
   ivaTotal Decimal @default(0) @db.Decimal(14, 2)
   total    Decimal @default(0) @db.Decimal(14, 2)
 
-  items QuoteItem[]
+  items           QuoteItem[]
+  ledgerMovements LedgerMovement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -307,6 +309,45 @@ model QuoteItem {
   lineNet     Decimal       @default(0) @db.Decimal(14, 2)
   position    Int           @default(0)
 
+  @@index([quoteId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 3 — Financiero: cuenta corriente
+// ---------------------------------------------------------------------------
+
+/// Tipo de movimiento de cuenta corriente.
+/// Débitos (suman deuda): factura, nota de débito.
+/// Créditos (restan deuda): pago, nota de crédito.
+enum LedgerMovementType {
+  INVOICE // Factura
+  DEBIT_NOTE // Nota de débito
+  PAYMENT // Pago
+  CREDIT_NOTE // Nota de crédito
+}
+
+/// Movimiento de cuenta corriente de un cliente. El saldo se DERIVA de los
+/// movimientos (lib/ledger-calc) y se mantiene separado por moneda. Las altas
+/// se hacen dentro de una transacción para no dejar el saldo inconsistente.
+model LedgerMovement {
+  id       String             @id @default(cuid())
+  clientId String
+  client   Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type     LedgerMovementType
+  currency Currency
+  amount   Decimal            @db.Decimal(14, 2)
+
+  date        DateTime @default(now())
+  description String?
+  reference   String? // N° de factura/recibo, etc.
+
+  quoteId String?
+  quote   Quote?  @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([clientId, currency])
   @@index([quoteId])
 }
 

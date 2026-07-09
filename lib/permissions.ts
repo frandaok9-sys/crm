@@ -138,6 +138,18 @@ export function quoteScope(
   return { ownerId: principal?.id ?? "__none__" };
 }
 
+// --- Cuenta corriente (financiero) -----------------------------------------
+
+/** Roles that can register movements (facturas, pagos, notas). */
+export function canManageLedger(
+  principal: Principal | null | undefined
+): boolean {
+  return (
+    isActive(principal) &&
+    hasRole(principal, Role.ADMIN, Role.MANAGER, Role.ADMINISTRATION)
+  );
+}
+
 /** True when the principal owns the given record. */
 export function ownsRecord(
   principal: Principal | null | undefined,

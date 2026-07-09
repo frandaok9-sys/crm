@@ -65,6 +65,12 @@ export default async function ClientDetailPage({
             <span className="text-zinc-400">Sin asignar (cartera general)</span>
           )}
         </p>
+        <Link
+          href={`/clientes/${client.id}/cuenta`}
+          className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+        >
+          Ver cuenta corriente →
+        </Link>
       </div>
 
       {/* Datos del cliente */}
