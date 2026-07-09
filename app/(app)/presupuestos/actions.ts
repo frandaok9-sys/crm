@@ -10,6 +10,7 @@ import {
   canEditQuote,
   canAssignClients,
   canViewRecord,
+  canManageLedger,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { computeQuoteTotals, lineNet } from "@/lib/quotes-calc";
@@ -17,6 +18,7 @@ import {
   Currency,
   QuoteStatus,
   QuoteItemType,
+  LedgerMovementType,
 } from "@/lib/generated/prisma/enums";
 
 const ITEM_TYPES = Object.values(QuoteItemType) as string[];
@@ -303,4 +305,62 @@ export async function reviseQuote(formData: FormData): Promise<void> {
   });
   revalidatePath("/presupuestos");
   redirect(`/presupuestos/${revision.id}`);
+}
+
+/**
+ * Invoices an APPROVED quote: creates the INVOICE movement in the client's
+ * current account (debit for the quote total, same currency). Guarded against
+ * double invoicing and executed inside a transaction.
+ */
+export async function invoiceQuote(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  if (!canManageLedger(user)) {
+    throw new Error("No tenés permisos para facturar (rol financiero).");
+  }
+
+  const id = String(formData.get("id") ?? "");
+  const quote = await prisma.quote.findUnique({
+    where: { id },
+    include: { client: { select: { id: true, ownerId: true } } },
+  });
+  if (!quote) throw new Error("Presupuesto no encontrado.");
+  if (!canViewRecord(user, quote)) throw new Error("No autorizado.");
+  if (quote.status !== QuoteStatus.APPROVED) {
+    throw new Error("Solo se pueden facturar presupuestos aprobados.");
+  }
+
+  const movement = await prisma.$transaction(async (tx) => {
+    const existing = await tx.ledgerMovement.findFirst({
+      where: { quoteId: id, type: LedgerMovementType.INVOICE },
+    });
+    if (existing) {
+      throw new Error("Este presupuesto ya fue facturado.");
+    }
+    return tx.ledgerMovement.create({
+      data: {
+        clientId: quote.clientId,
+        type: LedgerMovementType.INVOICE,
+        currency: quote.currency,
+        amount: quote.total,
+        reference: `${quote.code}${quote.version > 1 ? ` Rev.${quote.version}` : ""}`,
+        description: "Factura por presupuesto aprobado",
+        quoteId: id,
+        createdById: user.id,
+      },
+    });
+  });
+
+  await logAudit({
+    action: "quote.invoiced",
+    actorId: user.id,
+    targetType: "Quote",
+    targetId: id,
+    metadata: {
+      movementId: movement.id,
+      amount: quote.total.toString(),
+      currency: quote.currency,
+    },
+  });
+  revalidatePath(`/presupuestos/${id}`);
+  revalidatePath(`/clientes/${quote.clientId}/cuenta`);
 }

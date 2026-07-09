@@ -3,7 +3,11 @@ import { notFound, redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canViewRecord, canEditQuote } from "@/lib/permissions";
+import {
+  canViewRecord,
+  canEditQuote,
+  canManageLedger,
+} from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { computeQuoteTotals } from "@/lib/quotes-calc";
 import {
@@ -11,10 +15,10 @@ import {
   QUOTE_STATUS_STYLES,
   ITEM_TYPE_LABELS,
 } from "@/lib/quotes";
-import { QuoteStatus } from "@/lib/generated/prisma/enums";
+import { QuoteStatus, LedgerMovementType } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
-import { setQuoteStatus, reviseQuote } from "../actions";
+import { setQuoteStatus, reviseQuote, invoiceQuote } from "../actions";
 
 function StatusButton({
   id,
@@ -56,6 +60,14 @@ export default async function QuoteDetailPage({
   if (!canViewRecord(user, quote)) redirect("/presupuestos");
 
   const canEdit = canEditQuote(user, quote);
+  const canInvoice = canManageLedger(user);
+  const invoice =
+    quote.status === QuoteStatus.APPROVED || quote.status === QuoteStatus.SENT
+      ? await prisma.ledgerMovement.findFirst({
+          where: { quoteId: id, type: LedgerMovementType.INVOICE },
+          select: { id: true, date: true },
+        })
+      : null;
   const currency = quote.currency;
   const fmt = (value: string) => formatMoney(value, currency);
 
@@ -155,6 +167,36 @@ export default async function QuoteDetailPage({
               Nueva revisión
             </SubmitButton>
           </form>
+        </div>
+      )}
+
+      {/* Facturación a cuenta corriente (roles financieros) */}
+      {quote.status === QuoteStatus.APPROVED && (
+        <div className="flex flex-wrap items-center gap-3">
+          {invoice ? (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                ✓ Facturado el {invoice.date.toLocaleDateString("es-AR")}
+              </span>
+              <Link
+                href={`/clientes/${quote.client.id}/cuenta`}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Ver cuenta corriente →
+              </Link>
+            </>
+          ) : canInvoice ? (
+            <form action={invoiceQuote}>
+              <input type="hidden" name="id" value={quote.id} />
+              <SubmitButton size="sm" pendingText="Facturando…">
+                Facturar a cuenta corriente
+              </SubmitButton>
+            </form>
+          ) : (
+            <span className="text-xs text-zinc-500">
+              Pendiente de facturación (la registra Administración).
+            </span>
+          )}
         </div>
       )}
 

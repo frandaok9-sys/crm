@@ -81,7 +81,7 @@ export default async function DashboardPage() {
         <Metric label="Presupuestos aprobados" value={quotesApproved} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <QuickLink
           href="/clientes"
           title="Clientes"
@@ -96,6 +96,11 @@ export default async function DashboardPage() {
           href="/presupuestos"
           title="Presupuestos"
           description="Cotizaciones por m², IVA y revisiones."
+        />
+        <QuickLink
+          href="/productos"
+          title="Productos"
+          description="Catálogo Sinteplast y Ashford con precios."
         />
       </div>
     </div>
