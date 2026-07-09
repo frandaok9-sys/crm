@@ -9,6 +9,7 @@ import { computeBalances, isDebit } from "@/lib/ledger-calc";
 import { LEDGER_TYPE_LABELS } from "@/lib/ledger";
 import { Currency, LedgerMovementType } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { addMovement, deleteMovement } from "./actions";
 
 const inputClass =
@@ -172,7 +173,7 @@ export default async function LedgerPage({
               <input name="description" className={inputClass} />
             </label>
             <div className="sm:col-span-3 flex justify-end">
-              <Button type="submit">Registrar</Button>
+              <SubmitButton pendingText="Registrando…">Registrar</SubmitButton>
             </div>
           </form>
         </section>

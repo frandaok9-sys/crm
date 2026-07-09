@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { ClientCombobox } from "@/components/client-combobox";
 import { QuoteItemsEditor, type QuoteRow } from "@/components/quote-items-editor";
 import { Currency } from "@/lib/generated/prisma/enums";
@@ -119,7 +119,7 @@ export function QuoteForm({
       </label>
 
       <div className="flex justify-end">
-        <Button type="submit">{submitLabel}</Button>
+        <SubmitButton pendingText="Guardando…">{submitLabel}</SubmitButton>
       </div>
     </form>
   );

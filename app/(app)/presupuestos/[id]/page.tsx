@@ -13,6 +13,7 @@ import {
 } from "@/lib/quotes";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { setQuoteStatus, reviseQuote } from "../actions";
 
 function StatusButton({
@@ -28,9 +29,9 @@ function StatusButton({
     <form action={setQuoteStatus}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="status" value={status} />
-      <Button type="submit" size="sm" variant="outline">
+      <SubmitButton size="sm" variant="outline" pendingText="Guardando…">
         {label}
-      </Button>
+      </SubmitButton>
     </form>
   );
 }
@@ -147,9 +148,9 @@ export default async function QuoteDetailPage({
           )}
           <form action={reviseQuote}>
             <input type="hidden" name="id" value={quote.id} />
-            <Button type="submit" size="sm" variant="ghost">
+            <SubmitButton size="sm" variant="ghost" pendingText="Creando revisión…">
               Nueva revisión
-            </Button>
+            </SubmitButton>
           </form>
         </div>
       )}

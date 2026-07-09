@@ -16,7 +16,7 @@ export default async function QuotesPage() {
   const showOwner = canViewAllRecords(user);
   const canCreate = canCreateQuotes(user);
 
-  const quotes = await prisma.quote.findMany({
+  const allQuotes = await prisma.quote.findMany({
     where: quoteScope(user),
     include: {
       client: { select: { legalName: true } },
@@ -24,6 +24,21 @@ export default async function QuotesPage() {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // Show ONE row per quote (its latest revision), not every revision.
+  const revisionCount = new Map<string, number>();
+  const latestByGroup = new Map<string, (typeof allQuotes)[number]>();
+  for (const quote of allQuotes) {
+    const group = quote.rootId ?? quote.id;
+    revisionCount.set(group, (revisionCount.get(group) ?? 0) + 1);
+    const current = latestByGroup.get(group);
+    if (!current || quote.version > current.version) {
+      latestByGroup.set(group, quote);
+    }
+  }
+  const quotes = [...latestByGroup.values()].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
 
   return (
     <div>
@@ -70,7 +85,8 @@ export default async function QuotesPage() {
                     </Link>
                     {quote.version > 1 && (
                       <span className="ml-1 text-xs text-zinc-400">
-                        Rev.{quote.version}
+                        Rev.{quote.version} ·{" "}
+                        {revisionCount.get(quote.rootId ?? quote.id) ?? 1} versiones
                       </span>
                     )}
                   </td>

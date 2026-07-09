@@ -244,40 +244,45 @@ export async function reviseQuote(formData: FormData): Promise<void> {
   }
 
   const group = source.rootId ?? source.id;
-  const latest = await prisma.quote.findFirst({
-    where: { OR: [{ id: group }, { rootId: group }] },
-    orderBy: { version: "desc" },
-    select: { version: true },
-  });
-  const version = (latest?.version ?? source.version) + 1;
 
-  const revision = await prisma.quote.create({
-    data: {
-      code: source.code,
-      version,
-      rootId: group,
-      clientId: source.clientId,
-      ownerId: source.ownerId,
-      currency: source.currency,
-      validUntil: source.validUntil,
-      notes: source.notes,
-      net: source.net,
-      ivaTotal: source.ivaTotal,
-      total: source.total,
-      status: QuoteStatus.DRAFT,
-      items: {
-        create: source.items.map((it) => ({
-          type: it.type,
-          description: it.description,
-          quantity: it.quantity,
-          unit: it.unit,
-          unitPrice: it.unitPrice,
-          ivaRate: it.ivaRate,
-          lineNet: it.lineNet,
-          position: it.position,
-        })),
+  // Version is computed and written inside one transaction so two rapid
+  // clicks can't mint the same revision number twice.
+  const revision = await prisma.$transaction(async (tx) => {
+    const latest = await tx.quote.findFirst({
+      where: { OR: [{ id: group }, { rootId: group }] },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    const version = (latest?.version ?? source.version) + 1;
+
+    return tx.quote.create({
+      data: {
+        code: source.code,
+        version,
+        rootId: group,
+        clientId: source.clientId,
+        ownerId: source.ownerId,
+        currency: source.currency,
+        validUntil: source.validUntil,
+        notes: source.notes,
+        net: source.net,
+        ivaTotal: source.ivaTotal,
+        total: source.total,
+        status: QuoteStatus.DRAFT,
+        items: {
+          create: source.items.map((it) => ({
+            type: it.type,
+            description: it.description,
+            quantity: it.quantity,
+            unit: it.unit,
+            unitPrice: it.unitPrice,
+            ivaRate: it.ivaRate,
+            lineNet: it.lineNet,
+            position: it.position,
+          })),
+        },
       },
-    },
+    });
   });
 
   await logAudit({
@@ -285,7 +290,7 @@ export async function reviseQuote(formData: FormData): Promise<void> {
     actorId: user.id,
     targetType: "Quote",
     targetId: revision.id,
-    metadata: { code: source.code, version },
+    metadata: { code: source.code, version: revision.version },
   });
   revalidatePath("/presupuestos");
   redirect(`/presupuestos/${revision.id}`);
