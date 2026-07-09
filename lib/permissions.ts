@@ -26,6 +26,13 @@ export function isAdmin(principal: Principal | null | undefined): boolean {
   return hasRole(principal, Role.ADMIN);
 }
 
+/** Only admins can manage users (activate, assign roles, disable). */
+export function canManageUsers(
+  principal: Principal | null | undefined
+): boolean {
+  return isActive(principal) && isAdmin(principal);
+}
+
 /** Roles that can see every record, regardless of ownership. */
 export function canViewAllRecords(
   principal: Principal | null | undefined

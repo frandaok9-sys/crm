@@ -3,6 +3,7 @@ import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { Role, UserStatus } from "@/lib/generated/prisma/enums";
 
 /** Parses a comma-separated env var into a list of lowercased, trimmed values. */
@@ -98,10 +99,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async createUser({ user }) {
       const email = user.email?.toLowerCase();
       if (!email) return;
-      if (evaluateEmail(email).isInitialAdmin) {
+      const bootstrapped = evaluateEmail(email).isInitialAdmin;
+      if (bootstrapped) {
         await prisma.user.update({
           where: { id: user.id },
           data: { role: Role.ADMIN, status: UserStatus.ACTIVE },
+        });
+      }
+      await logAudit({
+        action: "user.created",
+        actorId: user.id,
+        targetType: "User",
+        targetId: user.id,
+        metadata: { email, bootstrappedAsAdmin: bootstrapped },
+      });
+    },
+    async signIn({ user }) {
+      if (user.id) {
+        await logAudit({
+          action: "user.login",
+          actorId: user.id,
+          targetType: "User",
+          targetId: user.id,
         });
       }
     },
