@@ -65,6 +65,7 @@
 
 :root {
   /* RC Pisos Industriales — modo claro "concrete" (handoff hifi) */
+  color-scheme: light;
   --background: #f2f3f5;
   --foreground: #1b1c20;
   --card: #ffffff;
@@ -116,6 +117,7 @@
 
 .dark {
   /* Modo grafito RC — por defecto (handoff hifi) */
+  color-scheme: dark;
   --background: #0d0e10;
   --foreground: #ffffff;
   --card: #15161a;
@@ -181,5 +183,11 @@
     font-family: var(--font-oswald), var(--font-geist-sans), sans-serif;
     text-transform: uppercase;
     letter-spacing: 0.02em;
+  }
+
+  /* Scrollbars finas integradas al tema (kanban, tablas, main) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--avbd) transparent;
   }
 }
