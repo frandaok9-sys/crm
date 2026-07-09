@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageUsers } from "@/lib/permissions";
+import {
+  canAccessAdminPanel,
+  canManageUsers,
+  canManageCompany,
+} from "@/lib/permissions";
 import { UserStatus } from "@/lib/generated/prisma/enums";
 import { AdminTabs } from "@/components/admin-tabs";
 import { AdminUsersSection } from "@/components/admin-users-section";
@@ -19,7 +23,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 export default async function AdminPage() {
   const admin = await requireActiveUser();
-  if (!canManageUsers(admin)) redirect("/dashboard");
+  if (!canAccessAdminPanel(admin)) redirect("/dashboard");
 
   const [activeUsers, pendingUsers, clients, opportunities, quotes] =
     await Promise.all([
@@ -57,16 +61,24 @@ export default async function AdminPage() {
       <AdminTabs
         tabs={[
           { id: "resumen", label: "Resumen", content: resumen },
-          {
-            id: "usuarios",
-            label: "Usuarios",
-            content: <AdminUsersSection adminId={admin.id} />,
-          },
-          {
-            id: "empresa",
-            label: "Empresa",
-            content: <AdminCompanySection />,
-          },
+          ...(canManageUsers(admin)
+            ? [
+                {
+                  id: "usuarios",
+                  label: "Usuarios",
+                  content: <AdminUsersSection adminId={admin.id} />,
+                },
+              ]
+            : []),
+          ...(canManageCompany(admin)
+            ? [
+                {
+                  id: "empresa",
+                  label: "Empresa",
+                  content: <AdminCompanySection />,
+                },
+              ]
+            : []),
         ]}
       />
     </div>

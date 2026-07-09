@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { requireActiveUser } from "@/lib/auth";
-import { ROLE_LABELS, canManageUsers } from "@/lib/permissions";
+import { ROLE_LABELS, canAccessAdminPanel } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -15,7 +15,7 @@ export default async function AppLayout({
 }) {
   const user = await requireActiveUser();
   const roleLabel = user.role ? ROLE_LABELS[user.role] : "Sin rol";
-  const showAdmin = canManageUsers(user);
+  const showAdmin = canAccessAdminPanel(user);
   const settings = await getCompanySettings();
   const brandName = settings?.tradeName ?? settings?.legalName ?? "RC CRM";
 

@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { ROLE_DEFAULT_PERMISSIONS } from "@/lib/permissions";
 import { Role, UserStatus } from "@/lib/generated/prisma/enums";
 
 /** Parses a comma-separated env var into a list of lowercased, trimmed values. */
@@ -86,14 +87,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, user }) {
       if (session.user) {
         // With the database session strategy, `user` is the full DB row,
-        // which includes our custom role/status fields.
+        // which includes our custom role/status/permissions fields.
         const dbUser = user as unknown as {
           role: Role | null;
           status: UserStatus;
+          permissions: string[];
         };
         session.user.id = user.id;
         session.user.role = dbUser.role;
         session.user.status = dbUser.status;
+        session.user.permissions = dbUser.permissions ?? [];
       }
       return session;
     },
@@ -107,7 +110,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (bootstrapped) {
         await prisma.user.update({
           where: { id: user.id },
-          data: { role: Role.ADMIN, status: UserStatus.ACTIVE },
+          data: {
+            role: Role.ADMIN,
+            status: UserStatus.ACTIVE,
+            permissions: ROLE_DEFAULT_PERMISSIONS[Role.ADMIN],
+          },
         });
       }
       await logAudit({

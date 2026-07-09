@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageUsers } from "@/lib/permissions";
+import { canManageCompany } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { COMPANY_SETTINGS_ID, COMPANY_SETTINGS_TAG } from "@/lib/company";
 import { IvaCondition } from "@/lib/generated/prisma/enums";
@@ -18,7 +18,7 @@ function opt(formData: FormData, key: string): string | null {
 
 export async function updateCompanySettings(formData: FormData): Promise<void> {
   const user = await requireActiveUser();
-  if (!canManageUsers(user)) {
+  if (!canManageCompany(user)) {
     throw new Error("No tenés permisos para editar la configuración.");
   }
 

@@ -2,9 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 
+import { redirect } from "next/navigation";
+
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageUsers } from "@/lib/permissions";
+import {
+  canManageUsers,
+  ROLE_DEFAULT_PERMISSIONS,
+  ALL_PERMISSION_KEYS,
+  type PermissionKey,
+} from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { Role, UserStatus } from "@/lib/generated/prisma/enums";
 
@@ -34,7 +41,11 @@ export async function activateUser(formData: FormData): Promise<void> {
 
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { role, status: UserStatus.ACTIVE },
+    data: {
+      role,
+      status: UserStatus.ACTIVE,
+      permissions: ROLE_DEFAULT_PERMISSIONS[role],
+    },
   });
 
   await logAudit({
@@ -57,9 +68,10 @@ export async function changeUserRole(formData: FormData): Promise<void> {
     throw new Error("No podés cambiar tu propio rol.");
   }
 
+  // Cambiar el rol restablece los permisos al paquete de ese rol.
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { role },
+    data: { role, permissions: ROLE_DEFAULT_PERMISSIONS[role] },
   });
 
   await logAudit({
@@ -98,4 +110,33 @@ export async function setUserStatus(formData: FormData): Promise<void> {
     metadata: { email: user.email },
   });
   revalidatePath("/admin/users");
+}
+
+/** Save a user's individual permission set (checkboxes from the editor). */
+export async function updateUserPermissions(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+
+  // Only known permission keys are accepted.
+  const requested = formData
+    .getAll("perm")
+    .map(String)
+    .filter((key): key is PermissionKey =>
+      (ALL_PERMISSION_KEYS as string[]).includes(key)
+    );
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { permissions: requested },
+  });
+
+  await logAudit({
+    action: "user.permissions_changed",
+    actorId: admin.id,
+    targetType: "User",
+    targetId: userId,
+    metadata: { email: user.email, permissions: requested },
+  });
+  revalidatePath("/admin");
+  redirect("/admin");
 }

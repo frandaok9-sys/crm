@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { prisma } from "@/lib/prisma";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { Role, UserStatus } from "@/lib/generated/prisma/enums";
@@ -113,6 +115,12 @@ export async function AdminUsersSection({ adminId }: { adminId: string }) {
 
                         {user.status === UserStatus.ACTIVE && (
                           <>
+                            <Link
+                              href={`/admin/users/${user.id}`}
+                              className="text-sm font-medium text-primary hover:underline"
+                            >
+                              Permisos
+                            </Link>
                             <form
                               action={changeUserRole}
                               className="flex items-center gap-2"
