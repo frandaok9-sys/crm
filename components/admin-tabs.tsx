@@ -1,0 +1,36 @@
+"use client";
+
+import { useState, type ReactNode } from "react";
+
+type Tab = { id: string; label: string; content: ReactNode };
+
+export function AdminTabs({ tabs }: { tabs: Tab[] }) {
+  const [active, setActive] = useState(tabs[0]?.id ?? "");
+
+  return (
+    <div>
+      <div className="mb-6 flex gap-1 overflow-x-auto border-b">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActive(tab.id)}
+            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
+              active === tab.id
+                ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {tabs.map((tab) => (
+        <div key={tab.id} className={active === tab.id ? "" : "hidden"}>
+          {tab.content}
+        </div>
+      ))}
+    </div>
+  );
+}
