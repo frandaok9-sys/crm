@@ -1,12 +1,9 @@
 import Link from "next/link";
 
 import { requireActiveUser } from "@/lib/auth";
-import { ROLE_LABELS, canAccessAdminPanel } from "@/lib/permissions";
+import { ROLE_LABELS } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
 import { SignOutButton } from "@/components/sign-out-button";
-
-const navLinkClass =
-  "text-xs font-medium uppercase tracking-widest text-zinc-400 transition-colors hover:text-white";
 
 export default async function AppLayout({
   children,
@@ -15,7 +12,6 @@ export default async function AppLayout({
 }) {
   const user = await requireActiveUser();
   const roleLabel = user.role ? ROLE_LABELS[user.role] : "Sin rol";
-  const showAdmin = canAccessAdminPanel(user);
   const settings = await getCompanySettings();
   const brandName = settings?.tradeName ?? settings?.legalName ?? "RC CRM";
 
@@ -24,8 +20,8 @@ export default async function AppLayout({
       {/* Steel-dark header with brand-red baseline */}
       <header className="border-b-2 border-primary bg-zinc-950">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-3">
-          <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Link href="/dashboard" className="mr-2 flex items-center">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="flex items-center">
               {settings?.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -39,30 +35,13 @@ export default async function AppLayout({
                 </span>
               )}
             </Link>
-            <Link href="/dashboard" className={navLinkClass}>
-              Inicio
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
+            >
+              <span aria-hidden>←</span> Inicio
             </Link>
-            <Link href="/clientes" className={navLinkClass}>
-              Clientes
-            </Link>
-            <Link href="/oportunidades" className={navLinkClass}>
-              Pipeline
-            </Link>
-            <Link href="/presupuestos" className={navLinkClass}>
-              Presupuestos
-            </Link>
-            <Link href="/productos" className={navLinkClass}>
-              Productos
-            </Link>
-            <Link href="/metricas" className={navLinkClass}>
-              Métricas
-            </Link>
-            {showAdmin && (
-              <Link href="/admin" className={navLinkClass}>
-                Panel de Control
-              </Link>
-            )}
-          </nav>
+          </div>
           <div className="flex items-center gap-4">
             <div className="text-right text-sm">
               <div className="font-medium text-zinc-100">

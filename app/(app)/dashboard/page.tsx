@@ -8,6 +8,7 @@ import {
   opportunityScope,
   quoteScope,
   canManageLedger,
+  canAccessAdminPanel,
 } from "@/lib/permissions";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
 
@@ -55,6 +56,7 @@ export default async function DashboardPage() {
   const firstName = (user.name ?? user.email ?? "").split(" ")[0];
 
   const showReceivables = canManageLedger(user);
+  const showAdmin = canAccessAdminPanel(user);
   const [clients, opportunities, quotesSent, quotesApproved] =
     await Promise.all([
       prisma.client.count({ where: clientScope(user) }),
@@ -116,6 +118,13 @@ export default async function DashboardPage() {
           title="Métricas"
           description="Ventas, conversión, segmentos y embudo."
         />
+        {showAdmin && (
+          <QuickLink
+            href="/admin"
+            title="Panel de Control"
+            description="Usuarios, permisos y datos de la empresa."
+          />
+        )}
       </div>
     </div>
   );
