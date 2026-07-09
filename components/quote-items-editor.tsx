@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { computeQuoteTotals } from "@/lib/quotes-calc";
 
@@ -14,9 +14,23 @@ export type QuoteRow = {
 };
 
 /** Units used in industrial flooring quotes (m² is the default). */
-export const UNITS = ["m²", "un", "h", "ml", "kg", "global"] as const;
+export const UNITS = ["m²", "un", "L", "kg", "ml", "h", "global"] as const;
 
 type TaxRateOption = { rate: string; name: string };
+
+/** Catalog product ready to be inserted as a quote line. */
+export type CatalogProduct = {
+  id: string;
+  label: string; // "Ashford Formula x 208 L · Ashford"
+  priceLabel: string; // "$ 850.000,00"
+  unit: string;
+  price: string;
+  ivaRate: string;
+};
+
+function normalize(value: string): string {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
 
 const cell =
   "rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -41,11 +55,13 @@ export function QuoteItemsEditor({
   defaultRate,
   currencySymbol,
   initial,
+  products,
 }: {
   taxRates: TaxRateOption[];
   defaultRate: string;
   currencySymbol: string;
   initial?: QuoteRow[];
+  products?: CatalogProduct[];
 }) {
   const [rows, setRows] = useState<QuoteRow[]>(
     initial && initial.length > 0
@@ -61,6 +77,36 @@ export function QuoteItemsEditor({
           },
         ]
   );
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const catalogBlur = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const catalogMatches = useMemo(() => {
+    if (!products || !catalogQuery.trim()) return [];
+    const q = normalize(catalogQuery.trim());
+    return products.filter((p) => normalize(p.label).includes(q)).slice(0, 8);
+  }, [products, catalogQuery]);
+
+  function addFromCatalog(product: CatalogProduct) {
+    setRows((prev) => {
+      // Replace a single untouched empty row instead of appending after it.
+      const isBlank =
+        prev.length === 1 &&
+        !prev[0].description &&
+        prev[0].unitPrice === "0";
+      const newRow: QuoteRow = {
+        type: "PRODUCT",
+        description: product.label,
+        quantity: "1",
+        unit: product.unit,
+        unitPrice: product.price,
+        ivaRate: product.ivaRate,
+      };
+      return isBlank ? [newRow] : [...prev, newRow];
+    });
+    setCatalogQuery("");
+    setCatalogOpen(false);
+  }
 
   function update(index: number, patch: Partial<QuoteRow>) {
     setRows((prev) =>
@@ -109,6 +155,56 @@ export function QuoteItemsEditor({
   return (
     <div>
       <input type="hidden" name="items" value={JSON.stringify(rows)} />
+
+      {products && products.length > 0 && (
+        <div className="relative mb-3">
+          <input
+            type="text"
+            value={catalogQuery}
+            onChange={(e) => {
+              setCatalogQuery(e.target.value);
+              setCatalogOpen(true);
+            }}
+            onFocus={() => setCatalogOpen(true)}
+            onBlur={() => {
+              catalogBlur.current = setTimeout(
+                () => setCatalogOpen(false),
+                150
+              );
+            }}
+            placeholder="🔍 Buscar en el catálogo (Sinteplast, Ashford…) para agregar un ítem"
+            className={`${cell} w-full`}
+          />
+          {catalogOpen && catalogMatches.length > 0 && (
+            <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+              {catalogMatches.map((product) => (
+                <li key={product.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      addFromCatalog(product);
+                    }}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                  >
+                    <span>{product.label}</span>
+                    <span className="whitespace-nowrap text-xs text-zinc-500">
+                      {product.priceLabel} / {product.unit}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {catalogOpen &&
+            catalogQuery.trim() !== "" &&
+            catalogMatches.length === 0 && (
+              <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+                Sin resultados en el catálogo
+              </div>
+            )}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -163,6 +259,9 @@ export function QuoteItemsEditor({
                     onChange={(e) => update(index, { unit: e.target.value })}
                     className={cell}
                   >
+                    {!(UNITS as readonly string[]).includes(row.unit) && (
+                      <option value={row.unit}>{row.unit}</option>
+                    )}
                     {UNITS.map((u) => (
                       <option key={u} value={u}>
                         {u}
@@ -186,6 +285,9 @@ export function QuoteItemsEditor({
                     onChange={(e) => update(index, { ivaRate: e.target.value })}
                     className={cell}
                   >
+                    {!taxRates.some((t) => t.rate === row.ivaRate) && (
+                      <option value={row.ivaRate}>{row.ivaRate}%</option>
+                    )}
                     {taxRates.map((t) => (
                       <option key={t.rate} value={t.rate}>
                         {t.name}

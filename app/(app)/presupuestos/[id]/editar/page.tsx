@@ -9,6 +9,7 @@ import {
   clientScope,
 } from "@/lib/permissions";
 import { UserStatus, QuoteStatus } from "@/lib/generated/prisma/enums";
+import { getCatalogProducts } from "@/lib/products";
 import { QuoteForm } from "@/components/quote-form";
 import { updateQuote } from "../../actions";
 
@@ -54,6 +55,7 @@ export default async function EditQuotePage({
     rate: t.rate.toString(),
     name: t.name,
   }));
+  const products = await getCatalogProducts();
   const defaultRate =
     taxRates.find((t) => t.isDefault)?.rate.toString() ??
     taxRates[0]?.rate.toString() ??
@@ -82,6 +84,7 @@ export default async function EditQuotePage({
           canAssign={canAssign}
           owners={owners}
           submitLabel="Guardar cambios"
+          products={products}
           quote={{
             id: quote.id,
             clientId: quote.clientId,

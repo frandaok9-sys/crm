@@ -10,6 +10,7 @@ import {
 } from "@/lib/permissions";
 import { UserStatus } from "@/lib/generated/prisma/enums";
 import { getCompanySettings } from "@/lib/company";
+import { getCatalogProducts } from "@/lib/products";
 import { QuoteForm } from "@/components/quote-form";
 import { createQuote } from "../actions";
 
@@ -47,6 +48,7 @@ export default async function NewQuotePage() {
 
   // Apply the company's "base design" defaults (validity + footer).
   const settings = await getCompanySettings();
+  const products = await getCatalogProducts();
   let defaultValidUntil = "";
   if (settings?.quoteValidity) {
     const due = new Date();
@@ -90,6 +92,7 @@ export default async function NewQuotePage() {
               validUntil: defaultValidUntil,
               notes: settings?.quoteFooter ?? "",
             }}
+            products={products}
           />
         </div>
       )}

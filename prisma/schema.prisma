@@ -264,6 +264,28 @@ enum QuoteItemType {
   TEXT // Texto libre
 }
 
+/// Producto del catálogo (p. ej. Sinteplast, Ashford). El precio es NETO
+/// (sin IVA) y se usa para precargar ítems de presupuesto.
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  brand       String? // Marca/proveedor: Sinteplast, Ashford…
+  sku         String? // Código del proveedor
+  description String?
+  unit        String   @default("un") // un, L, kg, m²…
+  price       Decimal  @default(0) @db.Decimal(14, 2)
+  currency    Currency @default(ARS)
+  ivaRate     Decimal  @default(21) @db.Decimal(5, 2)
+  isActive    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, brand])
+  @@index([brand])
+  @@index([isActive])
+}
+
 /// Alícuota de IVA configurable (p. ej. 21%, 10,5%, 27%, 0%).
 model TaxRate {
   id        String   @id @default(cuid())

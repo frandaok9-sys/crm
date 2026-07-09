@@ -1,6 +1,10 @@
 import { SubmitButton } from "@/components/submit-button";
 import { ClientCombobox } from "@/components/client-combobox";
-import { QuoteItemsEditor, type QuoteRow } from "@/components/quote-items-editor";
+import {
+  QuoteItemsEditor,
+  type QuoteRow,
+  type CatalogProduct,
+} from "@/components/quote-items-editor";
 import { Currency } from "@/lib/generated/prisma/enums";
 
 const inputClass =
@@ -28,6 +32,7 @@ export function QuoteForm({
   owners,
   submitLabel,
   quote,
+  products,
 }: {
   action: (formData: FormData) => Promise<void>;
   clients: { id: string; legalName: string }[];
@@ -37,6 +42,7 @@ export function QuoteForm({
   owners: Owner[];
   submitLabel: string;
   quote?: QuoteFormData;
+  products?: CatalogProduct[];
 }) {
   const currency = quote?.currency ?? Currency.ARS;
   const symbol = currency === Currency.USD ? "US$" : "$";
@@ -108,6 +114,7 @@ export function QuoteForm({
           defaultRate={defaultRate}
           currencySymbol={symbol}
           initial={quote?.items}
+          products={products}
         />
       </div>
 

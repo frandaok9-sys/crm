@@ -51,6 +51,9 @@ export default async function AppLayout({
             <Link href="/presupuestos" className={navLinkClass}>
               Presupuestos
             </Link>
+            <Link href="/productos" className={navLinkClass}>
+              Productos
+            </Link>
             {showAdmin && (
               <Link href="/admin" className={navLinkClass}>
                 Panel de Control

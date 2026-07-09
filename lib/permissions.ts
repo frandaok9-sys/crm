@@ -138,6 +138,18 @@ export function quoteScope(
   return { ownerId: principal?.id ?? "__none__" };
 }
 
+// --- Catálogo de productos ---------------------------------------------------
+
+/** Roles that can create/edit catalog products and prices. */
+export function canManageProducts(
+  principal: Principal | null | undefined
+): boolean {
+  return (
+    isActive(principal) &&
+    hasRole(principal, Role.ADMIN, Role.MANAGER, Role.ADMINISTRATION)
+  );
+}
+
 // --- Cuenta corriente (financiero) -----------------------------------------
 
 /** Roles that can register movements (facturas, pagos, notas). */

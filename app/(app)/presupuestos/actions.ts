@@ -39,8 +39,6 @@ function parseDate(value: FormDataEntryValue | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-const VALID_UNITS = ["m²", "un", "h", "ml", "kg", "global"];
-
 type ParsedItem = {
   type: string;
   description: string;
@@ -69,7 +67,7 @@ function parseItems(formData: FormData): ParsedItem[] {
           : QuoteItemType.PRODUCT,
         description: String(r.description ?? "").trim(),
         quantity: num(r.quantity),
-        unit: VALID_UNITS.includes(String(r.unit)) ? String(r.unit) : "m²",
+        unit: String(r.unit ?? "").trim().slice(0, 12) || "m²",
         unitPrice: num(r.unitPrice),
         ivaRate: num(r.ivaRate),
       };
