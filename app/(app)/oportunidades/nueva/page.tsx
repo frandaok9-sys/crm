@@ -14,7 +14,7 @@ import { ClientCombobox } from "@/components/client-combobox";
 import { createOpportunity } from "../actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 export default async function NewOpportunityPage() {
   const user = await requireActiveUser();

@@ -41,7 +41,7 @@ function RoleSelect({ defaultValue }: { defaultValue?: Role }) {
     <select
       name="role"
       defaultValue={defaultValue ?? Role.SALES}
-      className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+      className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
     >
       {Object.values(Role).map((role) => (
         <option key={role} value={role}>

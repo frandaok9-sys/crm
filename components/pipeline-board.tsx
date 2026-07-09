@@ -168,7 +168,7 @@ export function PipelineBoard({
                             <p className="mt-1 text-xs text-zinc-500">
                               {card.clientName}
                               {card.m2Label && (
-                                <span className="ml-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                <span className="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                                   {card.m2Label}
                                 </span>
                               )}

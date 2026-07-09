@@ -19,7 +19,7 @@ export const UNITS = ["m²", "un", "h", "ml", "kg", "global"] as const;
 type TaxRateOption = { rate: string; name: string };
 
 const cell =
-  "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 const TYPE_LABELS: Record<string, string> = {
   PRODUCT: "Producto",

@@ -12,7 +12,7 @@ import { QuoteStatus } from "@/lib/generated/prisma/enums";
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="border-l-4 border-primary bg-card p-4 shadow-sm">
+    <div className="rounded-xl border-l-4 border-primary bg-card p-4 shadow-sm">
       <div className="font-heading text-3xl font-semibold">{value}</div>
       <div className="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
         {label}
@@ -33,7 +33,7 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="group border bg-card p-5 shadow-sm transition-colors hover:border-primary"
+      className="group rounded-xl border bg-card p-5 shadow-sm transition-colors hover:border-primary"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-heading text-base font-semibold uppercase tracking-wide">

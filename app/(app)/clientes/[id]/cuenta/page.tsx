@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { addMovement, deleteMovement } from "./actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 function balanceLabel(balance: string): { text: string; className: string } {
   const value = Number(balance);

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { updateCompanySettings } from "@/app/(app)/admin/empresa/actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 function Field({
   label,
@@ -143,7 +143,7 @@ export async function AdminCompanySection() {
               <img
                 src={settings.logo}
                 alt="Logo actual"
-                className="h-16 w-16 rounded border object-contain p-1"
+                className="h-16 w-16 rounded-lg border object-contain p-1"
               />
             )}
             <div className="flex-1">
@@ -152,7 +152,7 @@ export async function AdminCompanySection() {
                   type="file"
                   name="logo"
                   accept="image/*"
-                  className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-1.5 file:text-sm file:text-white dark:file:bg-zinc-100 dark:file:text-black"
+                  className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-1.5 file:text-sm file:text-white dark:file:bg-zinc-100 dark:file:text-black"
                 />
               </Field>
               {settings?.logo && (
@@ -170,7 +170,7 @@ export async function AdminCompanySection() {
                 type="color"
                 name="primaryColor"
                 defaultValue={settings?.primaryColor ?? "#2563eb"}
-                className="h-10 w-20 rounded border border-zinc-300 dark:border-zinc-700"
+                className="h-10 w-20 rounded-lg border border-zinc-300 dark:border-zinc-700"
               />
             </Field>
             <Field label="Validez por defecto (días)">

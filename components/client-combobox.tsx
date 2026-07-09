@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 type Item = { id: string; legalName: string };
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 function normalize(value: string): string {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -67,7 +67,7 @@ export function ClientCombobox({
       <input type="hidden" name={name} value={selectedId} />
 
       {open && filtered.length > 0 && (
-        <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+        <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
           {filtered.map((c) => (
             <li key={c.id}>
               <button
@@ -86,7 +86,7 @@ export function ClientCombobox({
       )}
 
       {open && query.trim() !== "" && filtered.length === 0 && (
-        <div className="absolute z-10 mt-1 w-full rounded-md border bg-white px-3 py-2 text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+        <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
           Sin resultados
         </div>
       )}

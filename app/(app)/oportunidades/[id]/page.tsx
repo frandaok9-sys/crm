@@ -17,7 +17,7 @@ import { ClientCombobox } from "@/components/client-combobox";
 import { createReminder, deleteReminder, updateOpportunity } from "../actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 function formatDate(date: Date): string {
   return date.toLocaleString("es-AR", {
@@ -262,7 +262,7 @@ export default async function OpportunityDetailPage({
         </div>
 
         {canEdit && !googleConnected && (
-          <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
             Para que las alertas se creen en tu Google Tasks, cerrá sesión y
             volvé a iniciarla para autorizar el permiso. Mientras tanto, las
             alertas se guardan igual dentro del CRM.

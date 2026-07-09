@@ -32,7 +32,7 @@ export function ImportClientsForm({
           <select
             name="ownerId"
             defaultValue=""
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
           >
             <option value="">Sin asignar (cartera general)</option>
             {owners.map((owner) => (
@@ -53,7 +53,7 @@ export function ImportClientsForm({
           name="file"
           accept=".xlsx"
           required
-          className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2 file:text-sm file:text-white dark:file:bg-zinc-100 dark:file:text-black"
+          className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-4 file:py-2 file:text-sm file:text-white dark:file:bg-zinc-100 dark:file:text-black"
         />
       </label>
 
@@ -62,13 +62,13 @@ export function ImportClientsForm({
       </Button>
 
       {state.status === "error" && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {state.message}
         </p>
       )}
 
       {state.status === "done" && (
-        <div className="rounded-md bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+        <div className="rounded-lg bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
           <p className="font-medium">
             ✅ {state.created} cliente(s) importado(s).
           </p>

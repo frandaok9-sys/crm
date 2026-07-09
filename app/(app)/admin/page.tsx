@@ -40,7 +40,7 @@ export default async function AdminPage() {
         <Stat label="Presupuestos" value={quotes} />
       </div>
       {pendingUsers > 0 && (
-        <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
           Tenés {pendingUsers} usuario(s) esperando activación. Entrá a la
           pestaña “Usuarios” para activarlos.
         </p>

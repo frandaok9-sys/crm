@@ -31,7 +31,7 @@ export default async function LoginPage() {
         }}
       />
 
-      <div className="relative w-full max-w-sm border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
+      <div className="relative w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
         <div className="mb-8 text-center">
           {settings?.logo ? (
             // eslint-disable-next-line @next/next/no-img-element
