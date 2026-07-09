@@ -306,6 +306,7 @@ model Quote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([rootId, version]) // Candado: nunca dos revisiones con el mismo número
   @@index([clientId])
   @@index([ownerId])
   @@index([status])
