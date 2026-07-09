@@ -114,6 +114,30 @@ export function opportunityScope(
   return { ownerId: principal?.id ?? "__none__" };
 }
 
+// --- Presupuestos (misma lógica de cartera) --------------------------------
+
+export function canCreateQuotes(
+  principal: Principal | null | undefined
+): boolean {
+  return hasRole(principal, Role.ADMIN, Role.MANAGER, Role.SALES);
+}
+
+export function canEditQuote(
+  principal: Principal | null | undefined,
+  quote: { ownerId?: string | null }
+): boolean {
+  if (!isActive(principal)) return false;
+  if (hasRole(principal, Role.ADMIN, Role.MANAGER)) return true;
+  return hasRole(principal, Role.SALES) && ownsRecord(principal, quote);
+}
+
+export function quoteScope(
+  principal: Principal | null | undefined
+): { ownerId?: string } {
+  if (canViewAllRecords(principal)) return {};
+  return { ownerId: principal?.id ?? "__none__" };
+}
+
 /** True when the principal owns the given record. */
 export function ownsRecord(
   principal: Principal | null | undefined,

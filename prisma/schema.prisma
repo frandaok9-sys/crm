@@ -48,6 +48,7 @@ model User {
   clients   Client[]   @relation("ClientOwner")
 
   opportunities Opportunity[] @relation("OpportunityOwner")
+  quotes        Quote[]       @relation("QuoteOwner")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -132,6 +133,7 @@ model Client {
 
   contacts      Contact[]
   opportunities Opportunity[]
+  quotes        Quote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -225,6 +227,87 @@ model Reminder {
   createdAt     DateTime    @default(now())
 
   @@index([opportunityId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 2 — Presupuestos
+// ---------------------------------------------------------------------------
+
+enum QuoteStatus {
+  DRAFT // Borrador
+  SENT // Enviado
+  APPROVED // Aprobado
+  REJECTED // Rechazado
+  EXPIRED // Vencido
+}
+
+enum QuoteItemType {
+  PRODUCT // Producto
+  SERVICE // Servicio
+  TEXT // Texto libre
+}
+
+/// Alícuota de IVA configurable (p. ej. 21%, 10,5%, 27%, 0%).
+model TaxRate {
+  id        String   @id @default(cuid())
+  name      String
+  rate      Decimal  @db.Decimal(5, 2)
+  isDefault Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([position])
+}
+
+/// Presupuesto. Soporta versionado (revisiones), estados e ítems. Los totales
+/// se guardan como snapshot (Decimal) calculados por lib/quotes-calc.
+model Quote {
+  id      String  @id @default(cuid())
+  code    String // Número legible, p. ej. "PRE-0001"
+  version Int     @default(1) // Revisión (Rev.1, Rev.2…)
+  rootId  String? // Agrupa las revisiones (id del presupuesto original)
+
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  ownerId  String?
+  owner    User?   @relation("QuoteOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  status     QuoteStatus @default(DRAFT)
+  currency   Currency    @default(ARS)
+  issueDate  DateTime    @default(now())
+  validUntil DateTime?
+  notes      String?
+
+  // Snapshot de totales (fuente de verdad = ítems + lib/quotes-calc).
+  net      Decimal @default(0) @db.Decimal(14, 2)
+  ivaTotal Decimal @default(0) @db.Decimal(14, 2)
+  total    Decimal @default(0) @db.Decimal(14, 2)
+
+  items QuoteItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([rootId])
+}
+
+/// Ítem de un presupuesto: producto, servicio o texto libre.
+model QuoteItem {
+  id          String        @id @default(cuid())
+  quoteId     String
+  quote       Quote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  type        QuoteItemType @default(PRODUCT)
+  description String
+  quantity    Decimal       @default(1) @db.Decimal(14, 2)
+  unitPrice   Decimal       @default(0) @db.Decimal(14, 2)
+  ivaRate     Decimal       @default(0) @db.Decimal(5, 2)
+  lineNet     Decimal       @default(0) @db.Decimal(14, 2)
+  position    Int           @default(0)
+
+  @@index([quoteId])
 }
 
 /// Registro de auditoría de acciones sensibles (logins, cambios de permisos,
