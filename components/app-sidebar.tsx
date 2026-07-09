@@ -54,7 +54,7 @@ export function AppSidebar({
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className="absolute inset-y-0 left-0 z-40 flex flex-col overflow-hidden border-r border-border bg-side"
+        className="absolute inset-y-0 left-0 z-[1100] flex flex-col overflow-hidden border-r border-border bg-side"
         style={{
           width: expanded ? 236 : 68,
           transition: "width 0.22s ease",
