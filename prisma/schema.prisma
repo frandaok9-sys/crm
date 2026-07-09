@@ -310,6 +310,30 @@ model QuoteItem {
   @@index([quoteId])
 }
 
+/// Configuración de la empresa: datos fiscales y branding (logo, colores, pie
+/// de página) que definen el "diseño base" del presupuesto y su futuro PDF.
+/// Fila única (id = "singleton").
+model CompanySettings {
+  id            String        @id @default("singleton")
+  legalName     String? // Razón social
+  tradeName     String? // Nombre de fantasía
+  taxId         String? // CUIT
+  ivaCondition  IvaCondition?
+  address       String?
+  city          String?
+  province      String?
+  postalCode    String?
+  phone         String?
+  email         String?
+  website       String?
+  logo          String? // Data URL (base64) del logo
+  primaryColor  String? // Color de marca (hex) para el PDF
+  quoteFooter   String? // Términos/condiciones por defecto del presupuesto
+  quoteValidity Int? // Días de validez por defecto
+  bankInfo      String? // Datos de pago / banco para el PDF
+  updatedAt     DateTime      @updatedAt
+}
+
 /// Registro de auditoría de acciones sensibles (logins, cambios de permisos,
 /// altas/bajas de usuarios, ediciones financieras).
 model AuditLog {

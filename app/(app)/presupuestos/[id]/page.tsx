@@ -102,6 +102,14 @@ export default async function QuoteDetailPage({
             )}
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
+          title="Disponible próximamente"
+        >
+          Descargar PDF (próximamente)
+        </Button>
       </div>
 
       {canEdit && (

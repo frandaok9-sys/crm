@@ -49,12 +49,20 @@ export default async function AppLayout({
               Presupuestos
             </Link>
             {showAdmin && (
-              <Link
-                href="/admin/users"
-                className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-              >
-                Usuarios
-              </Link>
+              <>
+                <Link
+                  href="/admin/users"
+                  className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                >
+                  Usuarios
+                </Link>
+                <Link
+                  href="/admin/empresa"
+                  className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                >
+                  Empresa
+                </Link>
+              </>
             )}
           </nav>
           <div className="flex items-center gap-4">

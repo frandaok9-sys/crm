@@ -9,6 +9,7 @@ import {
   clientScope,
 } from "@/lib/permissions";
 import { UserStatus } from "@/lib/generated/prisma/enums";
+import { getCompanySettings } from "@/lib/company";
 import { QuoteForm } from "@/components/quote-form";
 import { createQuote } from "../actions";
 
@@ -44,6 +45,15 @@ export default async function NewQuotePage() {
     taxRates[0]?.rate.toString() ??
     "0";
 
+  // Apply the company's "base design" defaults (validity + footer).
+  const settings = await getCompanySettings();
+  let defaultValidUntil = "";
+  if (settings?.quoteValidity) {
+    const due = new Date();
+    due.setDate(due.getDate() + settings.quoteValidity);
+    defaultValidUntil = due.toISOString().slice(0, 10);
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6">
@@ -76,6 +86,10 @@ export default async function NewQuotePage() {
             canAssign={canAssign}
             owners={owners}
             submitLabel="Crear presupuesto"
+            quote={{
+              validUntil: defaultValidUntil,
+              notes: settings?.quoteFooter ?? "",
+            }}
           />
         </div>
       )}
