@@ -13,7 +13,7 @@ CRM comercial y administrativo B2B para una empresa argentina que vende producto
 - **Datos:** PostgreSQL (Neon/Supabase) con Prisma
 - **Auth:** Auth.js (NextAuth) con Google OAuth (SSO Google Workspace)
 - **Hosting:** Vercel
-- **IA (Fase 6):** API de Anthropic con function calling
+- **IA (Fase 6):** Gemini API (Google) con function calling — elegido por costo/cuota gratuita; el "cerebro" vive en `lib/assistant.ts` + `lib/assistant-tools.ts`, aislado para poder cambiar de proveedor sin tocar el resto
 - **WhatsApp (Fase 6):** WhatsApp Cloud API (Meta)
 
 ## Reglas de dominio (obligatorias)
@@ -29,7 +29,7 @@ CRM comercial y administrativo B2B para una empresa argentina que vende producto
 1. **Permisos centralizados:** existe UNA capa central de autorización. Todos los módulos (web y asistente de WhatsApp) la usan. No duplicar reglas de acceso.
 2. **Modelo de acceso:** por **rol** (Administrador, Gerente, Vendedor, Administración, Solo lectura) **+ propiedad del registro** (un vendedor solo ve sus cuentas/oportunidades; el gerente ve todo).
 3. **Login Google:** restringido al dominio corporativo (parámetro `hd`). Un email fuera del dominio se rechaza. Un usuario nuevo válido queda en estado **pendiente** hasta que un Administrador lo activa y le asigna rol.
-4. **Asistente WhatsApp (Fase 6):** SOLO LECTURA. Cada número debe estar vinculado y verificado contra un usuario. Las consultas heredan los permisos de ese usuario. Nunca operaciones de escritura ni financieras por WhatsApp. Registrar cada consulta (auditoría) y aplicar rate limiting.
+4. **Asistente WhatsApp (Fase 6):** SOLO LECTURA. Cada número debe estar vinculado y verificado contra un usuario. Las consultas heredan los permisos de ese usuario. Nunca operaciones de escritura ni financieras por WhatsApp. Registrar cada consulta (auditoría) y aplicar rate limiting. Estas mismas reglas rigen el chat de demostración en la web (`/asistente`, sin WhatsApp todavía): ahí el "usuario vinculado" es la sesión con la que se inició sesión.
 5. **Secretos:** las claves/API keys van solo en `.env` (nunca en el código ni en el repositorio). Al necesitar una clave, pausá y pedile al usuario que la pegue en `.env`, indicando el nombre exacto de la variable.
 6. **Auditoría:** registrar acciones sensibles (logins, cambios de permisos, altas/bajas de usuarios, ediciones financieras) en un `AuditLog`.
 

@@ -8,7 +8,7 @@ import {
   canCreateQuotes,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
-import { QUOTE_STATUS_LABELS } from "@/lib/quotes";
+import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { TintBadge, type TintVariant } from "@/components/tint-badge";
@@ -40,16 +40,11 @@ export default async function QuotesPage() {
 
   // Una fila por presupuesto (su última revisión).
   const revisionCount = new Map<string, number>();
-  const latestByGroup = new Map<string, (typeof allQuotes)[number]>();
   for (const quote of allQuotes) {
     const group = quote.rootId ?? quote.id;
     revisionCount.set(group, (revisionCount.get(group) ?? 0) + 1);
-    const current = latestByGroup.get(group);
-    if (!current || quote.version > current.version) {
-      latestByGroup.set(group, quote);
-    }
   }
-  const quotes = [...latestByGroup.values()].sort(
+  const quotes = latestRevisions(allQuotes).sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   );
 

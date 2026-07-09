@@ -26,3 +26,18 @@ export const ITEM_TYPE_LABELS: Record<QuoteItemType, string> = {
   [QuoteItemType.SERVICE]: "Servicio",
   [QuoteItemType.TEXT]: "Texto libre",
 };
+
+/** Un presupuesto puede tener varias revisiones (rootId agrupa Rev.1, Rev.2…). Nos quedamos con la más nueva de cada grupo. */
+export function latestRevisions<
+  T extends { id: string; rootId: string | null; version: number },
+>(quotes: T[]): T[] {
+  const latestByGroup = new Map<string, T>();
+  for (const quote of quotes) {
+    const group = quote.rootId ?? quote.id;
+    const current = latestByGroup.get(group);
+    if (!current || quote.version > current.version) {
+      latestByGroup.set(group, quote);
+    }
+  }
+  return [...latestByGroup.values()];
+}

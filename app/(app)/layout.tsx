@@ -44,6 +44,7 @@ export default async function AppLayout({
       ? [{ href: "/cobranzas", label: "Cobranzas" }]
       : []),
     { href: "/metricas", label: "Métricas" },
+    { href: "/asistente", label: "Asistente IA" },
     ...(canAccessAdminPanel(user)
       ? [{ href: "/admin", label: "Panel de control" }]
       : []),
