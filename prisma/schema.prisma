@@ -205,9 +205,26 @@ model Opportunity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  reminders Reminder[]
+
   @@index([stageId])
   @@index([ownerId])
   @@index([clientId])
+}
+
+/// Recordatorio/alerta de una oportunidad, sincronizable con Google Tasks.
+model Reminder {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  title         String
+  dueAt         DateTime
+  notes         String?
+  googleTaskId  String? // Id de la tarea en Google Tasks (si se sincronizó)
+  createdById   String?
+  createdAt     DateTime    @default(now())
+
+  @@index([opportunityId])
 }
 
 /// Registro de auditoría de acciones sensibles (logins, cambios de permisos,

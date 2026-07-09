@@ -12,6 +12,7 @@ import {
   canViewRecord,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { createGoogleTask, deleteGoogleTask } from "@/lib/google-tasks";
 import { Currency } from "@/lib/generated/prisma/enums";
 
 function opt(formData: FormData, key: string): string | null {
@@ -145,4 +146,83 @@ export async function togglePin(id: string): Promise<void> {
     metadata: { isPinned: !opportunity.isPinned },
   });
   revalidatePath("/oportunidades");
+}
+
+/** Creates a reminder for an opportunity and syncs it to Google Tasks. */
+export async function createReminder(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const opportunity = await prisma.opportunity.findUnique({
+    where: { id: opportunityId },
+  });
+  if (!opportunity) throw new Error("Oportunidad no encontrada.");
+  if (!canEditOpportunity(user, opportunity)) {
+    throw new Error("No tenés permisos para modificar esta oportunidad.");
+  }
+
+  const title = opt(formData, "title");
+  if (!title) throw new Error("El título de la alerta es obligatorio.");
+  const dueRaw = opt(formData, "dueAt");
+  if (!dueRaw) throw new Error("Elegí una fecha para la alerta.");
+  const dueAt = new Date(dueRaw);
+  if (Number.isNaN(dueAt.getTime())) throw new Error("La fecha no es válida.");
+  const notes = opt(formData, "notes");
+
+  const reminder = await prisma.reminder.create({
+    data: { opportunityId, title, dueAt, notes, createdById: user.id },
+  });
+
+  // Best-effort sync: the reminder is saved locally even if Google fails.
+  try {
+    const googleTaskId = await createGoogleTask(user.id, {
+      title: `${title} — ${opportunity.title}`,
+      notes,
+      due: dueAt.toISOString(),
+    });
+    await prisma.reminder.update({
+      where: { id: reminder.id },
+      data: { googleTaskId },
+    });
+  } catch (error) {
+    console.error("Google Tasks sync failed:", error);
+  }
+
+  await logAudit({
+    action: "reminder.created",
+    actorId: user.id,
+    targetType: "Reminder",
+    targetId: reminder.id,
+    metadata: { opportunityId },
+  });
+  revalidatePath(`/oportunidades/${opportunityId}`);
+}
+
+export async function deleteReminder(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const reminder = await prisma.reminder.findUnique({
+    where: { id },
+    include: { opportunity: true },
+  });
+  if (!reminder) return;
+  if (!canEditOpportunity(user, reminder.opportunity)) {
+    throw new Error("No tenés permisos para modificar esta oportunidad.");
+  }
+
+  if (reminder.googleTaskId) {
+    try {
+      await deleteGoogleTask(user.id, reminder.googleTaskId);
+    } catch (error) {
+      console.error("Google Tasks delete failed:", error);
+    }
+  }
+
+  await prisma.reminder.delete({ where: { id } });
+  await logAudit({
+    action: "reminder.deleted",
+    actorId: user.id,
+    targetType: "Reminder",
+    targetId: id,
+  });
+  revalidatePath(`/oportunidades/${reminder.opportunityId}`);
 }

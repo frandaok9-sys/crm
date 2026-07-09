@@ -48,7 +48,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          prompt: "select_account",
+          // Request offline access + the Google Tasks scope so the app can
+          // create task reminders on the user's behalf. `prompt: consent`
+          // forces re-consent so Google returns a refresh token.
+          scope:
+            "openid email profile https://www.googleapis.com/auth/tasks",
+          access_type: "offline",
+          prompt: "consent",
           // When Workspace is configured, restrict the account chooser to the domain.
           ...(process.env.ALLOWED_EMAIL_DOMAIN
             ? { hd: process.env.ALLOWED_EMAIL_DOMAIN.replace(/^@/, "") }
@@ -114,13 +120,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         metadata: { email, bootstrappedAsAdmin: bootstrapped },
       });
     },
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       if (user.id) {
         await logAudit({
           action: "user.login",
           actorId: user.id,
           targetType: "User",
           targetId: user.id,
+        });
+      }
+      // Persist the latest Google tokens (access + refresh) so the app can call
+      // the Tasks API later. Auth.js doesn't refresh stored tokens on re-login.
+      if (account?.provider === "google") {
+        await prisma.account.updateMany({
+          where: {
+            provider: "google",
+            providerAccountId: account.providerAccountId,
+          },
+          data: {
+            access_token: account.access_token ?? undefined,
+            refresh_token: account.refresh_token ?? undefined,
+            expires_at: account.expires_at ?? undefined,
+            scope: account.scope ?? undefined,
+            token_type: account.token_type ?? undefined,
+            id_token: account.id_token ?? undefined,
+          },
         });
       }
     },

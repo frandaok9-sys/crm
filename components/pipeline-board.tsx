@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   DragDropContext,
@@ -178,6 +179,13 @@ export function PipelineBoard({
                                 </span>
                               )}
                             </div>
+                            <Link
+                              href={`/oportunidades/${card.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-2 block text-xs text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                              Ver / alertas →
+                            </Link>
                           </div>
                         )}
                       </Draggable>
