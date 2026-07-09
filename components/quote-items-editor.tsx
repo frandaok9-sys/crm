@@ -212,7 +212,7 @@ export function QuoteItemsEditor({
       <button
         type="button"
         onClick={addRow}
-        className="mt-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+        className="mt-2 text-sm font-medium text-primary hover:underline"
       >
         + Agregar ítem
       </button>

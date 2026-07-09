@@ -67,7 +67,7 @@ export default async function ClientDetailPage({
         </p>
         <Link
           href={`/clientes/${client.id}/cuenta`}
-          className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+          className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
         >
           Ver cuenta corriente →
         </Link>
@@ -152,7 +152,7 @@ export default async function ClientDetailPage({
                 <span className="font-medium">
                   {contact.name}
                   {contact.isPrimary && (
-                    <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                    <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                       Principal
                     </span>
                   )}

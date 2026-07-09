@@ -57,7 +57,7 @@ export default async function ImportClientsPage() {
         </div>
         <a
           href="/clientes/importar/plantilla"
-          className="mt-4 inline-block text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+          className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
         >
           ↓ Descargar plantilla de ejemplo (.xlsx)
         </a>

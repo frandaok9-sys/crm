@@ -64,7 +64,7 @@ export default async function QuotesPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/presupuestos/${quote.id}`}
-                      className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                      className="font-medium text-primary hover:underline"
                     >
                       {quote.code}
                     </Link>

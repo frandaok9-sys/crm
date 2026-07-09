@@ -71,7 +71,7 @@ export default async function NewQuotePage() {
       {clients.length === 0 ? (
         <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-950">
           Primero necesitás un cliente en tu cartera.{" "}
-          <Link href="/clientes/nuevo" className="text-blue-600 hover:underline">
+          <Link href="/clientes/nuevo" className="text-primary hover:underline">
             Crear un cliente
           </Link>
           .

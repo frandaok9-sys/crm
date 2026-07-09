@@ -17,7 +17,7 @@ export function AdminTabs({ tabs }: { tabs: Tab[] }) {
             onClick={() => setActive(tab.id)}
             className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
               active === tab.id
-                ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                ? "border-primary text-primary"
                 : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
             }`}
           >

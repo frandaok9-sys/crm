@@ -141,7 +141,7 @@ export function PipelineBoard({
                             {...prov.draggableProps}
                             {...prov.dragHandleProps}
                             className={`rounded-lg border border-l-4 bg-white p-3 shadow-sm dark:bg-zinc-950 ${border} ${
-                              snapshot.isDragging ? "ring-2 ring-blue-400" : ""
+                              snapshot.isDragging ? "ring-2 ring-primary" : ""
                             } ${card.isPinned ? "ring-1 ring-amber-400" : ""}`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -188,7 +188,7 @@ export function PipelineBoard({
                             <Link
                               href={`/oportunidades/${card.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="mt-2 block text-xs text-blue-600 hover:underline dark:text-blue-400"
+                              className="mt-2 block text-xs text-primary hover:underline"
                             >
                               Ver / alertas →
                             </Link>
