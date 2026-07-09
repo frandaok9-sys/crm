@@ -254,6 +254,72 @@ export default async function MetricsPage() {
         </>
       )}
 
+      {/* Comparativa por vendedor — solo visión general (Admin/Gerencia) */}
+      {data.bySeller && data.bySeller.length > 0 && (
+        <section className="overflow-x-auto rounded-xl border bg-white dark:bg-zinc-900">
+          <div className="border-b px-5 py-4">
+            <h2 className="text-sm font-medium text-zinc-500">
+              Por vendedor
+            </h2>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="border-b bg-zinc-50 text-left text-xs uppercase text-zinc-500 dark:bg-zinc-800">
+              <tr>
+                <th className="px-5 py-3 font-medium">Vendedor</th>
+                <th className="px-5 py-3 text-right font-medium">Cotizado</th>
+                <th className="px-5 py-3 text-right font-medium">Aprobado</th>
+                <th className="px-5 py-3 text-right font-medium">Conversión</th>
+                <th className="px-5 py-3 text-right font-medium">
+                  m² en pipeline
+                </th>
+              </tr>
+            </thead>
+            <tbody className="tabular-nums">
+              {data.bySeller.map((seller) => (
+                <tr key={seller.name} className="border-b last:border-0">
+                  <td className="px-5 py-3 font-medium">{seller.name}</td>
+                  <td className="px-5 py-3 text-right">
+                    {seller.quoted.length === 0
+                      ? "—"
+                      : seller.quoted.map((q) => (
+                          <div key={q.currency}>
+                            {formatMoney(q.total, toCurrency(q.currency))}
+                          </div>
+                        ))}
+                  </td>
+                  <td className="px-5 py-3 text-right font-semibold">
+                    {seller.approved.length === 0
+                      ? "—"
+                      : seller.approved.map((a) => (
+                          <div key={a.currency}>
+                            {formatMoney(a.total, toCurrency(a.currency))}
+                          </div>
+                        ))}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {seller.issued > 0 ? (
+                      <>
+                        {seller.ratePct}%{" "}
+                        <span className="text-xs text-zinc-500">
+                          ({seller.approvedCount}/{seller.issued})
+                        </span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {Number(seller.pipelineM2) > 0
+                      ? `${Number(seller.pipelineM2).toLocaleString("es-AR")} m²`
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       {/* Embudo del pipeline */}
       {data.funnel.length > 0 && (
         <section className="rounded-xl border bg-white p-5 dark:bg-zinc-900">

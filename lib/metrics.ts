@@ -1,7 +1,12 @@
 import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
-import { quoteScope, opportunityScope, type Principal } from "@/lib/permissions";
+import {
+  quoteScope,
+  opportunityScope,
+  canViewAllRecords,
+  type Principal,
+} from "@/lib/permissions";
 import { SEGMENT_LABELS } from "@/lib/clients";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
 
@@ -32,6 +37,16 @@ export type FunnelRow = {
   amounts: { currency: string; total: string }[];
 };
 
+export type SellerRow = {
+  name: string;
+  quoted: { currency: string; total: string }[];
+  approved: { currency: string; total: string }[];
+  issued: number;
+  approvedCount: number;
+  ratePct: number;
+  pipelineM2: string;
+};
+
 export type MetricsData = {
   totals: { currency: string; quoted: string; approved: string }[];
   conversion: { issued: number; approved: number; ratePct: number };
@@ -39,6 +54,8 @@ export type MetricsData = {
   monthly: CurrencySeries[];
   bySegment: { currency: string; rows: SegmentRow[] }[];
   funnel: FunnelRow[];
+  /** Comparativa por vendedor — solo para quienes ven toda la cartera. */
+  bySeller: SellerRow[] | null;
 };
 
 const MONTHS_BACK = 6;
@@ -54,6 +71,7 @@ function monthLabel(date: Date): string {
 }
 
 export async function getMetrics(user: Principal): Promise<MetricsData> {
+  const companyWide = canViewAllRecords(user);
   const [quotes, opportunities] = await Promise.all([
     prisma.quote.findMany({
       where: quoteScope(user),
@@ -63,6 +81,7 @@ export async function getMetrics(user: Principal): Promise<MetricsData> {
         currency: true,
         createdAt: true,
         client: { select: { segment: true } },
+        owner: { select: { id: true, name: true, email: true } },
       },
     }),
     prisma.opportunity.findMany({
@@ -72,6 +91,7 @@ export async function getMetrics(user: Principal): Promise<MetricsData> {
         currency: true,
         estimatedM2: true,
         stage: { select: { name: true, color: true, position: true } },
+        owner: { select: { id: true, name: true, email: true } },
       },
     }),
   ]);
@@ -201,6 +221,78 @@ export async function getMetrics(user: Principal): Promise<MetricsData> {
       })),
     }));
 
+  // --- Comparativa por vendedor (solo visión general) ------------------------
+  let bySeller: SellerRow[] | null = null;
+  if (companyWide) {
+    type Acc = {
+      name: string;
+      quoted: Map<string, Decimal>;
+      approved: Map<string, Decimal>;
+      issued: number;
+      approvedCount: number;
+      m2: Decimal;
+    };
+    const sellers = new Map<string, Acc>();
+    const acc = (owner: { id: string; name: string | null; email: string } | null): Acc => {
+      const key = owner?.id ?? "__none__";
+      const existing = sellers.get(key);
+      if (existing) return existing;
+      const fresh: Acc = {
+        name: owner ? owner.name ?? owner.email : "Sin asignar",
+        quoted: new Map(),
+        approved: new Map(),
+        issued: 0,
+        approvedCount: 0,
+        m2: new Decimal(0),
+      };
+      sellers.set(key, fresh);
+      return fresh;
+    };
+
+    for (const q of quotes) {
+      const s = acc(q.owner);
+      const total = new Decimal(q.total.toString());
+      s.quoted.set(
+        q.currency,
+        (s.quoted.get(q.currency) ?? new Decimal(0)).plus(total)
+      );
+      if (q.status !== QuoteStatus.DRAFT) s.issued++;
+      if (q.status === QuoteStatus.APPROVED) {
+        s.approvedCount++;
+        s.approved.set(
+          q.currency,
+          (s.approved.get(q.currency) ?? new Decimal(0)).plus(total)
+        );
+      }
+    }
+    for (const o of opportunities) {
+      if (!o.estimatedM2) continue;
+      acc(o.owner).m2 = acc(o.owner).m2.plus(o.estimatedM2.toString());
+    }
+
+    bySeller = [...sellers.values()]
+      .map((s) => ({
+        name: s.name,
+        quoted: [...s.quoted.entries()].map(([currency, total]) => ({
+          currency,
+          total: total.toFixed(2),
+        })),
+        approved: [...s.approved.entries()].map(([currency, total]) => ({
+          currency,
+          total: total.toFixed(2),
+        })),
+        issued: s.issued,
+        approvedCount: s.approvedCount,
+        ratePct: s.issued > 0 ? Math.round((s.approvedCount / s.issued) * 100) : 0,
+        pipelineM2: s.m2.toFixed(0),
+      }))
+      .sort((a, b) => {
+        const aArs = Number(a.approved.find((x) => x.currency === "ARS")?.total ?? 0);
+        const bArs = Number(b.approved.find((x) => x.currency === "ARS")?.total ?? 0);
+        return bArs - aArs;
+      });
+  }
+
   return {
     totals: [...totalsMap.entries()].map(([currency, t]) => ({
       currency,
@@ -216,5 +308,6 @@ export async function getMetrics(user: Principal): Promise<MetricsData> {
     monthly,
     bySegment,
     funnel,
+    bySeller,
   };
 }
