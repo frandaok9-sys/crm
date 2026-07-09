@@ -48,13 +48,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          // Request offline access + the Google Tasks scope so the app can
-          // create task reminders on the user's behalf. `prompt: consent`
-          // forces re-consent so Google returns a refresh token.
-          scope:
-            "openid email profile https://www.googleapis.com/auth/tasks",
-          access_type: "offline",
-          prompt: "consent",
+          // Only basic profile/email scopes → no Google verification needed.
+          // The Google Tasks scope was removed because it is "sensitive" and
+          // triggers a verification block. Re-enable it (plus access_type
+          // "offline" + prompt "consent") once the app is verified/whitelisted.
+          prompt: "select_account",
           // When Workspace is configured, restrict the account chooser to the domain.
           ...(process.env.ALLOWED_EMAIL_DOMAIN
             ? { hd: process.env.ALLOWED_EMAIL_DOMAIN.replace(/^@/, "") }
