@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -10,4 +8,107 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Fase 0 — Usuarios, roles y auditoría
+// ---------------------------------------------------------------------------
+
+/// Roles del sistema. La capa de permisos (lib/permissions) los interpreta.
+enum Role {
+  ADMIN // Administrador
+  MANAGER // Gerente
+  SALES // Vendedor
+  ADMINISTRATION // Administración
+  READ_ONLY // Solo lectura
+}
+
+/// Estado de la cuenta de usuario.
+/// Un usuario nuevo válido queda PENDING hasta que un Administrador lo activa.
+enum UserStatus {
+  PENDING // Recién registrado, esperando activación de un Admin
+  ACTIVE // Habilitado para operar
+  DISABLED // Deshabilitado por un Admin
+}
+
+/// Usuario del sistema. Compatible con el adaptador de Prisma para Auth.js
+/// (campos estándar) más los campos propios: role y status.
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String     @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role? // Null hasta que un Admin le asigna rol
+  status        UserStatus @default(PENDING)
+
+  accounts  Account[]
+  sessions  Session[]
+  auditLogs AuditLog[] @relation("AuditLogActor")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// Cuenta de proveedor externo (Google) vinculada a un usuario. Modelo de Auth.js.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// Sesión de usuario. Modelo de Auth.js (estrategia de sesión en base de datos).
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Token de verificación. Modelo de Auth.js.
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Registro de auditoría de acciones sensibles (logins, cambios de permisos,
+/// altas/bajas de usuarios, ediciones financieras).
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String // p. ej. "user.login", "user.role_changed"
+  actorId    String? // Usuario que realizó la acción (si aplica)
+  targetType String? // Entidad afectada, p. ej. "User", "Quote"
+  targetId   String? // Id de la entidad afectada
+  metadata   Json? // Detalle adicional de la acción
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
