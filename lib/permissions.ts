@@ -88,6 +88,32 @@ export function clientScope(
   return { ownerId: principal?.id ?? "__none__" };
 }
 
+// --- Oportunidades (misma lógica de cartera que clientes) ------------------
+
+export function canCreateOpportunities(
+  principal: Principal | null | undefined
+): boolean {
+  return hasRole(principal, Role.ADMIN, Role.MANAGER, Role.SALES);
+}
+
+/** Admins/managers edit any opportunity; a salesperson only their own. */
+export function canEditOpportunity(
+  principal: Principal | null | undefined,
+  opportunity: { ownerId?: string | null }
+): boolean {
+  if (!isActive(principal)) return false;
+  if (hasRole(principal, Role.ADMIN, Role.MANAGER)) return true;
+  return hasRole(principal, Role.SALES) && ownsRecord(principal, opportunity);
+}
+
+/** Prisma `where` scope for listing opportunities by portfolio. */
+export function opportunityScope(
+  principal: Principal | null | undefined
+): { ownerId?: string } {
+  if (canViewAllRecords(principal)) return {};
+  return { ownerId: principal?.id ?? "__none__" };
+}
+
 /** True when the principal owns the given record. */
 export function ownsRecord(
   principal: Principal | null | undefined,

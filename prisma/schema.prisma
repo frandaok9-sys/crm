@@ -47,6 +47,8 @@ model User {
   auditLogs AuditLog[] @relation("AuditLogActor")
   clients   Client[]   @relation("ClientOwner")
 
+  opportunities Opportunity[] @relation("OpportunityOwner")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -128,7 +130,8 @@ model Client {
   ownerId String?
   owner   User?   @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
-  contacts Contact[]
+  contacts      Contact[]
+  opportunities Opportunity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -151,6 +154,59 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([clientId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 1 — Pipeline de oportunidades
+// ---------------------------------------------------------------------------
+
+enum Currency {
+  ARS
+  USD
+}
+
+/// Etapa del pipeline (columna del tablero). Configurable: nombre, color y orden.
+model Stage {
+  id       String @id @default(cuid())
+  name     String
+  color    String @default("gray")
+  position Int
+
+  opportunities Opportunity[]
+
+  createdAt DateTime @default(now())
+
+  @@index([position])
+}
+
+/// Oportunidad comercial. Pertenece a la cartera de un vendedor (owner) y a una
+/// etapa. El dinero se modela como (amount: Decimal, currency) — nunca float.
+model Opportunity {
+  id       String @id @default(cuid())
+  title    String
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  ownerId String?
+  owner   User?   @relation("OpportunityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  stageId String
+  stage   Stage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  amount   Decimal? @db.Decimal(14, 2)
+  currency Currency @default(ARS)
+
+  color    String? // Etiqueta de color de la tarjeta
+  isPinned Boolean @default(false)
+  position Int     @default(0) // Orden dentro de la etapa
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stageId])
+  @@index([ownerId])
   @@index([clientId])
 }
 
