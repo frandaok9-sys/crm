@@ -4,10 +4,16 @@ import { auth, signIn } from "@/auth";
 import { getCompanySettings } from "@/lib/company";
 import { Button } from "@/components/ui/button";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ demo?: string }>;
+}) {
   const session = await auth();
   if (session?.user) redirect("/dashboard");
   const settings = await getCompanySettings();
+  const demoEnabled = Boolean(process.env.DEMO_PASSWORD);
+  const demoError = (await searchParams).demo === "error";
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 p-6">
@@ -64,6 +70,42 @@ export default async function LoginPage() {
         <p className="mt-6 text-center text-xs text-zinc-500">
           Acceso restringido a usuarios autorizados.
         </p>
+
+        {demoEnabled && (
+          <div className="mt-6 border-t border-zinc-800 pt-6">
+            <p className="mb-3 text-center text-[11px] uppercase tracking-widest text-zinc-500">
+              Acceso de demostración
+            </p>
+            <form action="/api/demo-login" method="post" className="space-y-2">
+              <input
+                type="email"
+                name="email"
+                defaultValue="prueba@gmail.com"
+                readOnly
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-300"
+              />
+              <input
+                type="password"
+                name="password"
+                required
+                placeholder="Clave de demo"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white"
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                className="h-9 w-full border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              >
+                Entrar como demo
+              </Button>
+            </form>
+            {demoError && (
+              <p className="mt-2 text-center text-xs text-red-400">
+                Clave incorrecta.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );
