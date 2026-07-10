@@ -8,9 +8,11 @@ import {
   canManageCompany,
 } from "@/lib/permissions";
 import { UserStatus } from "@/lib/generated/prisma/enums";
+import { getAuditEntries } from "@/lib/audit-log";
 import { AdminTabs } from "@/components/admin-tabs";
 import { AdminUsersSection } from "@/components/admin-users-section";
 import { AdminCompanySection } from "@/components/admin-company-section";
+import { AdminAuditSection } from "@/components/admin-audit-section";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -29,13 +31,22 @@ export default async function AdminPage() {
   const admin = await requireActiveUser();
   if (!canAccessAdminPanel(admin)) redirect("/dashboard");
 
-  const [activeUsers, pendingUsers, clients, opportunities, quotes] =
+  const canUsers = canManageUsers(admin);
+
+  const [activeUsers, pendingUsers, clients, opportunities, quotes, auditData, auditUsers] =
     await Promise.all([
       prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
       prisma.user.count({ where: { status: UserStatus.PENDING } }),
       prisma.client.count(),
       prisma.opportunity.count(),
       prisma.quote.count(),
+      canUsers ? getAuditEntries({ page: 1 }) : null,
+      canUsers
+        ? prisma.user.findMany({
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, email: true },
+          })
+        : [],
     ]);
 
   const resumen = (
@@ -68,12 +79,25 @@ export default async function AdminPage() {
       <AdminTabs
         tabs={[
           { id: "resumen", label: "Resumen", content: resumen },
-          ...(canManageUsers(admin)
+          ...(canUsers
             ? [
                 {
                   id: "usuarios",
                   label: "Usuarios",
                   content: <AdminUsersSection adminId={admin.id} />,
+                },
+                {
+                  id: "auditoria",
+                  label: "Auditoría",
+                  content: (
+                    <AdminAuditSection
+                      users={auditUsers.map((u) => ({
+                        id: u.id,
+                        label: u.name ?? u.email ?? "—",
+                      }))}
+                      initial={auditData!}
+                    />
+                  ),
                 },
               ]
             : []),
