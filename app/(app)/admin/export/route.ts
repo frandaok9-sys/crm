@@ -5,6 +5,8 @@ import { requireActiveUser } from "@/lib/auth";
 import { canViewAllRecords } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { getMetrics } from "@/lib/metrics";
+import { renderMetricsPdf } from "@/lib/metrics-pdf";
+import { getCompanySettings } from "@/lib/company";
 import { IVA_LABELS, SEGMENT_LABELS } from "@/lib/clients";
 import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
 
@@ -18,10 +20,45 @@ import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
  */
 export async function GET(request: Request) {
   const user = await requireActiveUser();
-  const type = new URL(request.url).searchParams.get("type") ?? "clientes";
+  const url = new URL(request.url);
+  const type = url.searchParams.get("type") ?? "clientes";
+  const format = url.searchParams.get("format") ?? (type === "metricas" ? "pdf" : "xlsx");
 
   if (type !== "metricas" && !canViewAllRecords(user)) {
     return new Response("No autorizado", { status: 403 });
+  }
+
+  // Métricas en PDF visual (gráficos): lo pide cualquier usuario activo,
+  // recibe sus métricas según su alcance.
+  if (type === "metricas" && format === "pdf") {
+    const [data, settings] = await Promise.all([getMetrics(user), getCompanySettings()]);
+    const generatedAt = new Intl.DateTimeFormat("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "America/Argentina/Buenos_Aires",
+    }).format(new Date());
+    const buffer = await renderMetricsPdf({
+      metrics: data,
+      companyName: settings?.tradeName ?? settings?.legalName ?? "RC Pisos Industriales",
+      logo: settings?.logo ?? null,
+      scopeLabel: canViewAllRecords(user)
+        ? "Visión general de toda la empresa"
+        : "Tu actividad comercial",
+      generatedAt,
+    });
+    await logAudit({
+      action: "data.exported",
+      actorId: user.id,
+      targetType: "Export",
+      metadata: { type: "metricas", format: "pdf" },
+    });
+    return new Response(buffer as unknown as ArrayBuffer, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="metricas.pdf"',
+      },
+    });
   }
 
   const admin = user;

@@ -1,22 +1,25 @@
 "use client";
 
-type ExportItem = { type: string; label: string; desc: string };
+type ExportItem = { type: string; label: string; desc: string; file: string };
 
 const ITEMS: ExportItem[] = [
   {
     type: "clientes",
     label: "Clientes",
     desc: "Razón social, CUIT, condición IVA, segmento, ubicación y vendedor.",
+    file: "Excel",
   },
   {
     type: "presupuestos",
     label: "Presupuestos",
     desc: "Última revisión de cada uno: cliente, estado, moneda, total y fechas.",
+    file: "Excel",
   },
   {
     type: "metricas",
-    label: "Métricas",
-    desc: "Totales por moneda, conversión, embudo por etapa, por segmento y por vendedor.",
+    label: "Métricas (reporte visual)",
+    desc: "PDF con gráficos: KPIs, evolución mensual, embudo, segmentos y vendedores.",
+    file: "PDF",
   },
 ];
 
@@ -40,7 +43,7 @@ export function AdminExportSection() {
             </span>
             <span className="text-[12.5px] text-muted-foreground">{item.desc}</span>
             <span className="mt-1 text-[11.5px] font-semibold uppercase tracking-wide text-primary opacity-0 transition-opacity group-hover:opacity-100">
-              Descargar Excel
+              Descargar {item.file}
             </span>
           </a>
         ))}

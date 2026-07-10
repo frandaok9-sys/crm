@@ -172,7 +172,7 @@ export default async function MetricsPage() {
             href="/admin/export?type=metricas"
             className="flex items-center gap-2 rounded-[9px] border border-border bg-card px-3.5 py-2 text-[13px] font-semibold text-text1 transition-colors hover:border-primary/50 hover:bg-hoverbg"
           >
-            <span className="text-primary">↓</span> Exportar a Excel
+            <span className="text-primary">↓</span> Exportar PDF
           </a>
         )}
       </div>
