@@ -471,3 +471,16 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([createdAt])
 }
+
+/// Tipo de cambio ARS por 1 USD, con fecha. Habilita consolidar métricas en
+/// una sola moneda SIN mezclar los saldos (que siempre van separados por
+/// moneda). Un registro por fecha.
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  usdToArs  Decimal  @db.Decimal(14, 4) // cuántos ARS vale 1 USD
+  createdAt DateTime @default(now())
+
+  @@unique([date])
+  @@index([date])
+}

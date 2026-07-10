@@ -195,3 +195,129 @@ export async function deleteStage(id: string): Promise<void> {
   revalidatePath("/oportunidades");
   revalidatePath("/admin");
 }
+
+// ---------------------------------------------------------------------------
+// Alícuotas de IVA (TaxRate)
+// ---------------------------------------------------------------------------
+
+function parseRate(value: string): number {
+  const n = Number(String(value).replace(",", "."));
+  if (!Number.isFinite(n) || n < 0 || n > 100) {
+    throw new Error("La alícuota debe ser un número entre 0 y 100.");
+  }
+  return n;
+}
+
+export async function createTaxRate(name: string, rate: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  const clean = name.trim();
+  if (!clean) throw new Error("Poné un nombre para la alícuota.");
+  const value = parseRate(rate);
+  const last = await prisma.taxRate.findFirst({ orderBy: { position: "desc" } });
+  const created = await prisma.taxRate.create({
+    data: { name: clean, rate: value.toFixed(2), position: (last?.position ?? -1) + 1 },
+  });
+  await logAudit({
+    action: "tax_rate.created",
+    actorId: admin.id,
+    targetType: "TaxRate",
+    targetId: created.id,
+    metadata: { name: clean, rate: value },
+  });
+  revalidatePath("/admin");
+}
+
+export async function updateTaxRate(id: string, name: string, rate: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  const clean = name.trim();
+  if (!clean) throw new Error("Poné un nombre para la alícuota.");
+  const value = parseRate(rate);
+  await prisma.taxRate.update({
+    where: { id },
+    data: { name: clean, rate: value.toFixed(2) },
+  });
+  await logAudit({
+    action: "tax_rate.updated",
+    actorId: admin.id,
+    targetType: "TaxRate",
+    targetId: id,
+    metadata: { name: clean, rate: value },
+  });
+  revalidatePath("/admin");
+}
+
+/** Marca una alícuota como predeterminada (y desmarca las demás). */
+export async function setDefaultTaxRate(id: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  await prisma.$transaction([
+    prisma.taxRate.updateMany({ data: { isDefault: false } }),
+    prisma.taxRate.update({ where: { id }, data: { isDefault: true } }),
+  ]);
+  await logAudit({
+    action: "tax_rate.updated",
+    actorId: admin.id,
+    targetType: "TaxRate",
+    targetId: id,
+    metadata: { isDefault: true },
+  });
+  revalidatePath("/admin");
+}
+
+export async function deleteTaxRate(id: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  // Los presupuestos guardan la alícuota como snapshot (no es FK), así que
+  // eliminarla no rompe nada histórico; solo deja de ofrecerse en nuevos.
+  const rate = await prisma.taxRate.findUnique({ where: { id } });
+  await prisma.taxRate.delete({ where: { id } });
+  await logAudit({
+    action: "tax_rate.deleted",
+    actorId: admin.id,
+    targetType: "TaxRate",
+    targetId: id,
+    metadata: { name: rate?.name ?? "" },
+  });
+  revalidatePath("/admin");
+}
+
+// ---------------------------------------------------------------------------
+// Tipo de cambio (ExchangeRate)
+// ---------------------------------------------------------------------------
+
+/** Carga (o actualiza) el tipo de cambio ARS por 1 USD para una fecha. */
+export async function saveExchangeRate(dateStr: string, usdToArs: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    throw new Error("Fecha inválida.");
+  }
+  const value = Number(String(usdToArs).replace(",", "."));
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error("El tipo de cambio debe ser un número mayor a 0.");
+  }
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  await prisma.exchangeRate.upsert({
+    where: { date },
+    create: { date, usdToArs: value.toFixed(4) },
+    update: { usdToArs: value.toFixed(4) },
+  });
+  await logAudit({
+    action: "exchange_rate.created",
+    actorId: admin.id,
+    targetType: "ExchangeRate",
+    metadata: { date: dateStr, usdToArs: value },
+  });
+  revalidatePath("/admin");
+  revalidatePath("/metricas");
+}
+
+export async function deleteExchangeRate(id: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  await prisma.exchangeRate.delete({ where: { id } });
+  await logAudit({
+    action: "exchange_rate.deleted",
+    actorId: admin.id,
+    targetType: "ExchangeRate",
+    targetId: id,
+  });
+  revalidatePath("/admin");
+  revalidatePath("/metricas");
+}

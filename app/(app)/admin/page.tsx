@@ -16,6 +16,8 @@ import { AdminCompanySection } from "@/components/admin-company-section";
 import { AdminAuditSection } from "@/components/admin-audit-section";
 import { AdminReassignSection } from "@/components/admin-reassign-section";
 import { AdminPipelineSection } from "@/components/admin-pipeline-section";
+import { AdminBillingSection } from "@/components/admin-billing-section";
+import { AdminExportSection } from "@/components/admin-export-section";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -38,12 +40,22 @@ export default async function AdminPage() {
   const canAssign = canAssignClients(admin);
   const canCompany = canManageCompany(admin);
 
-  const stages = canCompany
-    ? await prisma.stage.findMany({
-        orderBy: { position: "asc" },
-        include: { _count: { select: { opportunities: true } } },
-      })
-    : [];
+  const [stages, taxRates, exchangeRates] = await Promise.all([
+    canCompany
+      ? prisma.stage.findMany({
+          orderBy: { position: "asc" },
+          include: { _count: { select: { opportunities: true } } },
+        })
+      : [],
+    canCompany ? prisma.taxRate.findMany({ orderBy: { position: "asc" } }) : [],
+    canCompany
+      ? prisma.exchangeRate.findMany({ orderBy: { date: "desc" }, take: 30 })
+      : [],
+  ]);
+
+  const todayIso = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  }).format(new Date());
 
   const [
     activeUsers,
@@ -159,6 +171,31 @@ export default async function AdminPage() {
                       }))}
                     />
                   ),
+                },
+                {
+                  id: "facturacion",
+                  label: "Facturación",
+                  content: (
+                    <AdminBillingSection
+                      taxRates={taxRates.map((t) => ({
+                        id: t.id,
+                        name: t.name,
+                        rate: t.rate.toString(),
+                        isDefault: t.isDefault,
+                      }))}
+                      exchangeRates={exchangeRates.map((r) => ({
+                        id: r.id,
+                        date: r.date.toISOString().slice(0, 10),
+                        usdToArs: r.usdToArs.toString(),
+                      }))}
+                      today={todayIso}
+                    />
+                  ),
+                },
+                {
+                  id: "exportar",
+                  label: "Exportar",
+                  content: <AdminExportSection />,
                 },
                 {
                   id: "empresa",
