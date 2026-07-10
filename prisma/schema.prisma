@@ -329,11 +329,16 @@ model Quote {
   ownerId  String?
   owner    User?   @relation("QuoteOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
-  status     QuoteStatus @default(DRAFT)
-  currency   Currency    @default(ARS)
-  issueDate  DateTime    @default(now())
-  validUntil DateTime?
-  notes      String?
+  status       QuoteStatus @default(DRAFT)
+  currency     Currency    @default(ARS)
+  issueDate    DateTime    @default(now())
+  validUntil   DateTime?
+  notes        String?
+  paymentTerms String? // Condición de pago: Contado, 15/30/45/60 días…
+
+  // Descuento general del presupuesto (% sobre el subtotal, además del
+  // descuento por ítem). Se aplica antes del IVA.
+  overallDiscount Decimal @default(0) @db.Decimal(5, 2)
 
   // Snapshot de totales (fuente de verdad = ítems + lib/quotes-calc).
   net      Decimal @default(0) @db.Decimal(14, 2)

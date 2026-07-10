@@ -22,7 +22,10 @@ export type IvaBreakdownRow = {
 };
 
 export type QuoteTotals = {
-  net: string; // subtotal without IVA
+  subtotal: string; // suma de netos por ítem, antes del descuento general
+  overallDiscountPct: string; // % de descuento general aplicado
+  overallDiscountAmount: string; // cuánto se descontó por el descuento general
+  net: string; // base gravada = subtotal − descuento general
   ivaBreakdown: IvaBreakdownRow[];
   ivaTotal: string;
   total: string;
@@ -62,18 +65,30 @@ export function lineNet(
 }
 
 /**
- * Computes the net subtotal, IVA discriminated by rate, and the grand total.
- * Each line's net is rounded to 2 decimals; IVA is computed per rate group.
+ * Computes the subtotal, an optional general discount, IVA discriminated by
+ * rate, and the grand total. Each line's net is rounded to 2 decimals. The
+ * general discount (`overallDiscount`, a percentage) is applied to each line's
+ * net BEFORE grouping by IVA rate, so the tax stays correct per rate.
  */
-export function computeQuoteTotals(lines: QuoteLineInput[]): QuoteTotals {
+export function computeQuoteTotals(
+  lines: QuoteLineInput[],
+  overallDiscount: string | number = 0
+): QuoteTotals {
   const netByRate = new Map<string, Decimal>();
+  const overallFactor = discountFactor(overallDiscount);
+  let subtotal = new Decimal(0);
   let net = new Decimal(0);
 
   for (const line of lines) {
-    const lineNetValue = d(line.quantity)
+    const itemNet = d(line.quantity)
       .times(d(line.unitPrice))
       .times(discountFactor(line.discount))
       .toDecimalPlaces(SCALE);
+    subtotal = subtotal.plus(itemNet);
+
+    // Descuento general aplicado a cada neto (y redondeado) para que la suma
+    // de las bases gravadas por alícuota cuadre exactamente con el neto total.
+    const lineNetValue = itemNet.times(overallFactor).toDecimalPlaces(SCALE);
     net = net.plus(lineNetValue);
 
     const rateKey = d(line.ivaRate).toFixed(SCALE);
@@ -103,7 +118,11 @@ export function computeQuoteTotals(lines: QuoteLineInput[]): QuoteTotals {
     });
   }
 
+  const pct = Decimal.min(Decimal.max(d(overallDiscount), 0), 100);
   return {
+    subtotal: money(subtotal),
+    overallDiscountPct: pct.toFixed(SCALE),
+    overallDiscountAmount: money(subtotal.minus(net)),
     net: money(net),
     ivaBreakdown,
     ivaTotal: money(ivaTotal),

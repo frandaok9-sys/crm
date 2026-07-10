@@ -10,6 +10,8 @@ const sample: QuotePdfData = {
   currency: "ARS",
   issueDate: "09/07/2026",
   validUntil: "08/08/2026",
+  paymentTerms: "30 días",
+  overallDiscount: "5",
   notes: "Precios sujetos a modificación sin previo aviso.",
   ownerName: "María González",
   client: {
@@ -67,6 +69,8 @@ describe("renderQuotePdf", () => {
       ...sample,
       version: 1,
       validUntil: null,
+      paymentTerms: null,
+      overallDiscount: "0",
       notes: null,
       ownerName: null,
       company: {

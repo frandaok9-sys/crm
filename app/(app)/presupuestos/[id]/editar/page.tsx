@@ -95,6 +95,8 @@ export default async function EditQuotePage({
               : "",
             notes: quote.notes,
             ownerId: quote.ownerId,
+            paymentTerms: quote.paymentTerms,
+            overallDiscount: quote.overallDiscount.toString(),
             items: quote.items.map((it) => ({
               type: it.type,
               description: it.description,

@@ -58,6 +58,14 @@ function pct(value: string): string {
   return n > 100 ? "100" : value;
 }
 
+function overallDiscountFrom(formData: FormData): string {
+  return pct(num(formData.get("overallDiscount")));
+}
+
+function paymentTermsFrom(formData: FormData): string | null {
+  return String(formData.get("paymentTerms") ?? "").trim().slice(0, 20) || null;
+}
+
 function parseItems(formData: FormData): ParsedItem[] {
   const raw = formData.get("items");
   if (typeof raw !== "string") return [];
@@ -124,7 +132,8 @@ export async function createQuote(formData: FormData): Promise<void> {
 
   const currency =
     formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
-  const totals = computeQuoteTotals(items);
+  const overallDiscount = overallDiscountFrom(formData);
+  const totals = computeQuoteTotals(items, overallDiscount);
   const ownerId = canAssignClients(user)
     ? (String(formData.get("ownerId") ?? "") || null) ?? client.ownerId
     : user.id;
@@ -140,6 +149,8 @@ export async function createQuote(formData: FormData): Promise<void> {
       currency,
       validUntil: parseDate(formData.get("validUntil")),
       notes: String(formData.get("notes") ?? "").trim() || null,
+      paymentTerms: paymentTermsFrom(formData),
+      overallDiscount,
       net: totals.net,
       ivaTotal: totals.ivaTotal,
       total: totals.total,
@@ -178,7 +189,8 @@ export async function updateQuote(formData: FormData): Promise<void> {
 
   const currency =
     formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
-  const totals = computeQuoteTotals(items);
+  const overallDiscount = overallDiscountFrom(formData);
+  const totals = computeQuoteTotals(items, overallDiscount);
   const ownerId = canAssignClients(user)
     ? (String(formData.get("ownerId") ?? "") || null) ?? existing.ownerId
     : existing.ownerId;
@@ -193,6 +205,8 @@ export async function updateQuote(formData: FormData): Promise<void> {
         currency,
         validUntil: parseDate(formData.get("validUntil")),
         notes: String(formData.get("notes") ?? "").trim() || null,
+        paymentTerms: paymentTermsFrom(formData),
+        overallDiscount,
         net: totals.net,
         ivaTotal: totals.ivaTotal,
         total: totals.total,
@@ -275,6 +289,8 @@ export async function reviseQuote(formData: FormData): Promise<void> {
         currency: source.currency,
         validUntil: source.validUntil,
         notes: source.notes,
+        paymentTerms: source.paymentTerms,
+        overallDiscount: source.overallDiscount,
         net: source.net,
         ivaTotal: source.ivaTotal,
         total: source.total,

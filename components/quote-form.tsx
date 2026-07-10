@@ -12,6 +12,14 @@ const inputClass =
 
 type Owner = { id: string; name: string | null; email: string };
 
+export const PAYMENT_TERMS = [
+  "Contado",
+  "15 días",
+  "30 días",
+  "45 días",
+  "60 días",
+] as const;
+
 export type QuoteFormData = {
   id?: string;
   clientId?: string;
@@ -20,6 +28,8 @@ export type QuoteFormData = {
   validUntil?: string; // yyyy-mm-dd
   notes?: string | null;
   ownerId?: string | null;
+  paymentTerms?: string | null;
+  overallDiscount?: string;
   items?: QuoteRow[];
 };
 
@@ -86,6 +96,24 @@ export function QuoteForm({
           />
         </label>
 
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-zinc-500">
+            Condición de pago
+          </span>
+          <select
+            name="paymentTerms"
+            defaultValue={quote?.paymentTerms ?? ""}
+            className={inputClass}
+          >
+            <option value="">Sin especificar</option>
+            {PAYMENT_TERMS.map((term) => (
+              <option key={term} value={term}>
+                {term}
+              </option>
+            ))}
+          </select>
+        </label>
+
         {canAssign && (
           <label className="block sm:col-span-2">
             <span className="mb-1 block text-xs font-medium text-zinc-500">
@@ -114,6 +142,7 @@ export function QuoteForm({
           defaultRate={defaultRate}
           currencySymbol={symbol}
           initial={quote?.items}
+          initialOverallDiscount={quote?.overallDiscount}
           products={products}
         />
       </div>

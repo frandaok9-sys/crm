@@ -44,6 +44,8 @@ export type QuotePdfData = {
   currency: "ARS" | "USD";
   issueDate: string; // dd/mm/aaaa
   validUntil: string | null;
+  paymentTerms: string | null;
+  overallDiscount: string; // porcentaje
   notes: string | null;
   ownerName: string | null;
   client: {
@@ -225,9 +227,11 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
       unitPrice: it.unitPrice,
       discount: it.discount,
       ivaRate: it.ivaRate,
-    }))
+    })),
+    data.overallDiscount
   );
   const hasDiscounts = data.items.some((it) => Number(it.discount) > 0);
+  const hasOverallDiscount = Number(totals.overallDiscountAmount) > 0;
   const fmt = (v: string) => money(v, data.currency);
   const companyName = data.company.name ?? "RC Pisos Industriales";
 
@@ -291,6 +295,11 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
               <Text style={styles.metaLine}>
                 Válido hasta{" "}
                 <Text style={styles.metaStrong}>{data.validUntil}</Text>
+              </Text>
+            )}
+            {data.paymentTerms && (
+              <Text style={styles.metaLine}>
+                Pago <Text style={styles.metaStrong}>{data.paymentTerms}</Text>
               </Text>
             )}
             <Text style={styles.metaLine}>
@@ -359,6 +368,22 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
         {/* Totals */}
         <View style={styles.totalsWrap}>
           <View style={styles.totals}>
+            {hasOverallDiscount && (
+              <>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalMuted}>Subtotal</Text>
+                  <Text>{fmt(totals.subtotal)}</Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={{ color: RED }}>
+                    Descuento general {Number(totals.overallDiscountPct)}%
+                  </Text>
+                  <Text style={{ color: RED }}>
+                    -{fmt(totals.overallDiscountAmount)}
+                  </Text>
+                </View>
+              </>
+            )}
             <View style={styles.totalRow}>
               <Text style={styles.totalMuted}>Neto</Text>
               <Text>{fmt(totals.net)}</Text>

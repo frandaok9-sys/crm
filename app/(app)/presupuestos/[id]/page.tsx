@@ -77,9 +77,11 @@ export default async function QuoteDetailPage({
       unitPrice: it.unitPrice.toString(),
       discount: it.discount.toString(),
       ivaRate: it.ivaRate.toString(),
-    }))
+    })),
+    quote.overallDiscount.toString()
   );
   const hasDiscounts = quote.items.some((it) => Number(it.discount) > 0);
+  const hasOverallDiscount = Number(totals.overallDiscountAmount) > 0;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -115,6 +117,7 @@ export default async function QuoteDetailPage({
             {quote.validUntil && (
               <> · vence {quote.validUntil.toLocaleDateString("es-AR")}</>
             )}
+            {quote.paymentTerms && <> · pago: {quote.paymentTerms}</>}
           </p>
         </div>
         <a
@@ -251,10 +254,29 @@ export default async function QuoteDetailPage({
 
       <div className="flex justify-end">
         <div className="w-72 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-zinc-500">Neto</span>
-            <span>{fmt(totals.net)}</span>
-          </div>
+          {hasOverallDiscount ? (
+            <>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Subtotal</span>
+                <span>{fmt(totals.subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-red-600">
+                <span>
+                  Descuento general {Number(totals.overallDiscountPct)}%
+                </span>
+                <span>−{fmt(totals.overallDiscountAmount)}</span>
+              </div>
+              <div className="flex justify-between font-medium">
+                <span className="text-zinc-500">Neto</span>
+                <span>{fmt(totals.net)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Neto</span>
+              <span>{fmt(totals.net)}</span>
+            </div>
+          )}
           {totals.ivaBreakdown.map((iva) => (
             <div key={iva.rate} className="flex justify-between text-zinc-500">
               <span>IVA {Number(iva.rate)}%</span>

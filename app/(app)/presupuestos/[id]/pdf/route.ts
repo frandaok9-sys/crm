@@ -42,6 +42,8 @@ export async function GET(
     currency: quote.currency === Currency.USD ? "USD" : "ARS",
     issueDate: formatDate(quote.issueDate),
     validUntil: quote.validUntil ? formatDate(quote.validUntil) : null,
+    paymentTerms: quote.paymentTerms,
+    overallDiscount: quote.overallDiscount.toString(),
     notes: quote.notes,
     ownerName: quote.owner ? quote.owner.name ?? quote.owner.email : null,
     client: {

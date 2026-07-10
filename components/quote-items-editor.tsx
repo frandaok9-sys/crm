@@ -56,14 +56,21 @@ export function QuoteItemsEditor({
   defaultRate,
   currencySymbol,
   initial,
+  initialOverallDiscount,
   products,
 }: {
   taxRates: TaxRateOption[];
   defaultRate: string;
   currencySymbol: string;
   initial?: QuoteRow[];
+  initialOverallDiscount?: string;
   products?: CatalogProduct[];
 }) {
+  const [overallDiscount, setOverallDiscount] = useState<string>(
+    initialOverallDiscount && Number(initialOverallDiscount) > 0
+      ? String(Number(initialOverallDiscount))
+      : ""
+  );
   const [rows, setRows] = useState<QuoteRow[]>(
     initial && initial.length > 0
       ? initial
@@ -144,12 +151,13 @@ export function QuoteItemsEditor({
           unitPrice: sanitize(r.unitPrice || "0"),
           discount: sanitize(r.discount || "0"),
           ivaRate: sanitize(r.ivaRate || "0"),
-        }))
+        })),
+        sanitize(overallDiscount || "0")
       );
     } catch {
       return null;
     }
-  }, [rows]);
+  }, [rows, overallDiscount]);
 
   const fmt = (v: string) =>
     `${currencySymbol} ${Number(v).toLocaleString("es-AR", {
@@ -160,6 +168,7 @@ export function QuoteItemsEditor({
   return (
     <div>
       <input type="hidden" name="items" value={JSON.stringify(rows)} />
+      <input type="hidden" name="overallDiscount" value={overallDiscount || "0"} />
 
       {products && products.length > 0 && (
         <div className="relative mb-3">
@@ -336,11 +345,34 @@ export function QuoteItemsEditor({
 
       {totals && (
         <div className="mt-4 flex justify-end">
-          <div className="w-64 space-y-1 text-sm">
+          <div className="w-72 space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-zinc-500">Neto</span>
-              <span>{fmt(totals.net)}</span>
+              <span className="text-zinc-500">Subtotal</span>
+              <span>{fmt(totals.subtotal)}</span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-zinc-500">
+                Descuento general
+                <input
+                  value={overallDiscount}
+                  inputMode="decimal"
+                  placeholder="0"
+                  onChange={(e) => setOverallDiscount(e.target.value)}
+                  className={`${cell} w-14 text-right`}
+                />
+                %
+              </span>
+              <span className={Number(totals.overallDiscountAmount) > 0 ? "text-red-600" : "text-zinc-400"}>
+                {Number(totals.overallDiscountAmount) > 0 ? "−" : ""}
+                {fmt(totals.overallDiscountAmount)}
+              </span>
+            </div>
+            {Number(totals.overallDiscountAmount) > 0 && (
+              <div className="flex justify-between font-medium">
+                <span className="text-zinc-500">Neto</span>
+                <span>{fmt(totals.net)}</span>
+              </div>
+            )}
             {totals.ivaBreakdown.map((iva) => (
               <div key={iva.rate} className="flex justify-between text-zinc-500">
                 <span>IVA {Number(iva.rate)}%</span>
