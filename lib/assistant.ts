@@ -33,10 +33,15 @@ const MAX_TOOL_ROUNDS = 5;
 const MAX_TOKENS = 900;
 
 function systemPrompt(
-  user: Principal & { name?: string | null; email?: string | null }
+  user: Principal & { name?: string | null; email?: string | null },
+  today: { pretty: string; iso: string }
 ): string {
   const nombre = user.name ?? user.email ?? "el usuario";
-  return `Asistente interno del CRM de RC Pisos Industriales (pisos industriales B2B, Mendoza). Hablás con ${nombre}.
+  return `Asistente interno del CRM de RC Pisos Industriales. Hablás con ${nombre}.
+
+CONTEXTO DEL NEGOCIO: RC instala pisos industriales (hormigón pulido, epoxi, poliuretano) en Mendoza, Argentina. Vende por OBRA/PROYECTO, cotizando por m². Clientes B2B por segmento: bodegas/vitivinícolas, agroindustria, constructoras, plantas/fábricas, logística, comercio. Cada oportunidad tiene m² estimados de la obra (dato clave para dimensionar el trabajo). Pipeline: Prospecto → Contactado → Propuesta enviada → Negociación → Ganada/Perdida. Presupuestos por m² con IVA discriminado, en ARS o USD; la cuenta corriente y los saldos van SIEMPRE separados por moneda. Catálogo de insumos: marcas Sinteplast y Ashford.
+
+HOY ES ${today.pretty} (${today.iso}, hora de Argentina). Usalo para interpretar fechas relativas ("hoy", "esta semana", "este mes", "últimos 30 días", "este año", "el mes pasado"). Cuando filtres por fecha, calculá el rango vos y pasá "desde"/"hasta" en formato AAAA-MM-DD a las herramientas que lo aceptan.
 
 ALCANCE DE ESTE USUARIO: ${describeScope(user)} Enmarcá las respuestas según esto (decí "tu cartera" o "la empresa" según corresponda) y nunca ofrezcas ni prometas datos fuera de su alcance.
 
@@ -52,6 +57,23 @@ REGLAS (no negociables):
 - Nunca sumes ni compares ARS con USD.
 - Si una herramienta devuelve "error" o falta de permiso, comunicá eso tal cual.
 - Si falta el dato, decilo; no adivines.`;
+}
+
+const AR_TZ = "America/Argentina/Buenos_Aires"; // UTC-3, sin horario de verano
+
+/** Fecha de hoy en hora de Argentina: legible ("miércoles, 9 de julio de 2026") + ISO ("2026-07-09"). */
+function todayInArgentina(): { pretty: string; iso: string } {
+  const now = new Date();
+  const pretty = new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: AR_TZ,
+  }).format(now);
+  // en-CA da el formato AAAA-MM-DD.
+  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: AR_TZ }).format(now);
+  return { pretty, iso };
 }
 
 /** Herramientas visibles para este usuario (CAPA 1 de permisos). */
@@ -100,6 +122,8 @@ export async function runAssistant(
   const client = new Anthropic({ apiKey });
 
   const tools = toolsFor(user);
+  const today = todayInArgentina();
+  const system = systemPrompt(user, today);
   const messages: MessageParam[] = normalizeHistory(history, message);
   const toolCalls: ToolCallLog[] = [];
 
@@ -108,7 +132,7 @@ export async function runAssistant(
       model: MODEL,
       max_tokens: MAX_TOKENS,
       temperature: 0.2,
-      system: systemPrompt(user),
+      system,
       tools,
       messages,
     });

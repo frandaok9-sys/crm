@@ -71,23 +71,27 @@ export const ASSISTANT_TOOLS = [
   {
     name: "pipeline_oportunidades",
     description:
-      "Oportunidades del pipeline con cliente, monto, m² y vendedor. 'etapa' filtra por etapa (opcional).",
+      "Oportunidades del pipeline con cliente, monto, m² y vendedor. Filtros opcionales: 'etapa', y 'desde'/'hasta' (por fecha de creación de la oportunidad).",
     inputSchema: {
       type: "object",
       properties: {
         etapa: { type: "string", description: "Etapa a filtrar (opcional)." },
+        desde: { type: "string", description: "Creadas desde AAAA-MM-DD (opcional)." },
+        hasta: { type: "string", description: "Creadas hasta AAAA-MM-DD (opcional)." },
       },
     },
   },
   {
     name: "presupuestos",
     description:
-      "Presupuestos (última revisión). Filtros opcionales: 'estado' (borrador/enviado/aprobado/rechazado/vencido) y 'cliente'.",
+      "Presupuestos (última revisión). Filtros opcionales: 'estado' (borrador/enviado/aprobado/rechazado/vencido), 'cliente', y 'desde'/'hasta' (por fecha de emisión).",
     inputSchema: {
       type: "object",
       properties: {
         estado: { type: "string", description: "Estado (opcional)." },
         cliente: { type: "string", description: "Nombre del cliente (opcional)." },
+        desde: { type: "string", description: "Emitidos desde AAAA-MM-DD (opcional)." },
+        hasta: { type: "string", description: "Emitidos hasta AAAA-MM-DD (opcional)." },
       },
     },
   },
@@ -166,9 +170,14 @@ export async function runTool(
     case "detalle_cliente":
       return detalleCliente(user, str("nombre") ?? "");
     case "pipeline_oportunidades":
-      return pipelineOportunidades(user, str("etapa"));
+      return pipelineOportunidades(user, str("etapa"), parseDateRange(str("desde"), str("hasta")));
     case "presupuestos":
-      return presupuestosTool(user, str("estado"), str("cliente"));
+      return presupuestosTool(
+        user,
+        str("estado"),
+        str("cliente"),
+        parseDateRange(str("desde"), str("hasta"))
+      );
     case "productos":
       return productosTool(str("texto"), str("marca"));
     case "metricas":
@@ -183,6 +192,22 @@ export async function runTool(
     default:
       return { error: `Herramienta desconocida: ${name}` };
   }
+}
+
+type DateRange = { gte?: Date; lte?: Date };
+
+/**
+ * Convierte "desde"/"hasta" (AAAA-MM-DD que calcula el modelo a partir de la
+ * fecha de hoy) en un filtro Prisma. Se interpreta en hora de Argentina
+ * (offset -03:00) para que "este mes" no se corra un día por la zona horaria
+ * del servidor (Vercel corre en UTC). "hasta" es inclusivo (fin del día).
+ */
+function parseDateRange(desde?: string, hasta?: string): DateRange | undefined {
+  const isDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const range: DateRange = {};
+  if (isDate(desde)) range.gte = new Date(`${desde}T00:00:00-03:00`);
+  if (isDate(hasta)) range.lte = new Date(`${hasta}T23:59:59.999-03:00`);
+  return range.gte || range.lte ? range : undefined;
 }
 
 async function resumenCartera(user: Principal) {
@@ -356,13 +381,18 @@ async function detalleCliente(user: Principal, nombre: string) {
   };
 }
 
-async function pipelineOportunidades(user: Principal, etapa?: string) {
+async function pipelineOportunidades(
+  user: Principal,
+  etapa?: string,
+  creado?: DateRange
+) {
   const opportunities = await prisma.opportunity.findMany({
     where: {
       ...opportunityScope(user),
       ...(etapa
         ? { stage: { name: { contains: etapa, mode: "insensitive" as const } } }
         : {}),
+      ...(creado ? { createdAt: creado } : {}),
     },
     include: {
       client: { select: { legalName: true } },
@@ -400,9 +430,17 @@ const STATUS_BY_WORD: Record<string, QuoteStatus> = {
   expired: QuoteStatus.EXPIRED,
 };
 
-async function presupuestosTool(user: Principal, estado?: string, cliente?: string) {
+async function presupuestosTool(
+  user: Principal,
+  estado?: string,
+  cliente?: string,
+  emitido?: DateRange
+) {
   const all = await prisma.quote.findMany({
-    where: quoteScope(user),
+    where: {
+      ...quoteScope(user),
+      ...(emitido ? { issueDate: emitido } : {}),
+    },
     select: {
       id: true,
       rootId: true,
