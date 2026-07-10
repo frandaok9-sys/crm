@@ -11,10 +11,16 @@ import {
   deleteTaxRate,
   saveExchangeRate,
   deleteExchangeRate,
+  saveAfipConfig,
 } from "@/app/(app)/admin/actions";
 
 export type TaxRateRow = { id: string; name: string; rate: string; isDefault: boolean };
 export type ExchangeRateRow = { id: string; date: string; usdToArs: string };
+export type AfipConfig = {
+  puntoVenta: number | null;
+  env: string;
+  certLoaded: boolean;
+};
 
 const INPUT =
   "rounded-[8px] border border-border bg-field px-2.5 py-1.5 text-[13px] outline-none focus:border-muted-foreground";
@@ -23,10 +29,12 @@ export function AdminBillingSection({
   taxRates,
   exchangeRates,
   today,
+  afip,
 }: {
   taxRates: TaxRateRow[];
   exchangeRates: ExchangeRateRow[];
   today: string;
+  afip: AfipConfig;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +46,10 @@ export function AdminBillingSection({
   // Alta tipo de cambio
   const [fxDate, setFxDate] = useState(today);
   const [fxRate, setFxRate] = useState("");
+  // AFIP
+  const [ptoVta, setPtoVta] = useState(afip.puntoVenta != null ? String(afip.puntoVenta) : "");
+  const [afipEnv, setAfipEnv] = useState(afip.env || "homologacion");
+  const [afipSaved, setAfipSaved] = useState(false);
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -174,6 +186,90 @@ export function AdminBillingSection({
               </div>
             ))}
           </section>
+        )}
+      </div>
+
+      {/* Facturación electrónica AFIP */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-[15px] font-bold text-foreground">
+            Facturación electrónica (AFIP)
+          </h3>
+          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+            Punto de venta y entorno para emitir facturas ante AFIP. El
+            certificado y la clave se cargan aparte, de forma segura (no acá).
+          </p>
+        </div>
+
+        {/* Estado del certificado */}
+        <div
+          className={`flex items-center gap-2 rounded-[10px] border px-4 py-2.5 text-[13px] ${
+            afip.certLoaded
+              ? "border-[#4FA97A]/35 bg-[#4FA97A]/10 text-text1"
+              : "border-[#D9A03C]/35 bg-[#D9A03C]/10 text-text1"
+          }`}
+        >
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ background: afip.certLoaded ? "#4FA97A" : "#D9A03C" }}
+          />
+          {afip.certLoaded
+            ? "Certificado de AFIP cargado en el servidor."
+            : "Falta cargar el certificado de AFIP (lo hacemos cuando lo tengas)."}
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3 rounded-[10px] border border-dashed border-avbd bg-card2 p-3.5">
+          <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+            Punto de venta
+            <input
+              className={`${INPUT} w-28`}
+              placeholder="1"
+              inputMode="numeric"
+              value={ptoVta}
+              onChange={(e) => {
+                setPtoVta(e.target.value);
+                setAfipSaved(false);
+              }}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+            Entorno
+            <select
+              className={INPUT}
+              value={afipEnv}
+              onChange={(e) => {
+                setAfipEnv(e.target.value);
+                setAfipSaved(false);
+              }}
+            >
+              <option value="homologacion">Prueba (homologación)</option>
+              <option value="produccion">Producción (facturas reales)</option>
+            </select>
+          </label>
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={() =>
+              run(async () => {
+                await saveAfipConfig(ptoVta, afipEnv);
+                setAfipSaved(true);
+              })
+            }
+          >
+            Guardar
+          </Button>
+          {afipSaved && (
+            <span className="text-[12.5px] font-medium text-[#4FA97A]">
+              ✓ Guardado
+            </span>
+          )}
+        </div>
+
+        {afipEnv === "produccion" && (
+          <p className="text-[12px] text-destructive">
+            ⚠ En “Producción” las facturas que emitas son REALES y con validez
+            fiscal. Usá “Prueba” hasta terminar de validar.
+          </p>
         )}
       </div>
     </div>

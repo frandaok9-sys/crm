@@ -10,6 +10,7 @@ import {
 } from "@/lib/permissions";
 import { UserStatus } from "@/lib/generated/prisma/enums";
 import { getAuditEntries } from "@/lib/audit-log";
+import { getCompanySettings } from "@/lib/company";
 import { AdminTabs } from "@/components/admin-tabs";
 import { AdminUsersSection } from "@/components/admin-users-section";
 import { AdminCompanySection } from "@/components/admin-company-section";
@@ -40,7 +41,7 @@ export default async function AdminPage() {
   const canAssign = canAssignClients(admin);
   const canCompany = canManageCompany(admin);
 
-  const [stages, taxRates, exchangeRates] = await Promise.all([
+  const [stages, taxRates, exchangeRates, companySettings] = await Promise.all([
     canCompany
       ? prisma.stage.findMany({
           orderBy: { position: "asc" },
@@ -51,7 +52,14 @@ export default async function AdminPage() {
     canCompany
       ? prisma.exchangeRate.findMany({ orderBy: { date: "desc" }, take: 30 })
       : [],
+    canCompany ? getCompanySettings() : null,
   ]);
+
+  const afipConfig = {
+    puntoVenta: companySettings?.afipPuntoVenta ?? null,
+    env: companySettings?.afipEnv ?? "homologacion",
+    certLoaded: Boolean(process.env.AFIP_CERT && process.env.AFIP_KEY),
+  };
 
   const todayIso = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Argentina/Buenos_Aires",
@@ -189,6 +197,7 @@ export default async function AdminPage() {
                         usdToArs: r.usdToArs.toString(),
                       }))}
                       today={todayIso}
+                      afip={afipConfig}
                     />
                   ),
                 },

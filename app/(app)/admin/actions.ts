@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { STAGE_HEX } from "@/lib/stage-colors";
+import { COMPANY_SETTINGS_ID, COMPANY_SETTINGS_TAG } from "@/lib/company";
 import { getAuditEntries } from "@/lib/audit-log";
 import type { AuditFilters, AuditPage } from "@/lib/audit-shared";
 
@@ -320,4 +321,38 @@ export async function deleteExchangeRate(id: string): Promise<void> {
   });
   revalidatePath("/admin");
   revalidatePath("/metricas");
+}
+
+// ---------------------------------------------------------------------------
+// Configuración de Facturación Electrónica AFIP (no secreta)
+// ---------------------------------------------------------------------------
+
+/**
+ * Guarda el punto de venta y el entorno (prueba/producción) de AFIP. El
+ * certificado y la clave privada NO se cargan acá: son secretos y van en
+ * variables de entorno.
+ */
+export async function saveAfipConfig(
+  puntoVenta: string,
+  env: string
+): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  const pv = /^\d+$/.test(puntoVenta.trim()) ? Number(puntoVenta.trim()) : null;
+  const afipEnv = env === "produccion" ? "produccion" : "homologacion";
+
+  await prisma.companySettings.upsert({
+    where: { id: COMPANY_SETTINGS_ID },
+    create: { id: COMPANY_SETTINGS_ID, afipPuntoVenta: pv, afipEnv },
+    update: { afipPuntoVenta: pv, afipEnv },
+  });
+
+  await logAudit({
+    action: "company.settings_updated",
+    actorId: admin.id,
+    targetType: "CompanySettings",
+    targetId: COMPANY_SETTINGS_ID,
+    metadata: { afipPuntoVenta: pv, afipEnv },
+  });
+  updateTag(COMPANY_SETTINGS_TAG);
+  revalidatePath("/admin");
 }
