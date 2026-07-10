@@ -34,6 +34,16 @@ export const ACTION_LABELS: Record<string, string> = {
   "products.imported": "Productos importados",
   "company.settings_updated": "Configuración de empresa actualizada",
   "cartera.reassigned": "Cartera reasignada",
+  "stage.created": "Etapa del pipeline creada",
+  "stage.updated": "Etapa del pipeline modificada",
+  "stage.deleted": "Etapa del pipeline eliminada",
+  "stage.moved": "Etapa del pipeline reordenada",
+  "tax_rate.created": "Alícuota de IVA creada",
+  "tax_rate.updated": "Alícuota de IVA modificada",
+  "tax_rate.deleted": "Alícuota de IVA eliminada",
+  "exchange_rate.created": "Tipo de cambio cargado",
+  "exchange_rate.deleted": "Tipo de cambio eliminado",
+  "data.exported": "Datos exportados",
   "assistant.query": "Consulta al asistente",
 };
 
@@ -54,6 +64,11 @@ export const AUDIT_CATEGORIES: { id: string; label: string; prefixes: string[] }
   { id: "financiero", label: "Financiero", prefixes: ["ledger.", "cartera."] },
   { id: "catalogo", label: "Catálogo", prefixes: ["product.", "products."] },
   { id: "empresa", label: "Empresa", prefixes: ["company."] },
+  {
+    id: "configuracion",
+    label: "Configuración",
+    prefixes: ["stage.", "tax_rate.", "exchange_rate.", "data."],
+  },
   { id: "asistente", label: "Asistente", prefixes: ["assistant."] },
 ];
 

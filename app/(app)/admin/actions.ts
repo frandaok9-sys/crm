@@ -4,8 +4,13 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageUsers, canAssignClients } from "@/lib/permissions";
+import {
+  canManageUsers,
+  canAssignClients,
+  canManageCompany,
+} from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { STAGE_HEX } from "@/lib/stage-colors";
 import { getAuditEntries } from "@/lib/audit-log";
 import type { AuditFilters, AuditPage } from "@/lib/audit-shared";
 
@@ -90,4 +95,103 @@ export async function reassignPortfolio(
   revalidatePath("/presupuestos");
   revalidatePath("/admin");
   return moved;
+}
+
+// ---------------------------------------------------------------------------
+// Configuración del pipeline (etapas)
+// ---------------------------------------------------------------------------
+
+const VALID_COLORS = Object.keys(STAGE_HEX);
+
+async function requireCompanyAdmin() {
+  const admin = await requireActiveUser();
+  if (!canManageCompany(admin)) {
+    throw new Error("No tenés permiso para configurar el pipeline.");
+  }
+  return admin;
+}
+
+export async function createStage(name: string, color: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  const clean = name.trim();
+  if (!clean) throw new Error("Poné un nombre para la etapa.");
+  const safeColor = VALID_COLORS.includes(color) ? color : "gray";
+  const last = await prisma.stage.findFirst({ orderBy: { position: "desc" } });
+  const stage = await prisma.stage.create({
+    data: { name: clean, color: safeColor, position: (last?.position ?? -1) + 1 },
+  });
+  await logAudit({
+    action: "stage.created",
+    actorId: admin.id,
+    targetType: "Stage",
+    targetId: stage.id,
+    metadata: { name: clean },
+  });
+  revalidatePath("/oportunidades");
+  revalidatePath("/admin");
+}
+
+export async function updateStage(id: string, name: string, color: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  const clean = name.trim();
+  if (!clean) throw new Error("Poné un nombre para la etapa.");
+  const safeColor = VALID_COLORS.includes(color) ? color : "gray";
+  await prisma.stage.update({ where: { id }, data: { name: clean, color: safeColor } });
+  await logAudit({
+    action: "stage.updated",
+    actorId: admin.id,
+    targetType: "Stage",
+    targetId: id,
+    metadata: { name: clean },
+  });
+  revalidatePath("/oportunidades");
+  revalidatePath("/admin");
+}
+
+/** Reordena una etapa intercambiando su posición con la vecina (arriba/abajo). */
+export async function moveStage(id: string, direction: "up" | "down"): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  const stages = await prisma.stage.findMany({ orderBy: { position: "asc" } });
+  const index = stages.findIndex((s) => s.id === id);
+  if (index === -1) return;
+  const swapWith = direction === "up" ? index - 1 : index + 1;
+  if (swapWith < 0 || swapWith >= stages.length) return;
+  const a = stages[index];
+  const b = stages[swapWith];
+  await prisma.$transaction([
+    prisma.stage.update({ where: { id: a.id }, data: { position: b.position } }),
+    prisma.stage.update({ where: { id: b.id }, data: { position: a.position } }),
+  ]);
+  await logAudit({
+    action: "stage.moved",
+    actorId: admin.id,
+    targetType: "Stage",
+    targetId: id,
+    metadata: { name: a.name, direction },
+  });
+  revalidatePath("/oportunidades");
+  revalidatePath("/admin");
+}
+
+export async function deleteStage(id: string): Promise<void> {
+  const admin = await requireCompanyAdmin();
+  // Guarda de seguridad: borrar una etapa con oportunidades las borraría en
+  // cascada. No se permite hasta que la etapa quede vacía.
+  const count = await prisma.opportunity.count({ where: { stageId: id } });
+  if (count > 0) {
+    throw new Error(
+      `Esta etapa tiene ${count} oportunidad(es). Movelas a otra etapa antes de eliminarla.`
+    );
+  }
+  const stage = await prisma.stage.findUnique({ where: { id } });
+  await prisma.stage.delete({ where: { id } });
+  await logAudit({
+    action: "stage.deleted",
+    actorId: admin.id,
+    targetType: "Stage",
+    targetId: id,
+    metadata: { name: stage?.name ?? "" },
+  });
+  revalidatePath("/oportunidades");
+  revalidatePath("/admin");
 }

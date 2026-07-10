@@ -15,6 +15,7 @@ import { AdminUsersSection } from "@/components/admin-users-section";
 import { AdminCompanySection } from "@/components/admin-company-section";
 import { AdminAuditSection } from "@/components/admin-audit-section";
 import { AdminReassignSection } from "@/components/admin-reassign-section";
+import { AdminPipelineSection } from "@/components/admin-pipeline-section";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -35,6 +36,14 @@ export default async function AdminPage() {
 
   const canUsers = canManageUsers(admin);
   const canAssign = canAssignClients(admin);
+  const canCompany = canManageCompany(admin);
+
+  const stages = canCompany
+    ? await prisma.stage.findMany({
+        orderBy: { position: "asc" },
+        include: { _count: { select: { opportunities: true } } },
+      })
+    : [];
 
   const [
     activeUsers,
@@ -135,8 +144,22 @@ export default async function AdminPage() {
                 },
               ]
             : []),
-          ...(canManageCompany(admin)
+          ...(canCompany
             ? [
+                {
+                  id: "pipeline",
+                  label: "Pipeline",
+                  content: (
+                    <AdminPipelineSection
+                      stages={stages.map((s) => ({
+                        id: s.id,
+                        name: s.name,
+                        color: s.color,
+                        count: s._count.opportunities,
+                      }))}
+                    />
+                  ),
+                },
                 {
                   id: "empresa",
                   label: "Empresa",
