@@ -8,7 +8,7 @@ import { runAssistant, type ChatMessage } from "@/lib/assistant";
 const RATE_LIMIT_MAX = 15; // consultas
 const RATE_LIMIT_WINDOW_MS = 60_000; // por minuto
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_HISTORY_MESSAGES = 12; // últimos turnos que se reenvían como contexto
+const MAX_HISTORY_MESSAGES = 8; // últimos turnos que se reenvían como contexto
 
 export type AskAssistantResult = { reply: string } | { error: string };
 

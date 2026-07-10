@@ -31,34 +31,28 @@ export const ASSISTANT_TOOLS = [
   {
     name: "resumen_cartera",
     description:
-      "Resumen rápido: cantidad de clientes, oportunidades por etapa del pipeline y presupuestos por estado, dentro del alcance del usuario (su cartera propia o toda la empresa, según sus permisos).",
+      "Conteos del alcance del usuario: clientes, oportunidades por etapa y presupuestos por estado.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "buscar_clientes",
     description:
-      "Busca clientes por nombre (razón social o nombre de fantasía). Devuelve hasta 15 resultados con ciudad, segmento y vendedor asignado.",
+      "Lista clientes (hasta 15) con ciudad, segmento y vendedor. Sin 'texto' devuelve los primeros; con 'texto' filtra por nombre.",
     inputSchema: {
       type: "object",
       properties: {
-        texto: {
-          type: "string",
-          description: "Texto a buscar en el nombre del cliente.",
-        },
+        texto: { type: "string", description: "Filtro por nombre (opcional)." },
       },
     },
   },
   {
     name: "detalle_cliente",
     description:
-      "Busca UN cliente por nombre y devuelve sus datos, contactos, oportunidades y presupuestos recientes, y saldo de cuenta corriente (si el usuario tiene permiso financiero). Si hay varias coincidencias, devuelve la lista para que el usuario aclare cuál.",
+      "Datos de UN cliente: contactos, oportunidades y presupuestos recientes, y saldo de cuenta corriente (si tiene permiso). Si hay varias coincidencias devuelve la lista.",
     inputSchema: {
       type: "object",
       properties: {
-        nombre: {
-          type: "string",
-          description: "Nombre (razón social o fantasía) del cliente.",
-        },
+        nombre: { type: "string", description: "Nombre del cliente." },
       },
       required: ["nombre"],
     },
@@ -66,43 +60,36 @@ export const ASSISTANT_TOOLS = [
   {
     name: "pipeline_oportunidades",
     description:
-      "Lista oportunidades del pipeline comercial, opcionalmente filtradas por etapa (p. ej. 'Propuesta enviada'). Incluye cliente, monto, m² y vendedor.",
+      "Oportunidades del pipeline con cliente, monto, m² y vendedor. 'etapa' filtra por etapa (opcional).",
     inputSchema: {
       type: "object",
       properties: {
-        etapa: {
-          type: "string",
-          description: "Nombre (o parte del nombre) de la etapa del pipeline.",
-        },
+        etapa: { type: "string", description: "Etapa a filtrar (opcional)." },
       },
     },
   },
   {
     name: "presupuestos",
     description:
-      "Lista presupuestos (solo la última revisión de cada uno), opcionalmente filtrados por estado (borrador, enviado, aprobado, rechazado, vencido) y/o nombre de cliente.",
+      "Presupuestos (última revisión). Filtros opcionales: 'estado' (borrador/enviado/aprobado/rechazado/vencido) y 'cliente'.",
     inputSchema: {
       type: "object",
       properties: {
-        estado: {
-          type: "string",
-          description:
-            "Borrador, Enviado, Aprobado, Rechazado o Vencido (en español, sin importar mayúsculas).",
-        },
-        cliente: { type: "string", description: "Nombre del cliente." },
+        estado: { type: "string", description: "Estado (opcional)." },
+        cliente: { type: "string", description: "Nombre del cliente (opcional)." },
       },
     },
   },
   {
     name: "metricas",
     description:
-      "Métricas comerciales: totales cotizado/aprobado por moneda, tasa de conversión, m² en pipeline, aprobado por segmento, embudo por etapa y (si el usuario ve toda la cartera) comparativa por vendedor.",
+      "Métricas comerciales por moneda: totales cotizado/aprobado, conversión, m² en pipeline, aprobado por segmento, embudo por etapa y (si ve toda la cartera) comparativa por vendedor.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "cobranzas",
     description:
-      "Estado de cuentas por cobrar: saldos deudores por cliente y moneda, facturas abiertas y pagos sin imputar. Solo disponible para usuarios con permiso de cuenta corriente.",
+      "Cuentas por cobrar: saldos deudores por cliente/moneda, facturas abiertas y pagos sin imputar. Requiere permiso financiero.",
     inputSchema: { type: "object", properties: {} },
   },
 ] as const;
@@ -133,7 +120,7 @@ export async function runTool(
     case "presupuestos":
       return presupuestosTool(user, str("estado"), str("cliente"));
     case "metricas":
-      return getMetrics(user);
+      return compactMetrics(user);
     case "cobranzas":
       if (!canManageLedger(user)) {
         return { error: "Este usuario no tiene permiso para ver cuentas por cobrar." };
@@ -409,5 +396,27 @@ async function cobranzasResumen() {
     resumen: summary,
     principales_deudores: rows.slice(0, 15),
     nota: rows.length > 15 ? `Se muestran los 15 saldos más altos de ${rows.length} totales.` : undefined,
+  };
+}
+
+/**
+ * Métricas en versión liviana para el asistente: se descarta la serie mensual
+ * (6 meses × moneda, muy pesada) y campos de presentación (color/posición) que
+ * el modelo no necesita. Ahorra tokens en cada llamada a la herramienta.
+ */
+async function compactMetrics(user: Principal) {
+  const m = await getMetrics(user);
+  return {
+    totales: m.totals,
+    conversion: m.conversion,
+    m2_pipeline: m.pipelineM2,
+    aprobado_por_segmento: m.bySegment,
+    embudo_por_etapa: m.funnel.map((f) => ({
+      etapa: f.stage,
+      cantidad: f.count,
+      m2: f.m2,
+      montos: f.amounts,
+    })),
+    por_vendedor: m.bySeller,
   };
 }
