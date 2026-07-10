@@ -6,6 +6,7 @@ import {
   canAccessAdminPanel,
   canManageUsers,
   canManageCompany,
+  canAssignClients,
 } from "@/lib/permissions";
 import { UserStatus } from "@/lib/generated/prisma/enums";
 import { getAuditEntries } from "@/lib/audit-log";
@@ -13,6 +14,7 @@ import { AdminTabs } from "@/components/admin-tabs";
 import { AdminUsersSection } from "@/components/admin-users-section";
 import { AdminCompanySection } from "@/components/admin-company-section";
 import { AdminAuditSection } from "@/components/admin-audit-section";
+import { AdminReassignSection } from "@/components/admin-reassign-section";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -32,22 +34,38 @@ export default async function AdminPage() {
   if (!canAccessAdminPanel(admin)) redirect("/dashboard");
 
   const canUsers = canManageUsers(admin);
+  const canAssign = canAssignClients(admin);
 
-  const [activeUsers, pendingUsers, clients, opportunities, quotes, auditData, auditUsers] =
-    await Promise.all([
-      prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
-      prisma.user.count({ where: { status: UserStatus.PENDING } }),
-      prisma.client.count(),
-      prisma.opportunity.count(),
-      prisma.quote.count(),
-      canUsers ? getAuditEntries({ page: 1 }) : null,
-      canUsers
-        ? prisma.user.findMany({
-            orderBy: { name: "asc" },
-            select: { id: true, name: true, email: true },
-          })
-        : [],
-    ]);
+  const [
+    activeUsers,
+    pendingUsers,
+    clients,
+    opportunities,
+    quotes,
+    auditData,
+    auditUsers,
+    reassignUsers,
+  ] = await Promise.all([
+    prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
+    prisma.user.count({ where: { status: UserStatus.PENDING } }),
+    prisma.client.count(),
+    prisma.opportunity.count(),
+    prisma.quote.count(),
+    canUsers ? getAuditEntries({ page: 1 }) : null,
+    canUsers
+      ? prisma.user.findMany({
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, email: true },
+        })
+      : [],
+    canAssign
+      ? prisma.user.findMany({
+          where: { status: UserStatus.ACTIVE },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, email: true },
+        })
+      : [],
+  ]);
 
   const resumen = (
     <div className="space-y-4">
@@ -96,6 +114,22 @@ export default async function AdminPage() {
                         label: u.name ?? u.email ?? "—",
                       }))}
                       initial={auditData!}
+                    />
+                  ),
+                },
+              ]
+            : []),
+          ...(canAssign
+            ? [
+                {
+                  id: "reasignar",
+                  label: "Reasignar cartera",
+                  content: (
+                    <AdminReassignSection
+                      users={reassignUsers.map((u) => ({
+                        id: u.id,
+                        label: u.name ?? u.email ?? "—",
+                      }))}
                     />
                   ),
                 },
