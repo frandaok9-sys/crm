@@ -32,13 +32,13 @@ export const ASSISTANT_TOOLS = [
     name: "resumen_cartera",
     description:
       "Resumen rápido: cantidad de clientes, oportunidades por etapa del pipeline y presupuestos por estado, dentro del alcance del usuario (su cartera propia o toda la empresa, según sus permisos).",
-    parametersJsonSchema: { type: "object", properties: {} },
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "buscar_clientes",
     description:
       "Busca clientes por nombre (razón social o nombre de fantasía). Devuelve hasta 15 resultados con ciudad, segmento y vendedor asignado.",
-    parametersJsonSchema: {
+    inputSchema: {
       type: "object",
       properties: {
         texto: {
@@ -52,7 +52,7 @@ export const ASSISTANT_TOOLS = [
     name: "detalle_cliente",
     description:
       "Busca UN cliente por nombre y devuelve sus datos, contactos, oportunidades y presupuestos recientes, y saldo de cuenta corriente (si el usuario tiene permiso financiero). Si hay varias coincidencias, devuelve la lista para que el usuario aclare cuál.",
-    parametersJsonSchema: {
+    inputSchema: {
       type: "object",
       properties: {
         nombre: {
@@ -67,7 +67,7 @@ export const ASSISTANT_TOOLS = [
     name: "pipeline_oportunidades",
     description:
       "Lista oportunidades del pipeline comercial, opcionalmente filtradas por etapa (p. ej. 'Propuesta enviada'). Incluye cliente, monto, m² y vendedor.",
-    parametersJsonSchema: {
+    inputSchema: {
       type: "object",
       properties: {
         etapa: {
@@ -81,7 +81,7 @@ export const ASSISTANT_TOOLS = [
     name: "presupuestos",
     description:
       "Lista presupuestos (solo la última revisión de cada uno), opcionalmente filtrados por estado (borrador, enviado, aprobado, rechazado, vencido) y/o nombre de cliente.",
-    parametersJsonSchema: {
+    inputSchema: {
       type: "object",
       properties: {
         estado: {
@@ -97,13 +97,13 @@ export const ASSISTANT_TOOLS = [
     name: "metricas",
     description:
       "Métricas comerciales: totales cotizado/aprobado por moneda, tasa de conversión, m² en pipeline, aprobado por segmento, embudo por etapa y (si el usuario ve toda la cartera) comparativa por vendedor.",
-    parametersJsonSchema: { type: "object", properties: {} },
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "cobranzas",
     description:
       "Estado de cuentas por cobrar: saldos deudores por cliente y moneda, facturas abiertas y pagos sin imputar. Solo disponible para usuarios con permiso de cuenta corriente.",
-    parametersJsonSchema: { type: "object", properties: {} },
+    inputSchema: { type: "object", properties: {} },
   },
 ] as const;
 

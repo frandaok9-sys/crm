@@ -13,7 +13,7 @@ CRM comercial y administrativo B2B para una empresa argentina que vende producto
 - **Datos:** PostgreSQL (Neon/Supabase) con Prisma
 - **Auth:** Auth.js (NextAuth) con Google OAuth (SSO Google Workspace)
 - **Hosting:** Vercel
-- **IA (Fase 6):** Gemini API (Google) con function calling — elegido por costo/cuota gratuita; el "cerebro" vive en `lib/assistant.ts` + `lib/assistant-tools.ts`, aislado para poder cambiar de proveedor sin tocar el resto
+- **IA (Fase 6):** API de Anthropic (Claude) con function calling — modelo económico Haiku por defecto; el "cerebro" vive en `lib/assistant.ts` + `lib/assistant-tools.ts`, aislado para poder cambiar de proveedor sin tocar el resto
 - **WhatsApp (Fase 6):** WhatsApp Cloud API (Meta)
 
 ## Reglas de dominio (obligatorias)
