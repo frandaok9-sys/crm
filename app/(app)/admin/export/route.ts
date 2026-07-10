@@ -2,27 +2,112 @@ import ExcelJS from "exceljs";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageCompany } from "@/lib/permissions";
+import { canViewAllRecords } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { getMetrics } from "@/lib/metrics";
 import { IVA_LABELS, SEGMENT_LABELS } from "@/lib/clients";
 import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
 
 /**
- * Exportación de datos a Excel para administradores (permiso admin.company).
- * /admin/export?type=clientes | presupuestos
+ * Exportación de datos a Excel.
+ * /admin/export?type=clientes | presupuestos | metricas
+ *
+ * Permisos: 'metricas' lo puede exportar cualquier usuario activo (recibe SUS
+ * métricas según su alcance). 'clientes' y 'presupuestos' son exportaciones
+ * masivas: requieren "ver todos los registros" (admins y gerentes).
  */
 export async function GET(request: Request) {
-  const admin = await requireActiveUser();
-  if (!canManageCompany(admin)) {
+  const user = await requireActiveUser();
+  const type = new URL(request.url).searchParams.get("type") ?? "clientes";
+
+  if (type !== "metricas" && !canViewAllRecords(user)) {
     return new Response("No autorizado", { status: 403 });
   }
 
-  const type = new URL(request.url).searchParams.get("type") ?? "clientes";
+  const admin = user;
   const workbook = new ExcelJS.Workbook();
 
   let filename = "export.xlsx";
 
-  if (type === "clientes") {
+  if (type === "metricas") {
+    filename = "metricas.xlsx";
+    const data = await getMetrics(user);
+
+    const resumen = workbook.addWorksheet("Resumen");
+    resumen.columns = [
+      { header: "Métrica", key: "m", width: 34 },
+      { header: "Moneda", key: "c", width: 10 },
+      { header: "Valor", key: "v", width: 20 },
+    ];
+    resumen.getRow(1).font = { bold: true };
+    for (const t of data.totals) {
+      resumen.addRow({ m: "Cotizado", c: t.currency, v: Number(t.quoted) });
+      resumen.addRow({ m: "Aprobado", c: t.currency, v: Number(t.approved) });
+    }
+    resumen.addRow({ m: "Conversión (aprobados/emitidos)", c: "", v: `${data.conversion.ratePct}%` });
+    resumen.addRow({ m: "Presupuestos emitidos", c: "", v: data.conversion.issued });
+    resumen.addRow({ m: "Presupuestos aprobados", c: "", v: data.conversion.approved });
+    resumen.addRow({ m: "m² en pipeline", c: "", v: Number(data.pipelineM2) });
+
+    const etapas = workbook.addWorksheet("Por etapa");
+    etapas.columns = [
+      { header: "Etapa", key: "stage", width: 22 },
+      { header: "Oportunidades", key: "count", width: 16 },
+      { header: "m²", key: "m2", width: 12 },
+      { header: "Montos", key: "amounts", width: 40 },
+    ];
+    etapas.getRow(1).font = { bold: true };
+    for (const f of data.funnel) {
+      etapas.addRow({
+        stage: f.stage,
+        count: f.count,
+        m2: Number(f.m2),
+        amounts: f.amounts
+          .map((a) => `${a.currency} ${Number(a.total).toLocaleString("es-AR")}`)
+          .join(" · "),
+      });
+    }
+
+    const seg = workbook.addWorksheet("Por segmento");
+    seg.columns = [
+      { header: "Moneda", key: "currency", width: 10 },
+      { header: "Segmento", key: "label", width: 24 },
+      { header: "Aprobado", key: "total", width: 18 },
+    ];
+    seg.getRow(1).font = { bold: true };
+    for (const s of data.bySegment) {
+      for (const r of s.rows) {
+        seg.addRow({ currency: s.currency, label: r.label, total: Number(r.total) });
+      }
+    }
+
+    if (data.bySeller && data.bySeller.length > 0) {
+      const vend = workbook.addWorksheet("Por vendedor");
+      vend.columns = [
+        { header: "Vendedor", key: "name", width: 26 },
+        { header: "Cotizado ARS", key: "qars", width: 16 },
+        { header: "Aprobado ARS", key: "aars", width: 16 },
+        { header: "Cotizado USD", key: "qusd", width: 16 },
+        { header: "Aprobado USD", key: "ausd", width: 16 },
+        { header: "Conversión", key: "rate", width: 12 },
+        { header: "m² pipeline", key: "m2", width: 12 },
+      ];
+      vend.getRow(1).font = { bold: true };
+      const amount = (rows: { currency: string; total: string }[], c: string) =>
+        Number(rows.find((x) => x.currency === c)?.total ?? 0);
+      for (const s of data.bySeller) {
+        vend.addRow({
+          name: s.name,
+          qars: amount(s.quoted, "ARS"),
+          aars: amount(s.approved, "ARS"),
+          qusd: amount(s.quoted, "USD"),
+          ausd: amount(s.approved, "USD"),
+          rate: `${s.ratePct}%`,
+          m2: Number(s.pipelineM2),
+        });
+      }
+    }
+  } else if (type === "clientes") {
     filename = "clientes.xlsx";
     const sheet = workbook.addWorksheet("Clientes");
     sheet.columns = [

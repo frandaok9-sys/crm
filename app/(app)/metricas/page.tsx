@@ -158,13 +158,23 @@ export default async function MetricsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-[26px] font-semibold leading-tight">Métricas</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {companyWide
-            ? "Visión general de toda la empresa."
-            : "Tu actividad comercial."}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[26px] font-semibold leading-tight">Métricas</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {companyWide
+              ? "Visión general de toda la empresa."
+              : "Tu actividad comercial."}
+          </p>
+        </div>
+        {hasQuotes && (
+          <a
+            href="/admin/export?type=metricas"
+            className="flex items-center gap-2 rounded-[9px] border border-border bg-card px-3.5 py-2 text-[13px] font-semibold text-text1 transition-colors hover:border-primary/50 hover:bg-hoverbg"
+          >
+            <span className="text-primary">↓</span> Exportar a Excel
+          </a>
+        )}
       </div>
 
       <div>

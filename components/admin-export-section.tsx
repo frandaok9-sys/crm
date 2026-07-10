@@ -13,6 +13,11 @@ const ITEMS: ExportItem[] = [
     label: "Presupuestos",
     desc: "Última revisión de cada uno: cliente, estado, moneda, total y fechas.",
   },
+  {
+    type: "metricas",
+    label: "Métricas",
+    desc: "Totales por moneda, conversión, embudo por etapa, por segmento y por vendedor.",
+  },
 ];
 
 export function AdminExportSection() {
