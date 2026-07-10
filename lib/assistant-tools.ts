@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import {
   type Principal,
+  type PermissionKey,
   clientScope,
   opportunityScope,
   quoteScope,
   canViewAllRecords,
   canManageLedger,
+  hasPermission,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { getMetrics } from "@/lib/metrics";
@@ -16,11 +18,20 @@ import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
 
 /**
- * Caja de herramientas de SOLO LECTURA para el asistente de IA. Cada función
- * reutiliza las mismas reglas de alcance/permisos que el resto del CRM (nunca
- * las duplica) para que el bot vea exactamente lo que el usuario vería en la
- * web — ni más, ni menos. Pensado para ser reusado tal cual por el futuro
- * canal de WhatsApp (Fase 6).
+ * Caja de herramientas de SOLO LECTURA para el asistente de IA. El asistente
+ * ve exactamente lo que el usuario vería en la web — ni más, ni menos —
+ * gracias a DOS capas que reutilizan la capa central `lib/permissions.ts`
+ * (nunca duplican reglas):
+ *
+ *   CAPA 1 (visibilidad): `toolsForUser(user)` filtra qué herramientas se le
+ *   ofrecen al modelo según los permisos del usuario. Lo que no puede usar,
+ *   ni se le muestra (p. ej. `cobranzas` requiere `ledger.manage`).
+ *
+ *   CAPA 2 (alcance del dato): cada consulta se filtra con clientScope /
+ *   opportunityScope / quoteScope y con chequeos como `canManageLedger`, así
+ *   un vendedor solo obtiene su propia cartera aunque pregunte por "todo".
+ *
+ * Pensado para ser reusado tal cual por el futuro canal de WhatsApp (Fase 6).
  */
 
 // ---------------------------------------------------------------------------
@@ -81,6 +92,18 @@ export const ASSISTANT_TOOLS = [
     },
   },
   {
+    name: "productos",
+    description:
+      "Catálogo de productos con precio neto, marca (Sinteplast/Ashford), unidad e IVA. 'texto' filtra por nombre; 'marca' por proveedor.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        texto: { type: "string", description: "Filtro por nombre (opcional)." },
+        marca: { type: "string", description: "Filtro por marca (opcional)." },
+      },
+    },
+  },
+  {
     name: "metricas",
     description:
       "Métricas comerciales por moneda: totales cotizado/aprobado, conversión, m² en pipeline, aprobado por segmento, embudo por etapa y (si ve toda la cartera) comparativa por vendedor.",
@@ -89,10 +112,37 @@ export const ASSISTANT_TOOLS = [
   {
     name: "cobranzas",
     description:
-      "Cuentas por cobrar: saldos deudores por cliente/moneda, facturas abiertas y pagos sin imputar. Requiere permiso financiero.",
+      "Cuentas por cobrar: saldos deudores por cliente/moneda, facturas abiertas y pagos sin imputar.",
     inputSchema: { type: "object", properties: {} },
+    requires: "ledger.manage",
   },
 ] as const;
+
+/**
+ * CAPA 1 — Herramientas visibles según permisos.
+ * El modelo solo "ve" (y por lo tanto solo puede llamar) las herramientas que
+ * el permiso del usuario habilita. Una herramienta sin `requires` está
+ * disponible para cualquier usuario activo, pero SIEMPRE devuelve datos
+ * filtrados por su cartera (ver CAPA 2). Ahorra tokens y es defensa en
+ * profundidad: lo que no puede usar, ni se le ofrece.
+ */
+export function toolsForUser(user: Principal) {
+  return ASSISTANT_TOOLS.filter((tool) => {
+    const requires = (tool as { requires?: PermissionKey }).requires;
+    return !requires || hasPermission(user, requires);
+  });
+}
+
+/** Frase corta sobre el alcance del usuario, para que el modelo enmarque bien las respuestas. */
+export function describeScope(user: Principal): string {
+  const alcance = canViewAllRecords(user)
+    ? "Este usuario ve los datos de TODA la empresa (todos los vendedores)."
+    : "Este usuario ve SOLO su propia cartera (clientes, oportunidades y presupuestos asignados a él); no puede ver los de otros vendedores.";
+  const cobranzas = canManageLedger(user)
+    ? ""
+    : " No tiene acceso a cuentas por cobrar ni a saldos financieros.";
+  return alcance + cobranzas;
+}
 
 // ---------------------------------------------------------------------------
 // Ejecución
@@ -119,9 +169,13 @@ export async function runTool(
       return pipelineOportunidades(user, str("etapa"));
     case "presupuestos":
       return presupuestosTool(user, str("estado"), str("cliente"));
+    case "productos":
+      return productosTool(str("texto"), str("marca"));
     case "metricas":
       return compactMetrics(user);
     case "cobranzas":
+      // CAPA 2 (defensa en profundidad): aunque CAPA 1 no ofrece esta
+      // herramienta sin permiso, re-verificamos por las dudas.
       if (!canManageLedger(user)) {
         return { error: "Este usuario no tiene permiso para ver cuentas por cobrar." };
       }
@@ -387,6 +441,31 @@ async function presupuestosTool(user: Principal, estado?: string, cliente?: stri
     total: formatMoney(q.total.toString(), q.currency),
     vence: q.validUntil ? q.validUntil.toISOString().slice(0, 10) : null,
     vendedor: q.owner ? q.owner.name ?? q.owner.email : "Sin asignar",
+  }));
+}
+
+/** Catálogo de productos: visible para todos los usuarios (no se filtra por cartera). */
+async function productosTool(texto?: string, marca?: string) {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      ...(texto ? { name: { contains: texto, mode: "insensitive" as const } } : {}),
+      ...(marca ? { brand: { contains: marca, mode: "insensitive" as const } } : {}),
+    },
+    orderBy: [{ brand: "asc" }, { name: "asc" }],
+    take: 20,
+  });
+
+  if (products.length === 0) {
+    return { error: "No hay productos que coincidan con ese filtro." };
+  }
+
+  return products.map((p) => ({
+    producto: p.name,
+    marca: p.brand,
+    unidad: p.unit,
+    precio_neto: formatMoney(p.price.toString(), p.currency),
+    iva: `${Number(p.ivaRate)}%`,
   }));
 }
 

@@ -7,7 +7,7 @@ import type {
 } from "@anthropic-ai/sdk/resources/messages";
 
 import type { Principal } from "@/lib/permissions";
-import { ASSISTANT_TOOLS, runTool } from "@/lib/assistant-tools";
+import { toolsForUser, describeScope, runTool } from "@/lib/assistant-tools";
 
 /**
  * "Cerebro" del asistente de IA del CRM (Fase 6), sobre la API de Anthropic
@@ -32,12 +32,13 @@ const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
 const MAX_TOOL_ROUNDS = 5;
 const MAX_TOKENS = 900;
 
-function systemPrompt(user: {
-  name?: string | null;
-  email?: string | null;
-}): string {
+function systemPrompt(
+  user: Principal & { name?: string | null; email?: string | null }
+): string {
   const nombre = user.name ?? user.email ?? "el usuario";
   return `Asistente interno del CRM de RC Pisos Industriales (pisos industriales B2B, Mendoza). Hablás con ${nombre}.
+
+ALCANCE DE ESTE USUARIO: ${describeScope(user)} Enmarcá las respuestas según esto (decí "tu cartera" o "la empresa" según corresponda) y nunca ofrezcas ni prometas datos fuera de su alcance.
 
 ESTÁNDAR DE RESPUESTA:
 - Español rioplatense, conciso y objetivo. Solo los datos que responden la pregunta. Sin introducciones ("Acá está…"), sin cierres ("¿Necesitás algo más?"), sin opiniones ni relleno.
@@ -53,11 +54,14 @@ REGLAS (no negociables):
 - Si falta el dato, decilo; no adivines.`;
 }
 
-const TOOLS: Tool[] = ASSISTANT_TOOLS.map((t) => ({
-  name: t.name,
-  description: t.description,
-  input_schema: t.inputSchema as Tool.InputSchema,
-}));
+/** Herramientas visibles para este usuario (CAPA 1 de permisos). */
+function toolsFor(user: Principal): Tool[] {
+  return toolsForUser(user).map((t) => ({
+    name: t.name,
+    description: t.description,
+    input_schema: t.inputSchema as Tool.InputSchema,
+  }));
+}
 
 /**
  * La API exige que los mensajes empiecen con "user" y alternen roles. El
@@ -95,6 +99,7 @@ export async function runAssistant(
   }
   const client = new Anthropic({ apiKey });
 
+  const tools = toolsFor(user);
   const messages: MessageParam[] = normalizeHistory(history, message);
   const toolCalls: ToolCallLog[] = [];
 
@@ -104,7 +109,7 @@ export async function runAssistant(
       max_tokens: MAX_TOKENS,
       temperature: 0.2,
       system: systemPrompt(user),
-      tools: TOOLS,
+      tools,
       messages,
     });
 
