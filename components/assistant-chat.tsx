@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InitialsAvatar } from "@/components/initials-avatar";
+import { AssistantMessage } from "@/components/assistant-message";
 import { askAssistant } from "@/app/(app)/asistente/actions";
 
 type Message = { role: "user" | "assistant"; content: string; error?: boolean };
@@ -116,6 +117,9 @@ function ChatBubble({
   thinking?: boolean;
 }) {
   const isUser = message.role === "user";
+  // Solo el asistente (respuesta real, no error ni "pensando") usa la plantilla
+  // gráfica; usuario/errores van como texto plano.
+  const rich = !isUser && !message.error && !thinking;
   return (
     <div className={cn("flex items-start gap-2.5", isUser && "flex-row-reverse")}>
       {isUser ? (
@@ -127,7 +131,8 @@ function ChatBubble({
       )}
       <div
         className={cn(
-          "max-w-[75%] whitespace-pre-wrap rounded-[12px] px-3.5 py-2.5 text-[13.5px] leading-relaxed",
+          "min-w-0 rounded-[12px] px-3.5 py-2.5 text-[13.5px] leading-relaxed",
+          rich ? "max-w-[88%]" : "max-w-[75%] whitespace-pre-wrap",
           isUser
             ? "bg-primary text-primary-foreground"
             : message.error
@@ -136,7 +141,7 @@ function ChatBubble({
           thinking && "text-muted-foreground italic"
         )}
       >
-        {message.content}
+        {rich ? <AssistantMessage content={message.content} /> : message.content}
       </div>
     </div>
   );
