@@ -51,9 +51,11 @@ El proyecto usa migraciones formales de Prisma (ya no `db push`). El pooler de S
 
 1. Editar `prisma/schema.prisma`.
 2. `npm run db:migrate -- nombre_descriptivo` → genera el SQL en `prisma/migrations/<timestamp>_nombre/migration.sql`. Revisar el SQL antes de aplicarlo.
-3. `npm run db:deploy` → aplica las migraciones pendientes a la base.
+3. `npm run db:deploy` → aplica las migraciones pendientes a la base (desde local, que usa el pooler de sesión que sí soporta migraciones).
 4. `npm run db:status` → confirma que todo esté sincronizado.
 5. Commitear la carpeta de migración generada.
+
+IMPORTANTE: las migraciones NO se corren en el build de Vercel (`build` = solo `next build`). El pooler de transacciones que usa Vercel en runtime no soporta `prisma migrate deploy` y hacía fallar toda la compilación. Aplicá las migraciones a mano con `npm run db:deploy` desde local antes de desplegar un cambio de esquema.
 
 ## Testing
 
