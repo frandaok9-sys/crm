@@ -405,6 +405,13 @@ model LedgerMovement {
   description String?
   reference   String? // N° de factura/recibo, etc.
 
+  // Datos fiscales AFIP (cuando el movimiento es un comprobante electrónico).
+  cbteTipo Int? // Código de comprobante AFIP (1=Fact A, 6=Fact B, 3=NC A, 8=NC B…)
+  ptoVta   Int? // Punto de venta usado
+  cbteNro  Int? // Número de comprobante dentro del punto de venta
+  cae      String? // Código de Autorización Electrónico que devuelve AFIP
+  caeVto   DateTime? // Vencimiento del CAE
+
   quoteId String?
   quote   Quote?  @relation(fields: [quoteId], references: [id], onDelete: SetNull)
 
@@ -455,7 +462,13 @@ model CompanySettings {
   quoteFooter   String? // Términos/condiciones por defecto del presupuesto
   quoteValidity Int? // Días de validez por defecto
   bankInfo      String? // Datos de pago / banco para el PDF
-  updatedAt     DateTime      @updatedAt
+
+  // Facturación electrónica AFIP (los secretos —certificado y clave— van en
+  // variables de entorno, NUNCA en la base). Acá solo config no sensible.
+  afipPuntoVenta Int? // Punto de venta habilitado en AFIP
+  afipEnv        String  @default("homologacion") // "homologacion" (prueba) | "produccion"
+
+  updatedAt DateTime @updatedAt
 }
 
 /// Registro de auditoría de acciones sensibles (logins, cambios de permisos,
