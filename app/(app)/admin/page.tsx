@@ -19,6 +19,8 @@ import { AdminReassignSection } from "@/components/admin-reassign-section";
 import { AdminPipelineSection } from "@/components/admin-pipeline-section";
 import { AdminBillingSection } from "@/components/admin-billing-section";
 import { AdminExportSection } from "@/components/admin-export-section";
+import { AdminNexusSection } from "@/components/admin-nexus-section";
+import { tenantHealth, recentSyncLog } from "@/lib/nexus/central";
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -64,6 +66,17 @@ export default async function AdminPage() {
   const todayIso = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Argentina/Buenos_Aires",
   }).format(new Date());
+
+  const dtf = new Intl.DateTimeFormat("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+  const [nexusHealth, nexusSync] = canUsers
+    ? await Promise.all([tenantHealth(), recentSyncLog(40)])
+    : [[], []];
 
   const [
     activeUsers,
@@ -128,6 +141,35 @@ export default async function AdminPage() {
           { id: "resumen", label: "Resumen", content: resumen },
           ...(canUsers
             ? [
+                {
+                  id: "nexus",
+                  label: "Nexus (Central)",
+                  content: (
+                    <AdminNexusSection
+                      health={nexusHealth.map((t) => ({
+                        id: t.id,
+                        name: t.name,
+                        cuit: t.cuit,
+                        via: t.via,
+                        status: t.status,
+                        clients: t.clients,
+                        opportunities: t.opportunities,
+                        quotes: t.quotes,
+                        lastSync: t.lastSyncAt ? dtf.format(t.lastSyncAt) : null,
+                        errors24h: t.errors24h,
+                      }))}
+                      syncLog={nexusSync.map((r) => ({
+                        id: r.id,
+                        fecha: dtf.format(r.createdAt),
+                        tenant: r.tenant?.name ?? "—",
+                        entity: r.entity,
+                        direction: r.direction,
+                        result: r.result,
+                        detail: r.detail,
+                      }))}
+                    />
+                  ),
+                },
                 {
                   id: "usuarios",
                   label: "Usuarios",

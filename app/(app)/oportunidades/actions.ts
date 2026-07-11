@@ -12,6 +12,7 @@ import {
   canViewRecord,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { createGoogleTask, deleteGoogleTask } from "@/lib/google-tasks";
 import { geocodeOpportunity } from "@/lib/geocode";
 import { Currency, GeocodeStatus } from "@/lib/generated/prisma/enums";
@@ -77,6 +78,7 @@ export async function createOpportunity(formData: FormData): Promise<void> {
     : user.id;
 
   const position = await prisma.opportunity.count({ where: { stageId } });
+  const tenantId = await defaultTenantId();
 
   const opportunity = await prisma.opportunity.create({
     data: {
@@ -90,6 +92,7 @@ export async function createOpportunity(formData: FormData): Promise<void> {
       estimatedM2: parseAmount(opt(formData, "estimatedM2")),
       notes: opt(formData, "notes"),
       position,
+      tenantId,
     },
   });
 
@@ -99,6 +102,14 @@ export async function createOpportunity(formData: FormData): Promise<void> {
     targetType: "Opportunity",
     targetId: opportunity.id,
     metadata: { title },
+  });
+  await recordCanonicalEvent({
+    tenantId,
+    entity: "opportunity",
+    action: "created",
+    nexusId: opportunity.id,
+    userId: user.id,
+    detail: title,
   });
 
   // Pin en el mapa: convertir la dirección de la obra en coordenadas.

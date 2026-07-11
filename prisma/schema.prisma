@@ -130,6 +130,11 @@ enum ClientSegment {
 /// se resuelve en lib/permissions (vendedor: solo los suyos; gerente/admin: todos).
 model Client {
   id           String        @id @default(cuid())
+  // Nexus: el `id` (cuid) ES el nexus_id (nuestro, inmutable). externalId es
+  // el id que este dato tiene en el sistema del cliente (par de sincronización).
+  externalId   String? // ID en el sistema de origen (vías B/C)
+  tenantId     String? // Empresa (tenant) dueña del dato en la central
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   legalName    String // Razón social
   tradeName    String? // Nombre de fantasía
   taxId        String?       @unique // CUIT
@@ -156,6 +161,8 @@ model Client {
 
   @@index([ownerId])
   @@index([legalName])
+  @@index([tenantId])
+  @@index([externalId])
 }
 
 /// Persona de contacto dentro de un cliente.
@@ -209,10 +216,13 @@ model Stage {
 /// Oportunidad comercial. Pertenece a la cartera de un vendedor (owner) y a una
 /// etapa. El dinero se modela como (amount: Decimal, currency) — nunca float.
 model Opportunity {
-  id       String @id @default(cuid())
-  title    String
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id         String  @id @default(cuid())
+  externalId String? // Nexus: id en el sistema de origen (el `id` es el nexus_id)
+  tenantId   String?
+  tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  title      String
+  clientId   String
+  client     Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   ownerId String?
   owner   User?   @relation("OpportunityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -247,6 +257,8 @@ model Opportunity {
   @@index([stageId])
   @@index([ownerId])
   @@index([clientId])
+  @@index([tenantId])
+  @@index([externalId])
 }
 
 /// Recordatorio/alerta de una oportunidad, sincronizable con Google Tasks.
@@ -319,10 +331,13 @@ model TaxRate {
 /// Presupuesto. Soporta versionado (revisiones), estados e ítems. Los totales
 /// se guardan como snapshot (Decimal) calculados por lib/quotes-calc.
 model Quote {
-  id      String  @id @default(cuid())
-  code    String // Número legible, p. ej. "PRE-0001"
-  version Int     @default(1) // Revisión (Rev.1, Rev.2…)
-  rootId  String? // Agrupa las revisiones (id del presupuesto original)
+  id         String  @id @default(cuid())
+  externalId String? // Nexus: id en el sistema de origen (el `id` es el nexus_id)
+  tenantId   String?
+  tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  code       String // Número legible, p. ej. "PRE-0001"
+  version    Int     @default(1) // Revisión (Rev.1, Rev.2…)
+  rootId     String? // Agrupa las revisiones (id del presupuesto original)
 
   clientId String
   client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -356,6 +371,7 @@ model Quote {
   @@index([ownerId])
   @@index([status])
   @@index([rootId])
+  @@index([tenantId])
 }
 
 /// Ítem de un presupuesto: producto, servicio o texto libre.
@@ -501,4 +517,99 @@ model ExchangeRate {
 
   @@unique([date])
   @@index([date])
+}
+
+// ===========================================================================
+// NEXUS — Central multi-empresa (modelo canónico + interconexión)
+// ===========================================================================
+
+/// Estado de un tenant (empresa conectada a la central).
+enum TenantStatus {
+  ACTIVE
+  ONBOARDING
+  SUSPENDED
+}
+
+/// Vía de conexión de una empresa con la central (guía Nexus, sección 2).
+enum TenantVia {
+  A // Usa el CRM Nexus directo (sin sistema propio)
+  B // Sistema propio (Odoo, SAP, planillas) vía n8n
+  C // Otro CRM comercial (Kommo, HubSpot, Zoho) vía API
+}
+
+/// Empresa (tenant) canónica. El CUIT es la clave de identidad: no puede haber
+/// dos empresas iguales. El `id` (cuid) es su nexus_id inmutable.
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String // Razón social
+  cuit      String       @unique // Clave de identidad de la empresa
+  plan      String       @default("base")
+  via       TenantVia    @default(A)
+  status    TenantStatus @default(ONBOARDING)
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  clients       Client[]
+  opportunities Opportunity[]
+  quotes        Quote[]
+  activities    Activity[]
+  syncLogs      SyncLog[]
+
+  @@index([status])
+}
+
+/// Actividad canónica (historial inmutable: solo se agrega, nunca se edita).
+model Activity {
+  id         String   @id @default(cuid())
+  externalId String?
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  type       String // p. ej. "note", "call", "stage_change", "quote_sent"
+  occurredAt DateTime @default(now())
+  userId     String? // Usuario que la originó (si aplica)
+  entityType String? // Entidad vinculada: "Client" | "Opportunity" | "Quote"
+  entityId   String?
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([occurredAt])
+}
+
+/// Dirección de un evento de sincronización.
+enum SyncDirection {
+  INBOUND // Del sistema del cliente hacia la central
+  OUTBOUND // De la central hacia el sistema del cliente
+  INTERNAL // Alta/importación directa en la central (vía A)
+}
+
+/// Resultado de un evento de sincronización.
+enum SyncResult {
+  OK
+  ERROR
+  SKIPPED // Descartado por idempotencia (evento repetido)
+}
+
+/// Registro de sincronización (audit log de datos que entran/salen). Cada
+/// evento externo lleva un eventId único para garantizar idempotencia.
+model SyncLog {
+  id         String        @id @default(cuid())
+  tenantId   String?
+  tenant     Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  eventId    String? // ID único del evento de origen (idempotencia)
+  entity     String // "client" | "opportunity" | "quote" | "activity" | "tenant"
+  direction  SyncDirection
+  result     SyncResult
+  externalId String?
+  nexusId    String?
+  source     String? // Sistema de origen: "import" | "n8n" | "kommo" | …
+  detail     String?
+  createdAt  DateTime      @default(now())
+
+  @@unique([tenantId, eventId]) // Candado de idempotencia por tenant+evento
+  @@index([tenantId])
+  @@index([entity])
+  @@index([createdAt])
 }

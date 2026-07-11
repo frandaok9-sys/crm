@@ -11,6 +11,7 @@ import {
   canEditClient,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { IvaCondition, ClientSegment } from "@/lib/generated/prisma/enums";
 import { Prisma } from "@/lib/generated/prisma/client";
 import ExcelJS from "exceljs";
@@ -82,8 +83,9 @@ export async function createClient(formData: FormData): Promise<void> {
 
   let clientId: string;
   try {
+    const tenantId = await defaultTenantId();
     const client = await prisma.client.create({
-      data: { legalName, ...clientData(formData), ownerId },
+      data: { legalName, ...clientData(formData), ownerId, tenantId },
     });
     clientId = client.id;
     await logAudit({
@@ -92,6 +94,14 @@ export async function createClient(formData: FormData): Promise<void> {
       targetType: "Client",
       targetId: client.id,
       metadata: { legalName },
+    });
+    await recordCanonicalEvent({
+      tenantId,
+      entity: "client",
+      action: "created",
+      nexusId: client.id,
+      userId: user.id,
+      detail: legalName,
     });
   } catch (error) {
     if (duplicateTaxId(error)) {

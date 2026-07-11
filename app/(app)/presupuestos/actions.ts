@@ -13,6 +13,7 @@ import {
   canManageLedger,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { computeQuoteTotals, lineNet } from "@/lib/quotes-calc";
 import {
   Currency,
@@ -140,6 +141,7 @@ export async function createQuote(formData: FormData): Promise<void> {
 
   const count = await prisma.quote.count({ where: { version: 1 } });
   const code = `PRE-${String(count + 1).padStart(4, "0")}`;
+  const tenantId = await defaultTenantId();
 
   const quote = await prisma.quote.create({
     data: {
@@ -154,6 +156,7 @@ export async function createQuote(formData: FormData): Promise<void> {
       net: totals.net,
       ivaTotal: totals.ivaTotal,
       total: totals.total,
+      tenantId,
       items: { create: itemCreateData(items) },
     },
   });
@@ -164,6 +167,14 @@ export async function createQuote(formData: FormData): Promise<void> {
     targetType: "Quote",
     targetId: quote.id,
     metadata: { code, total: totals.total, currency },
+  });
+  await recordCanonicalEvent({
+    tenantId,
+    entity: "quote",
+    action: "created",
+    nexusId: quote.id,
+    userId: user.id,
+    detail: `${code} · ${currency} ${totals.total}`,
   });
   revalidatePath("/presupuestos");
   redirect(`/presupuestos/${quote.id}`);
