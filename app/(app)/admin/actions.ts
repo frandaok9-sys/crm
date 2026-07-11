@@ -14,8 +14,6 @@ import { STAGE_HEX } from "@/lib/stage-colors";
 import { COMPANY_SETTINGS_ID, COMPANY_SETTINGS_TAG } from "@/lib/company";
 import { getAuditEntries } from "@/lib/audit-log";
 import type { AuditFilters, AuditPage } from "@/lib/audit-shared";
-import { createTenant } from "@/lib/nexus/central";
-import { TenantVia } from "@/lib/generated/prisma/enums";
 
 /** Consulta paginada del registro de auditoría. Solo para quien gestiona usuarios. */
 export async function fetchAuditLog(filters: AuditFilters): Promise<AuditPage> {
@@ -359,21 +357,3 @@ export async function saveAfipConfig(
   revalidatePath("/admin");
 }
 
-// ---------------------------------------------------------------------------
-// NEXUS — Central (alta de empresas / tenants)
-// ---------------------------------------------------------------------------
-
-export async function createTenantAction(
-  name: string,
-  cuit: string,
-  via: string
-): Promise<void> {
-  const admin = await requireActiveUser();
-  if (!canManageUsers(admin)) {
-    throw new Error("Solo un administrador puede dar de alta empresas en la central.");
-  }
-  const viaEnum =
-    via === "B" ? TenantVia.B : via === "C" ? TenantVia.C : TenantVia.A;
-  await createTenant({ name, cuit, via: viaEnum });
-  revalidatePath("/admin");
-}
