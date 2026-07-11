@@ -223,6 +223,7 @@ export async function recordCanonicalEvent(input: {
   userId?: string | null;
   detail?: string;
 }): Promise<void> {
+  const eventId = `${input.entity}.${input.action}:${input.nexusId}:${Date.now()}`;
   await Promise.all([
     recordActivity({
       tenantId: input.tenantId,
@@ -234,7 +235,7 @@ export async function recordCanonicalEvent(input: {
     }),
     logSync({
       tenantId: input.tenantId,
-      eventId: `${input.entity}.${input.action}:${input.nexusId}:${Date.now()}`,
+      eventId,
       entity: input.entity,
       direction: SyncDirection.INTERNAL,
       result: SyncResult.OK,
@@ -243,6 +244,27 @@ export async function recordCanonicalEvent(input: {
       detail: input.detail,
     }),
   ]);
+
+  // Sincronización con Nexus Central (si el conector está configurado):
+  // se empuja la entidad ya canónica y se audita el resultado. Nunca rompe.
+  try {
+    const { pushToNexus } = await import("@/lib/nexus/connector");
+    const out = await pushToNexus(input.entity, input.nexusId, eventId);
+    if (out.detail !== "conector sin configurar") {
+      await logSync({
+        tenantId: input.tenantId,
+        eventId: `${eventId}:push`,
+        entity: input.entity,
+        direction: SyncDirection.OUTBOUND,
+        result: out.pushed ? SyncResult.OK : SyncResult.ERROR,
+        nexusId: input.nexusId,
+        source: "nexus-connector",
+        detail: out.detail,
+      });
+    }
+  } catch {
+    // la sincronización externa jamás bloquea la operación local
+  }
 }
 
 /** Últimos eventos del registro de sincronización (para el panel Nexus). */
