@@ -49,6 +49,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   const [error, setError] = useState<string | null>(null);
   const [corridorKm, setCorridorKm] = useState(10);
   const [roundTrip, setRoundTrip] = useState(true);
+  const [showPins, setShowPins] = useState(true);
 
   useEffect(() => setCar(loadCar()), []);
 
@@ -124,8 +125,10 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
       corridorKm,
     });
     setBusy(null);
-    if (res.ok) setPlan(res.plan);
-    else setError(res.error);
+    if (res.ok) {
+      setPlan(res.plan);
+      setShowPins(false); // ruta limpia: se ocultan las demás obras
+    } else setError(res.error);
   }
 
   function addLead(id: string) {
@@ -137,6 +140,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     setPlan(null);
     setSelectedIds([]);
     setError(null);
+    setShowPins(true);
   }
 
   const orderMap = useMemo(() => {
@@ -152,7 +156,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
       {/* Mapa */}
       <div
-        className="order-2 overflow-hidden rounded-[12px] border lg:order-1"
+        className="relative order-2 overflow-hidden rounded-[12px] border lg:order-1"
         style={{ height: "calc(100dvh - 240px)", minHeight: 460 }}
       >
         {pins.length === 0 ? (
@@ -169,7 +173,18 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             leadIds={leadIds}
             route={plan?.polyline}
             origin={origin}
+            showPins={showPins}
           />
+        )}
+        {pins.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowPins((v) => !v)}
+            className="pointer-events-auto absolute bottom-3 right-3 z-[1000] rounded-full border bg-card/95 px-3 py-1.5 text-[12px] font-medium shadow-md backdrop-blur hover:bg-hoverbg"
+            title="Mostrar u ocultar las obras de la cartera"
+          >
+            {showPins ? "◉ Ocultar obras" : "○ Ver obras"}
+          </button>
         )}
       </div>
 

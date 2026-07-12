@@ -36,6 +36,8 @@ type MapProps = {
   leadIds?: string[];
   route?: [number, number][];
   origin?: MapOrigin | null;
+  /** Mostrar los pines de obras que NO son del viaje (para no tapar la ruta). */
+  showPins?: boolean;
 };
 
 const AR_CENTER: [number, number] = [-38.5, -64.5];
@@ -82,6 +84,7 @@ export function OpportunityMap({
   leadIds,
   route,
   origin,
+  showPins = true,
 }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -179,6 +182,9 @@ export function OpportunityMap({
         const isLead = leads.has(pin.id);
         const order = orderMap?.[pin.id];
 
+        // Con las obras ocultas, solo se dibujan las del viaje (paradas y leads).
+        if (!showPins && !isSelected && !isLead && order == null) continue;
+
         let marker;
         if (order != null) {
           // Parada numerada (hoja de ruta armada).
@@ -236,7 +242,7 @@ export function OpportunityMap({
     return () => {
       cancelled = true;
     };
-  }, [pins, selectedIds, orderMap, leadIds, route, origin, onTogglePin, tripMode]);
+  }, [pins, selectedIds, orderMap, leadIds, route, origin, onTogglePin, tripMode, showPins]);
 
   useEffect(() => {
     return () => {
