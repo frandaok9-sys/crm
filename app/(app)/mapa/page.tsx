@@ -4,7 +4,8 @@ import { opportunityScope, canViewAllRecords } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { stageHex } from "@/lib/stage-colors";
 import { sellerColor } from "@/components/initials-avatar";
-import { OpportunityMap, type MapPin } from "@/components/opportunity-map";
+import { type MapPin } from "@/components/opportunity-map";
+import { MapWorkspace } from "@/components/map-workspace";
 
 export default async function MapPage() {
   const user = await requireActiveUser();
@@ -102,20 +103,8 @@ export default async function MapPage() {
         </span>
       </div>
 
-      {/* Mapa */}
-      <div
-        className="overflow-hidden rounded-[12px] border"
-        style={{ height: "calc(100dvh - 250px)", minHeight: 460 }}
-      >
-        {pins.length === 0 ? (
-          <div className="flex h-full items-center justify-center bg-panel px-6 text-center text-sm text-muted-foreground">
-            Sin obras ubicadas todavía. Cargá la dirección de la obra en cada
-            oportunidad y el pin aparece solo.
-          </div>
-        ) : (
-          <OpportunityMap pins={pins} />
-        )}
-      </div>
+      {/* Mapa + planificador de viajes */}
+      <MapWorkspace pins={pins} />
     </div>
   );
 }
