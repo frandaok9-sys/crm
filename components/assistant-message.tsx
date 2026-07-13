@@ -110,16 +110,20 @@ const MD_COMPONENTS: Components = {
     <strong className="font-bold text-foreground">{children}</strong>
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target={href?.startsWith("http") ? "_blank" : undefined}
-      rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
-      className="font-medium text-primary underline underline-offset-2"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => {
+    // Links externos y descargas (PDF) abren en pestaña nueva para no perder el chat.
+    const nueva = !!href && (href.startsWith("http") || href.endsWith("/pdf"));
+    return (
+      <a
+        href={href}
+        target={nueva ? "_blank" : undefined}
+        rel={nueva ? "noopener noreferrer" : undefined}
+        className="font-medium text-primary underline underline-offset-2"
+      >
+        {children}
+      </a>
+    );
+  },
   // Solo se renderiza la imagen del mapa de una hoja de ruta (mismo origen);
   // cualquier otra imagen se ignora (privacidad/seguridad).
   img: ({ src, alt }) =>

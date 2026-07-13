@@ -528,6 +528,7 @@ async function presupuestosTool(
     total: formatMoney(q.total.toString(), q.currency),
     vence: q.validUntil ? q.validUntil.toISOString().slice(0, 10) : null,
     vendedor: q.owner ? q.owner.name ?? q.owner.email : "Sin asignar",
+    pdf: `/presupuestos/${q.id}/pdf`, // link de descarga (no generar el PDF con IA)
   }));
 }
 
