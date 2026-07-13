@@ -68,7 +68,7 @@
   color-scheme: light;
   --background: #f2f2f7;
   --foreground: #1c1c1e;
-  --card: rgba(255, 255, 255, 0.8);
+  --card: rgba(255, 255, 255, 0.92);
   --card-foreground: #1c1c1e;
   --popover: #ffffff;
   --popover-foreground: #1c1c1e;
@@ -93,7 +93,7 @@
 
   --side: rgba(255, 255, 255, 0.62);
   --panel: rgba(239, 239, 244, 0.55);
-  --card2: rgba(247, 247, 250, 0.7);
+  --card2: rgba(247, 247, 250, 0.88);
   --border2: rgba(60, 60, 67, 0.08);
   --text1: #2c2c2e;
   --text2: #48484a;
@@ -107,7 +107,7 @@
   --shadow: 0 8px 30px rgba(20, 22, 40, 0.1), 0 2px 6px rgba(20, 22, 40, 0.05);
   --shadow-sm: 0 1px 3px rgba(20, 22, 40, 0.06), 0 4px 12px rgba(20, 22, 40, 0.04);
   --shadow-panel: 0 8px 30px rgba(20, 22, 40, 0.1), 0 2px 6px rgba(20, 22, 40, 0.05);
-  --glass-hole: rgba(255, 255, 255, 0.72);
+  --glass-hole: rgba(255, 255, 255, 0.92);
   --glass-border: rgba(255, 255, 255, 0.75);
   /* Fondo malla de construcción + degradé (radiales de tinte + retícula) */
   --appbg:
@@ -131,7 +131,7 @@
   color-scheme: dark;
   --background: #000000;
   --foreground: #ffffff;
-  --card: rgba(28, 28, 30, 0.74);
+  --card: rgba(28, 28, 30, 0.88);
   --card-foreground: #ffffff;
   --popover: #1c1c1e;
   --popover-foreground: #ffffff;
@@ -169,7 +169,7 @@
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-  --glass-hole: rgba(28, 28, 30, 0.6);
+  --glass-hole: rgba(28, 28, 30, 0.85);
   --glass-border: rgba(255, 255, 255, 0.14);
   --appbg:
     radial-gradient(1200px 700px at 88% -8%, rgba(224, 80, 58, 0.16), rgba(224, 80, 58, 0) 60%),
@@ -236,13 +236,12 @@
   }
 }
 
-/* Glassmorfismo: superficies grandes translúcidas dejan ver la malla apenas
-   detrás. Acotado a sidebar y tarjetas de nivel superior (no a chips/badges
-   anidados) para no recargar el compositor. */
-.bg-side,
-.bg-card {
-  -webkit-backdrop-filter: saturate(150%) blur(9px);
-  backdrop-filter: saturate(150%) blur(9px);
+/* Glassmorfismo frosted SOLO en el sidebar (1 elemento) para no recargar el
+   compositor. Las tarjetas son casi opacas y dejan ver la malla apenas por los
+   bordes/translucidez, sin blur (más liviano, sin jank en scroll/render). */
+.bg-side {
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
 }
 
 /* Mapa de oportunidades (Leaflet) integrado al tema */

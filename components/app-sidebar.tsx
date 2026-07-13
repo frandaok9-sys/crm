@@ -54,7 +54,7 @@ function NavIcon({ d, active }: { d: string; active: boolean }) {
     <span
       className={cn(
         "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] transition-colors",
-        active ? "bg-primary" : "bg-chip"
+        active ? "bg-primary" : "border border-border2 bg-avbg"
       )}
       style={active ? { boxShadow: "0 3px 8px rgba(224,80,58,0.32)" } : undefined}
     >
@@ -63,8 +63,8 @@ function NavIcon({ d, active }: { d: string; active: boolean }) {
         height="17"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={active ? "#FFFFFF" : "var(--muted)"}
-        strokeWidth={1.7}
+        stroke={active ? "#FFFFFF" : "var(--text2)"}
+        strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
       >
@@ -249,8 +249,8 @@ export function AppSidebar({
               </span>
             </>
           ) : (
-            <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-chip">
-              <ThemeIcon dark={theme === "dark"} />
+            <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-border2 bg-avbg">
+              <ThemeIcon dark={theme === "dark"} stroke="var(--text2)" />
             </span>
           )}
         </button>
