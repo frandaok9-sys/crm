@@ -24,6 +24,7 @@ export type TripPdfStop = {
   name: string;
   title: string | null;
   stageName: string | null;
+  objetivo: string | null;
   m2Label: string | null;
   amountLabel: string | null;
   address: string | null;
@@ -40,6 +41,7 @@ export type TripPdfData = {
   returnLabel: string;
   fechaSalida: string | null;
   fechaLlegada: string | null;
+  resumen: string | null;
   totalKm: string;
   totalTime: string;
   fuelCost: string;
@@ -58,8 +60,12 @@ const s = StyleSheet.create({
   kpiVal: { fontSize: 13, fontFamily: "Helvetica-Bold" },
   kpiLbl: { fontSize: 7, color: STEEL, textTransform: "uppercase", marginTop: 2, letterSpacing: 0.5 },
   sectionTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: STEEL, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 },
+  resumen: { backgroundColor: BG_SOFT, borderRadius: 6, padding: 10, marginBottom: 10 },
+  resumenLbl: { fontSize: 8, fontFamily: "Helvetica-Bold", color: STEEL, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 },
+  resumenTxt: { fontSize: 10, color: GRAPHITE, lineHeight: 1.4 },
   narrative: { backgroundColor: BG_SOFT, borderRadius: 6, padding: 10, marginBottom: 14 },
   narrLine: { fontSize: 9, color: GRAPHITE, marginBottom: 2, lineHeight: 1.4 },
+  objetivo: { fontSize: 9.5, color: RED, fontFamily: "Helvetica-Bold", marginTop: 2 },
   stop: { flexDirection: "row", gap: 8, borderWidth: 1, borderColor: LINE, borderRadius: 6, padding: 9, marginBottom: 7 },
   badge: { width: 20, height: 20, borderRadius: 10, backgroundColor: RED, color: "#fff", fontSize: 10, fontFamily: "Helvetica-Bold", textAlign: "center", paddingTop: 4 },
   stopName: { fontSize: 12, fontFamily: "Helvetica-Bold" },
@@ -105,8 +111,16 @@ function TripDoc({ data }: { data: TripPdfData }) {
           ))}
         </View>
 
+        {data.resumen ? (
+          <View style={s.resumen}>
+            <Text style={s.resumenLbl}>Resumen de la gira</Text>
+            <Text style={s.resumenTxt}>{data.resumen}</Text>
+          </View>
+        ) : null}
+
         {data.narrative ? (
           <View style={s.narrative}>
+            <Text style={s.resumenLbl}>Estrategia</Text>
             {data.narrative
               .split("\n")
               .filter((l) => l.trim())
@@ -125,6 +139,7 @@ function TripDoc({ data }: { data: TripPdfData }) {
             <View style={{ flex: 1 }}>
               <Text style={s.stopName}>{st.name}</Text>
               {st.title ? <Text style={s.stopMeta}>{st.title}</Text> : null}
+              {st.objetivo ? <Text style={s.objetivo}>Objetivo: {st.objetivo}</Text> : null}
               <View style={{ flexDirection: "row", gap: 6, marginTop: 2, flexWrap: "wrap" }}>
                 {st.stageName ? <Text style={s.chip}>{st.stageName}</Text> : null}
                 {st.m2Label ? <Text style={s.chip}>{st.m2Label}</Text> : null}

@@ -66,6 +66,22 @@ function slug(s: string): string {
 function webStopId(name: string, city: string): string {
   return `web-${slug(name)}-${slug(city)}`;
 }
+/** Monto con moneda (ARS/USD). */
+function fmtMoney(n: number, cur: string): string {
+  const s = Math.round(n).toLocaleString("es-AR");
+  return cur === "USD" ? `US$ ${s}` : `$ ${s}`;
+}
+/** Objetivo de la visita según etapa (le dice al vendedor qué hacer). */
+function objetivoVisita(stageName: string | null, kind: string): string {
+  if (kind === "custom") return "Prospectar: presentar RC y relevar la necesidad";
+  const s = (stageName || "").toLowerCase();
+  if (s.includes("gan")) return "Coordinar arranque de obra";
+  if (s.includes("negoci")) return "Cerrar: ajustar condiciones y firmar";
+  if (s.includes("propuesta")) return "Empujar la decisión, evacuar dudas";
+  if (s.includes("contact")) return "Relevar la obra y agendar propuesta";
+  if (s.includes("prospect")) return "Calificar y presentar RC";
+  return "Visita comercial";
+}
 /** AAAA-MM-DD → DD/MM/AAAA (para mostrar). */
 function fmtFecha(s: string): string {
   const [y, m, d] = (s || "").split("-");
@@ -468,6 +484,7 @@ export function MapWorkspace({
         name: s.name,
         stageName: s.stageName,
         m2Label: s.m2Label,
+        amountLabel: s.amountLabel,
         legKm: s.legKm,
       })),
       leads: plan.leads.map((l) => ({
@@ -558,11 +575,26 @@ export function MapWorkspace({
       totalKm: fmtKm(plan.totalKm),
       totalTime: fmtDur(plan.totalMinutes),
       fuelCost: fmtPesos(plan.fuelCost),
+      resumen: (() => {
+        const opp = plan.stops.filter((s) => s.kind === "opportunity").length;
+        const prosp = plan.stops.length - opp;
+        const m2 = plan.stops.reduce((a, s) => a + (s.m2Value ?? 0), 0);
+        const pipe: Record<string, number> = {};
+        for (const s of plan.stops)
+          if (s.amount && s.currency) pipe[s.currency] = (pipe[s.currency] ?? 0) + Number(s.amount);
+        const parts = [
+          `${opp} oportunidad${opp === 1 ? "" : "es"}${prosp ? ` · ${prosp} prospección` : ""}`,
+          m2 > 0 ? `${Math.round(m2).toLocaleString("es-AR")} m² en juego` : null,
+          ...Object.entries(pipe).map(([c, v]) => `Pipeline ${fmtMoney(v, c)}`),
+        ].filter(Boolean);
+        return parts.join(" · ");
+      })(),
       stops: plan.stops.map((st) => ({
         order: st.order,
         name: st.name,
         title: st.title,
         stageName: st.stageName,
+        objetivo: objetivoVisita(st.stageName, st.kind),
         m2Label: st.m2Label,
         amountLabel: st.amountLabel,
         address: st.address,
@@ -739,6 +771,22 @@ export function MapWorkspace({
     if (!plan) return null;
     const stopMapUrl = (lat: number, lng: number) =>
       `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+
+    // Resumen de la gira (agregados, sin IA): valor para el gerente y el vendedor.
+    const oppCount = plan.stops.filter((s) => s.kind === "opportunity").length;
+    const prospectCount = plan.stops.length - oppCount;
+    const totalM2 = plan.stops.reduce((a, s) => a + (s.m2Value ?? 0), 0);
+    const pipeline: Record<string, number> = {};
+    for (const s of plan.stops) {
+      if (s.amount && s.currency) pipeline[s.currency] = (pipeline[s.currency] ?? 0) + Number(s.amount);
+    }
+    const porEtapa: Record<string, number> = {};
+    for (const s of plan.stops) {
+      const k = s.kind === "custom" ? "Prospección" : s.stageName ?? "—";
+      porEtapa[k] = (porEtapa[k] ?? 0) + 1;
+    }
+    const pipelineEntries = Object.entries(pipeline).filter(([, v]) => v > 0);
+
     return (
       <div className="mx-auto max-w-2xl">
         <div className="flex items-start justify-between gap-3">
@@ -788,6 +836,46 @@ export function MapWorkspace({
           ))}
         </div>
 
+        {/* Resumen de la gira: pipeline en juego, m², cobertura por etapa */}
+        <div className="mt-3 rounded-[10px] border bg-panel p-3">
+          <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2">
+            Resumen de la gira
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
+            <span>
+              <b className="text-text2">{oppCount}</b> oportunidad{oppCount === 1 ? "" : "es"}
+              {prospectCount > 0 && (
+                <>
+                  {" · "}
+                  <b className="text-text2">{prospectCount}</b> prospección
+                </>
+              )}
+            </span>
+            {totalM2 > 0 && (
+              <span>
+                <b className="text-text2">{Math.round(totalM2).toLocaleString("es-AR")} m²</b> en juego
+              </span>
+            )}
+            {pipelineEntries.map(([cur, v]) => (
+              <span key={cur}>
+                Pipeline: <b className="text-text2">{fmtMoney(v, cur)}</b>
+              </span>
+            ))}
+          </div>
+          {Object.keys(porEtapa).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {Object.entries(porEtapa).map(([etapa, n]) => (
+                <span
+                  key={etapa}
+                  className="rounded-full bg-chip px-2 py-0.5 text-[10.5px] font-medium text-text2"
+                >
+                  {etapa}: {n}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Análisis comercial (IA) — a pedido */}
         <div className="mt-3 rounded-[10px] border bg-card2 p-3">
           {narrating ? (
@@ -834,6 +922,10 @@ export function MapWorkspace({
                     {s.title && !prospecting && (
                       <div className="text-[12px] text-text2">{s.title}</div>
                     )}
+                    {/* Objetivo de la visita (qué hacer) */}
+                    <div className="mt-1 text-[12px]">
+                      <span className="font-semibold text-primary">🎯 {objetivoVisita(s.stageName, s.kind)}</span>
+                    </div>
                     {/* Datos comerciales */}
                     <div className="mt-1.5 space-y-0.5 text-[12px] text-muted-foreground">
                       {(s.m2Label || s.amountLabel) && (

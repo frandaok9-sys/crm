@@ -53,6 +53,10 @@ export type TripStop = {
   stageName: string | null;
   m2Label: string | null;
   amountLabel: string | null;
+  // Valores crudos para agregar el resumen de la gira (sin recalcular ni IA):
+  m2Value: number | null;
+  amount: string | null; // decimal como string (nunca float)
+  currency: string | null; // ARS | USD
   // Datos comerciales para el viajante (todo de la base, sin IA):
   address: string | null; // dónde ir
   contactName: string | null; // a quién buscar
@@ -158,6 +162,9 @@ export async function planTrip(
     stageName: string | null;
     m2Label: string | null;
     amountLabel: string | null;
+    m2Value: number | null;
+    amount: string | null;
+    currency: string | null;
     address: string | null;
     contactName: string | null;
     phone: string | null;
@@ -180,6 +187,9 @@ export async function planTrip(
           ? `${Number(o.estimatedM2).toLocaleString("es-AR")} m²`
           : null,
         amountLabel: formatMoney(o.amount ? o.amount.toString() : null, o.currency),
+        m2Value: o.estimatedM2 ? Number(o.estimatedM2) : null,
+        amount: o.amount ? o.amount.toString() : null,
+        currency: o.currency,
         address: o.siteAddress ?? o.client.address,
         contactName: contact?.name ?? null,
         phone: contact?.phone ?? o.client.phone,
@@ -197,6 +207,9 @@ export async function planTrip(
       stageName: "Prospección" as string | null,
       m2Label: null,
       amountLabel: null,
+      m2Value: null,
+      amount: null,
+      currency: null,
       address: c.label,
       contactName: null,
       phone: null,
@@ -233,6 +246,9 @@ export async function planTrip(
       stageName: s.stageName,
       m2Label: s.m2Label,
       amountLabel: s.amountLabel,
+      m2Value: s.m2Value,
+      amount: s.amount,
+      currency: s.currency,
       address: s.address,
       contactName: s.contactName,
       phone: s.phone,
@@ -384,7 +400,7 @@ export type NarrateInput = {
   totalMinutes: number;
   fuelCost: number;
   estimated: boolean;
-  stops: { order: number; name: string; stageName: string | null; m2Label: string | null; legKm: number }[];
+  stops: { order: number; name: string; stageName: string | null; m2Label: string | null; amountLabel?: string | null; legKm: number }[];
   leads: { clientName: string; stageName: string; m2Label: string | null; detourKm: number }[];
   clientVisits: { name: string; city: string | null; segment: string | null; detourKm: number }[];
 };
@@ -405,6 +421,7 @@ export async function narrateTrip(d: NarrateInput): Promise<string> {
       destino: s.name,
       etapa: s.stageName,
       m2: s.m2Label,
+      monto: s.amountLabel,
       tramo: fmtKm(s.legKm),
     })),
     leads_en_camino: d.leads.map((l) => ({
@@ -421,24 +438,24 @@ export async function narrateTrip(d: NarrateInput): Promise<string> {
     })),
   };
 
-  const system = `Sos el asistente de campo de RC Pisos Industriales (pisos industriales por m² en Mendoza). Redactás la HOJA DE RUTA de una jornada para un vendedor viajante que combina visitas a obras y prospección de clientes nuevos. Español rioplatense, concreto, motivador pero sin relleno.
+  const system = `Sos el estratega comercial de RC Pisos Industriales (pisos industriales por m² en Mendoza). Escribís la ESTRATEGIA de una gira de visitas. Tu lector es doble: el VENDEDOR que sale a la calle y el GERENTE que revisa la jornada. Español rioplatense, concreto, con criterio comercial. Sin relleno.
 
 REGLAS:
-- Usá EXACTAMENTE los números del digest (ya calculados). No inventes ni recalcules km, tiempo ni costo.
-- Las paradas con etapa "Prospección" son destinos nuevos (una ciudad o zona para buscar clientes), no obras existentes: tratalas como oportunidad de prospección.
-- Formato Markdown, breve:
-  1) Una línea de resumen (total km, tiempo, costo de combustible).
-  2) Sección "Recorrido": las paradas en orden con su tramo, una por línea.
-  3) Sección "Aprovechá en el camino": por cada lead (obra del pipeline), 1 frase con por qué conviene pasar (etapa temprana = oportunidad fresca; m² grande = obra importante; desvío chico = casi sin costo). Si no hay leads, omití la sección.
-  4) Sección "Cuentas para reactivar": por cada cliente de "clientes_cartera_sin_obra" (clientes de la cartera SIN obra en el pipeline), 1 frase para pasar a visitarlo y generar una oportunidad nueva. Si no hay, omití la sección.
-- Si "estimado" es true, aclaralo en una línea corta (km aproximados).
-- No repitas toda la tabla; la interfaz ya la muestra. Aportá criterio comercial.`;
+- Usá EXACTAMENTE los números del digest (ya calculados). No inventes ni recalcules km/tiempo/costo/montos.
+- Etapa "Prospección" = destino nuevo para buscar clientes (no una obra existente).
+- Prioridad comercial: etapa avanzada (Negociación/Propuesta) + m²/monto grande = foco para CERRAR; etapa temprana = calificar/avanzar; prospección = sembrar.
+- Formato Markdown, BREVE (la interfaz ya muestra la tabla de datos; no la repitas):
+  1) "**Estrategia de la gira**": 2-3 frases. El objetivo del día, qué priorizar y por qué (dónde está el mayor valor/riesgo), y la lógica del recorrido.
+  2) "**Prioridades**": 1 a 3 viñetas con las visitas CLAVE y la jugada concreta en cada una (ej. "Metalúrgica del Sur (Negociación, 1.500 m²): cerrar, llevar la revisión final").
+  3) "**Aprovechá en el camino**": por cada lead del pipeline cercano, 1 frase de por qué pasar (desvío chico = casi gratis). Omití si no hay.
+  4) "**Cuentas para reactivar**": por cada cliente sin obra en el pipeline, 1 frase para generar oportunidad nueva. Omití si no hay.
+- Si "estimado" es true, aclaralo en una línea corta (km aproximados).`;
 
   try {
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model: MODEL,
-      max_tokens: 450,
+      max_tokens: 550,
       temperature: 0.4,
       system,
       messages: [{ role: "user", content: JSON.stringify(digest) }],
