@@ -1008,6 +1008,45 @@ export function MapWorkspace({
             </div>
           )}
 
+          {/* Llegada: a dónde termina el viaje */}
+          <div className="mt-2.5">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted2">
+                Llegada
+              </span>
+              <select
+                value={returnMode}
+                onChange={(e) => {
+                  setReturnMode(e.target.value as "origin" | "point" | "none");
+                  markStale();
+                }}
+                className="min-w-0 flex-1 rounded-[8px] border bg-panel px-2 py-1.5 text-[12px] outline-none focus:border-primary"
+              >
+                <option value="origin">Vuelvo a la salida</option>
+                <option value="point">Termino en otro lugar</option>
+                <option value="none">Termino en la última visita</option>
+              </select>
+            </div>
+            {returnMode === "point" && (
+              <div className="mt-1.5">
+                <TripSearchBox
+                  allowClient={false}
+                  onAddPlace={(label, lat, lng) => {
+                    setEndPoint({ lat, lng, label });
+                    markStale();
+                  }}
+                  onAddClient={() => {}}
+                />
+                {endPoint && (
+                  <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-text2">
+                    <span className="text-primary">◍</span>
+                    <span className="min-w-0 truncate">Llego a: {endPoint.label}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Sumar destino: autocompletado de lugares o cliente de la cartera */}
           <div className="mt-2.5">
             <TripSearchBox
@@ -1070,35 +1109,12 @@ export function MapWorkspace({
             onClick={() => setOptsOpen((v) => !v)}
             className="mt-2.5 flex w-full items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2"
           >
-            <span>
-              ⚙︎ fin:{" "}
-              {returnMode === "origin"
-                ? "vuelvo a la salida"
-                : returnMode === "point"
-                  ? "en otro lugar"
-                  : "última visita"}{" "}
-              · corredor {corridorKm} km · 🚗 {car.consumption}L
-            </span>
+            <span>⚙︎ sugerencias {corridorKm} km · 🚗 {car.consumption}L</span>
             <span>{optsOpen ? "▲" : "▼"}</span>
           </button>
           {optsOpen && (
             <div className="mt-2 space-y-2 rounded-[8px] border bg-card2 p-2.5">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px]">
-                <label className="flex items-center gap-1.5">
-                  El viaje termina
-                  <select
-                    value={returnMode}
-                    onChange={(e) => {
-                      setReturnMode(e.target.value as "origin" | "point" | "none");
-                      markStale();
-                    }}
-                    className="rounded-[6px] border bg-panel px-1.5 py-1 outline-none"
-                  >
-                    <option value="origin">Vuelvo a la salida</option>
-                    <option value="point">En otro lugar</option>
-                    <option value="none">En la última visita</option>
-                  </select>
-                </label>
                 <label className="flex items-center gap-1.5">
                   Sugerencias a
                   <select
@@ -1115,28 +1131,6 @@ export function MapWorkspace({
                   </select>
                 </label>
               </div>
-
-              {returnMode === "point" && (
-                <div>
-                  <div className="mb-1 text-[11px] text-muted-foreground">
-                    ¿Dónde terminás el viaje?
-                  </div>
-                  <TripSearchBox
-                    allowClient={false}
-                    onAddPlace={(label, lat, lng) => {
-                      setEndPoint({ lat, lng, label });
-                      markStale();
-                    }}
-                    onAddClient={() => {}}
-                  />
-                  {endPoint && (
-                    <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-text2">
-                      <span className="text-primary">◍</span>
-                      <span className="min-w-0 truncate">Termina en: {endPoint.label}</span>
-                    </div>
-                  )}
-                </div>
-              )}
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-[11px] text-muted-foreground">
                   Consumo (L/100km)
