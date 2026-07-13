@@ -66,6 +66,14 @@ function slug(s: string): string {
 function webStopId(name: string, city: string): string {
   return `web-${slug(name)}-${slug(city)}`;
 }
+/** Markdown → texto plano (para el PDF). */
+function stripMd(t: string): string {
+  return t
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
 
 /**
  * Buscador con autocompletado (tipo Maps) para sumar destinos.
@@ -86,7 +94,6 @@ function TripSearchBox({
   const [places, setPlaces] = useState<PlaceSuggestion[]>([]);
   const [clients, setClients] = useState<ClientHit[]>([]);
   const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const text = q.trim();
@@ -108,12 +115,11 @@ function TripSearchBox({
         setPlaces([]);
       }
       setLoading(false);
-      setOpen(true);
     }, 450); // debounce: espera a que el usuario pare de tipear
     return () => clearTimeout(t);
   }, [q, mode]);
 
-  const hasResults = mode === "place" ? places.length > 0 : clients.length > 0;
+  const showList = q.trim().length >= 3;
 
   return (
     <div className="relative">
@@ -138,39 +144,52 @@ function TripSearchBox({
           ))}
         </div>
       )}
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onFocus={() => hasResults && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder={
-          mode === "client"
-            ? "Buscar cliente de tu cartera…"
-            : "Dirección, ciudad o lugar…"
-        }
-        className="w-full rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
-      />
-      {loading && (
-        <span className="absolute right-2.5 top-[calc(50%+2px)] h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      )}
-      {open && (hasResults || (!loading && q.trim().length >= 3)) && (
-        <div className="absolute left-0 right-0 top-full z-[1200] mt-1 max-h-60 overflow-y-auto rounded-[10px] border bg-card shadow-lg">
+      <div className="relative">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={
+            mode === "client"
+              ? "Buscar cliente de tu cartera…"
+              : "Dirección, ciudad o lugar…"
+          }
+          className="w-full rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
+        />
+        {(loading || q) && (
+          <button
+            type="button"
+            onClick={() => {
+              setQ("");
+              setPlaces([]);
+              setClients([]);
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] text-muted2 hover:text-primary"
+            title="Limpiar"
+          >
+            {loading ? "…" : "✕"}
+          </button>
+        )}
+      </div>
+
+      {/* Coincidencias en línea (no se recortan ni tapan otros campos) */}
+      {showList && (
+        <div className="mt-1 overflow-hidden rounded-[10px] border bg-card">
           {mode === "place" &&
-            (places.length === 0 ? (
+            (loading && places.length === 0 ? (
+              <div className="px-3 py-2 text-[11.5px] text-muted-foreground">Buscando…</div>
+            ) : places.length === 0 ? (
               <div className="px-3 py-2 text-[11.5px] text-muted-foreground">
-                Sin coincidencias. Probá otra forma.
+                Sin coincidencias. Probá con la ciudad.
               </div>
             ) : (
               places.map((p, i) => (
                 <button
                   key={i}
                   type="button"
-                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onAddPlace(p.label, p.lat, p.lng);
                     setQ("");
                     setPlaces([]);
-                    setOpen(false);
                   }}
                   className="flex w-full items-start gap-2 border-b border-[var(--border-2)] px-3 py-2 text-left last:border-0 hover:bg-hoverbg"
                 >
@@ -180,7 +199,9 @@ function TripSearchBox({
               ))
             ))}
           {mode === "client" &&
-            (clients.length === 0 ? (
+            (loading && clients.length === 0 ? (
+              <div className="px-3 py-2 text-[11.5px] text-muted-foreground">Buscando…</div>
+            ) : clients.length === 0 ? (
               <div className="px-3 py-2 text-[11.5px] text-muted-foreground">
                 Sin clientes ubicados con ese nombre en tu cartera.
               </div>
@@ -189,12 +210,10 @@ function TripSearchBox({
                 <button
                   key={c.id}
                   type="button"
-                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onAddClient(c);
                     setQ("");
                     setClients([]);
-                    setOpen(false);
                   }}
                   className="flex w-full items-start gap-2 border-b border-[var(--border-2)] px-3 py-2 text-left last:border-0 hover:bg-hoverbg"
                 >
@@ -503,6 +522,58 @@ export function MapWorkspace({
     if (plan) window.open(buildMapsUrl(plan), "_blank", "noopener");
   }
 
+  // Descargar la hoja de ruta como PDF (se genera en el servidor y baja el archivo).
+  async function descargarPdf() {
+    if (!plan || !origin) return;
+    const title = tripName.trim() || `Hoja de ruta - ${origin.label}`;
+    const payload = {
+      title,
+      date: new Date().toLocaleDateString("es-AR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
+      origin: origin.label,
+      returnLabel,
+      totalKm: fmtKm(plan.totalKm),
+      totalTime: fmtDur(plan.totalMinutes),
+      fuelCost: fmtPesos(plan.fuelCost),
+      stops: plan.stops.map((st) => ({
+        order: st.order,
+        name: st.name,
+        title: st.title,
+        stageName: st.stageName,
+        m2Label: st.m2Label,
+        amountLabel: st.amountLabel,
+        address: st.address,
+        contactName: st.contactName,
+        phone: st.phone,
+        notes: st.notes,
+        legKm: fmtKm(st.legKm),
+      })),
+      narrative: narrative ? stripMd(narrative) : null,
+    };
+    try {
+      const res = await fetch("/mapa/hoja/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug(title) || "hoja-de-ruta"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("No se pudo generar el PDF.");
+    }
+  }
+
   type SavedWaypoint =
     | { kind: "opportunity"; id: string }
     | { kind: "custom"; id: string; lat: number; lng: number; label: string };
@@ -661,10 +732,10 @@ export function MapWorkspace({
             </button>
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={descargarPdf}
               className="rounded-[8px] border px-2.5 py-1.5 text-[11.5px] font-semibold hover:border-primary hover:text-primary"
             >
-              🖨 Imprimir
+              ⬇ Descargar PDF
             </button>
           </div>
         </div>
