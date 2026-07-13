@@ -24,7 +24,8 @@ const ICON_PATHS: Record<string, string> = {
   "/productos": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
   "/cobranzas": "M3 6h18v12H3zM3 10h18M6 14h5",
   "/metricas": "M4 20h16M6 20v-6M11 20V8M16 20v-9",
-  "/asistente": "M5 5h14v10H8l-3 3V5zM9 9h6M9 12h4",
+  "/asistente":
+    "M12 3l1.6 4.2L18 9l-4.4 1.8L12 15l-1.6-4.2L6 9l4.4-1.8zM18.5 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z",
   "/admin": "M4 8h16M4 16h16M9 6v4M15 14v4",
 };
 
