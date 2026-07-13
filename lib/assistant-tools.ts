@@ -145,6 +145,17 @@ export const ASSISTANT_TOOLS = [
       "Lista las hojas de ruta guardadas (nombre, km, fecha y link de Google Maps). Úsala cuando pidan sus rutas guardadas o el link de maps de una ruta.",
     inputSchema: { type: "object", properties: {} },
   },
+  {
+    name: "detalle_hoja_ruta",
+    description:
+      "Trae UNA hoja de ruta guardada con TODO el detalle: recorrido en orden, oportunidades de cada visita (etapa, m², monto), dirección y contacto, el link de Google Maps y la URL de una imagen del mapa de la ruta. Usala cuando pidan 'la hoja de ruta X', 'con el mapa/captura' o 'con los detalles'. 'nombre' es opcional (sin nombre, trae la más reciente).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nombre: { type: "string", description: "Nombre o parte del nombre de la hoja (opcional)." },
+      },
+    },
+  },
 ] as const;
 
 /**
@@ -225,6 +236,8 @@ export async function runTool(
       return armarHojaRuta(user, str("salida") ?? "", strList("destinos"));
     case "hojas_de_ruta":
       return listarHojasRuta(user);
+    case "detalle_hoja_ruta":
+      return detalleHojaRuta(user, str("nombre"));
     default:
       return { error: `Herramienta desconocida: ${name}` };
   }
@@ -689,5 +702,72 @@ async function listarHojasRuta(user: Principal) {
       fecha: r.createdAt.toLocaleDateString("es-AR"),
       maps: (r.data as { mapsUrl?: string })?.mapsUrl ?? null,
     })),
+  };
+}
+
+/**
+ * Trae UNA hoja de ruta con todo el detalle (recorrido, oportunidades, contacto),
+ * el link de Maps y la URL de la imagen del mapa. Respeta el alcance del usuario.
+ */
+async function detalleHojaRuta(user: Principal, nombre?: string) {
+  const where = canViewAllRecords(user) ? {} : { ownerId: user.id };
+  const trip = nombre
+    ? await prisma.savedTrip.findFirst({
+        where: { ...where, name: { contains: nombre, mode: "insensitive" } },
+        orderBy: { createdAt: "desc" },
+      })
+    : await prisma.savedTrip.findFirst({ where, orderBy: { createdAt: "desc" } });
+  if (!trip) return { error: nombre ? `No encontré una hoja de ruta con "${nombre}".` : "No hay hojas de ruta guardadas." };
+
+  const data = trip.data as {
+    mapsUrl?: string;
+    plan?: {
+      origin?: { label?: string };
+      totalKm?: number;
+      totalMinutes?: number;
+      fuelCost?: number;
+      stops?: {
+        order: number;
+        name: string;
+        title: string | null;
+        stageName: string | null;
+        m2Label: string | null;
+        amountLabel: string | null;
+        address: string | null;
+        contactName: string | null;
+        phone: string | null;
+        legKm: number;
+      }[];
+    };
+  };
+  const plan = data?.plan;
+  if (!plan?.stops) {
+    return { error: "Esa hoja de ruta es de una versión anterior; abrila en el mapa y recalculala." };
+  }
+  const min = plan.totalMinutes ?? 0;
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  const undef = <T,>(v: T | null | undefined): T | undefined => (v == null || v === "" ? undefined : v);
+
+  return {
+    nombre: trip.name,
+    salida: plan.origin?.label,
+    total_km: Math.round(plan.totalKm ?? 0),
+    tiempo: h > 0 ? `${h} h ${m} min` : `${m} min`,
+    combustible_aprox: `$${Math.round(plan.fuelCost ?? 0).toLocaleString("es-AR")} (estimado)`,
+    recorrido: plan.stops.map((s) => ({
+      n: s.order,
+      destino: s.name,
+      etapa: undef(s.stageName),
+      obra: undef(s.title),
+      m2: undef(s.m2Label),
+      monto: undef(s.amountLabel),
+      direccion: undef(s.address),
+      contacto: undef(s.contactName),
+      tel: undef(s.phone),
+      tramo_km: Math.round(s.legKm),
+    })),
+    maps: data.mapsUrl ?? null,
+    mapa_imagen: `/mapa/hoja/${trip.id}/imagen`,
   };
 }

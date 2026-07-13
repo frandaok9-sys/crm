@@ -113,11 +113,24 @@ const MD_COMPONENTS: Components = {
   a: ({ href, children }) => (
     <a
       href={href}
+      target={href?.startsWith("http") ? "_blank" : undefined}
+      rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
       className="font-medium text-primary underline underline-offset-2"
     >
       {children}
     </a>
   ),
+  // Solo se renderiza la imagen del mapa de una hoja de ruta (mismo origen);
+  // cualquier otra imagen se ignora (privacidad/seguridad).
+  img: ({ src, alt }) =>
+    typeof src === "string" && src.startsWith("/mapa/hoja/") ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt || "Mapa de la ruta"}
+        className="my-2 w-full max-w-md rounded-[10px] border border-border2"
+      />
+    ) : null,
   ul: ({ children }) => (
     <ul className="my-1.5 ml-1 list-disc space-y-1 pl-4 marker:text-muted2">
       {children}
