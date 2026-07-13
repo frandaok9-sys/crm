@@ -3,12 +3,14 @@
  * de color en la base ("gray", "blue"…) que acá se traduce al hex exacto.
  */
 export const STAGE_HEX: Record<string, string> = {
-  gray: "#8A8D95",
-  blue: "#5B82D6",
-  amber: "#D9A03C",
-  purple: "#9B7BE8",
-  green: "#4FA97A",
-  red: "#C8523F",
+  // Paleta iOS suavizada (~26% hacia gris neutro) — v5.
+  gray: "#8E8E93",
+  teal: "#6BBEE5", // Prospecto (turquesa, para que el donut no se vea gris)
+  blue: "#2E82E0",
+  amber: "#E0982C",
+  purple: "#A66AD0",
+  green: "#4FB574",
+  red: "#D65A46",
 };
 
 export function stageHex(color: string): string {
