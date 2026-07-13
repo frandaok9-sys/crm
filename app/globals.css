@@ -64,47 +64,58 @@
 }
 
 :root {
-  /* RC Pisos Industriales — modo claro "concrete" (handoff hifi) */
+  /* RC Pisos Industriales — v5 "iOS + Industrial + Glass/Malla" · modo claro */
   color-scheme: light;
-  --background: #f2f3f5;
-  --foreground: #1b1c20;
-  --card: #ffffff;
-  --card-foreground: #1b1c20;
+  --background: #f2f2f7;
+  --foreground: #1c1c1e;
+  --card: rgba(255, 255, 255, 0.8);
+  --card-foreground: #1c1c1e;
   --popover: #ffffff;
-  --popover-foreground: #1b1c20;
+  --popover-foreground: #1c1c1e;
   --primary: #e0503a;
   --primary-foreground: #ffffff;
-  --secondary: #edeef1;
-  --secondary-foreground: #24252a;
-  --muted: #edeef1;
-  --muted-foreground: #6b6e76;
-  --accent: #f5f6f8;
-  --accent-foreground: #24252a;
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #e2e3e8;
-  --input: #d8dae0;
+  --secondary: rgba(120, 120, 128, 0.12);
+  --secondary-foreground: #2c2c2e;
+  --muted: rgba(120, 120, 128, 0.12);
+  --muted-foreground: #8e8e93;
+  --accent: rgba(120, 120, 128, 0.1);
+  --accent-foreground: #2c2c2e;
+  --destructive: #ff3b30;
+  --border: rgba(60, 60, 67, 0.12);
+  --input: rgba(255, 255, 255, 0.75);
   --ring: #e0503a;
   --chart-1: #e0503a;
-  --chart-2: #5b82d6;
-  --chart-3: #6b6e76;
-  --chart-4: #d9a03c;
-  --chart-5: #9b7be8;
-  --radius: 0.5625rem; /* 9px: botones/filas; cards usan 12px explícitos */
+  --chart-2: #007aff;
+  --chart-3: #8e8e93;
+  --chart-4: #ff9500;
+  --chart-5: #af52de;
+  --radius: 0.625rem; /* 10px botones/inputs; cards 16–20px explícitos */
 
-  --side: #ffffff;
-  --panel: #ecedf0;
-  --card2: #ffffff;
-  --border2: #e8e9ed;
-  --text1: #24252a;
-  --text2: #3f4147;
-  --muted2: #83868e;
-  --hoverbg: #f5f6f8;
-  --chip: #edeef1;
-  --navactive: #edeef1;
-  --avbg: #edeef1;
-  --avbd: #d8dae0;
-  --field: #ffffff;
-  --shadow-panel: 0 6px 16px rgba(20, 22, 30, 0.12);
+  --side: rgba(255, 255, 255, 0.62);
+  --panel: rgba(239, 239, 244, 0.55);
+  --card2: rgba(247, 247, 250, 0.7);
+  --border2: rgba(60, 60, 67, 0.08);
+  --text1: #2c2c2e;
+  --text2: #48484a;
+  --muted2: #aeaeb2;
+  --hoverbg: rgba(120, 120, 128, 0.1);
+  --chip: rgba(120, 120, 128, 0.12);
+  --navactive: rgba(120, 120, 128, 0.14);
+  --avbg: #efeff4;
+  --avbd: #e0e0e6;
+  --field: rgba(255, 255, 255, 0.75);
+  --shadow: 0 8px 30px rgba(20, 22, 40, 0.1), 0 2px 6px rgba(20, 22, 40, 0.05);
+  --shadow-sm: 0 1px 3px rgba(20, 22, 40, 0.06), 0 4px 12px rgba(20, 22, 40, 0.04);
+  --shadow-panel: 0 8px 30px rgba(20, 22, 40, 0.1), 0 2px 6px rgba(20, 22, 40, 0.05);
+  --glass-hole: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  /* Fondo malla de construcción + degradé (radiales de tinte + retícula) */
+  --appbg:
+    radial-gradient(1200px 700px at 88% -8%, rgba(224, 80, 58, 0.1), rgba(224, 80, 58, 0) 60%),
+    radial-gradient(1000px 800px at 4% 108%, rgba(0, 122, 255, 0.07), rgba(0, 122, 255, 0) 55%),
+    repeating-linear-gradient(0deg, rgba(20, 22, 40, 0.045) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, rgba(20, 22, 40, 0.045) 0 1px, transparent 1px 34px),
+    linear-gradient(135deg, #f4f4f8, #ececf2);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -116,46 +127,56 @@
 }
 
 .dark {
-  /* Modo grafito RC — por defecto (handoff hifi) */
+  /* Modo oscuro iOS (negro/grafito) — v5 Glass + Malla */
   color-scheme: dark;
-  --background: #0d0e10;
+  --background: #000000;
   --foreground: #ffffff;
-  --card: #15161a;
+  --card: rgba(28, 28, 30, 0.74);
   --card-foreground: #ffffff;
-  --popover: #17181c;
+  --popover: #1c1c1e;
   --popover-foreground: #ffffff;
   --primary: #e0503a;
   --primary-foreground: #ffffff;
-  --secondary: #1e2025;
-  --secondary-foreground: #e5e6e3;
-  --muted: #1e2025;
-  --muted-foreground: #8a8d95;
-  --accent: #191b1f;
-  --accent-foreground: #e5e6e3;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: #24262b;
-  --input: #33363d;
+  --secondary: rgba(255, 255, 255, 0.08);
+  --secondary-foreground: #ebebf0;
+  --muted: rgba(255, 255, 255, 0.08);
+  --muted-foreground: #8e8e93;
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #ebebf0;
+  --destructive: #ff453a;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.06);
   --ring: #e0503a;
   --chart-1: #e0503a;
-  --chart-2: #5b82d6;
-  --chart-3: #8a8d95;
-  --chart-4: #d9a03c;
-  --chart-5: #9b7be8;
+  --chart-2: #007aff;
+  --chart-3: #8e8e93;
+  --chart-4: #ff9500;
+  --chart-5: #af52de;
 
-  --side: #111214;
-  --panel: #101114;
-  --card2: #17181c;
-  --border2: #1d1f24;
-  --text1: #e5e6e3;
-  --text2: #c9cbd1;
-  --muted2: #797d86;
-  --hoverbg: #191b1f;
-  --chip: #1e2025;
-  --navactive: #1e2025;
-  --avbg: #24262b;
-  --avbd: #33363d;
-  --field: #15161a;
-  --shadow-panel: 0 6px 16px rgba(0, 0, 0, 0.35);
+  --side: rgba(28, 28, 30, 0.6);
+  --panel: rgba(28, 28, 30, 0.55);
+  --card2: rgba(44, 44, 46, 0.66);
+  --border2: rgba(255, 255, 255, 0.06);
+  --text1: #ebebf0;
+  --text2: #c7c7cc;
+  --muted2: #636366;
+  --hoverbg: rgba(255, 255, 255, 0.06);
+  --chip: rgba(255, 255, 255, 0.08);
+  --navactive: rgba(255, 255, 255, 0.1);
+  --avbg: #2c2c2e;
+  --avbd: #48484a;
+  --field: rgba(255, 255, 255, 0.06);
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --glass-hole: rgba(28, 28, 30, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --appbg:
+    radial-gradient(1200px 700px at 88% -8%, rgba(224, 80, 58, 0.16), rgba(224, 80, 58, 0) 60%),
+    radial-gradient(1000px 800px at 4% 108%, rgba(0, 122, 255, 0.1), rgba(0, 122, 255, 0) 55%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 34px),
+    linear-gradient(135deg, #0b0b0d, #000000);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -170,19 +191,42 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Tipografía SF nativa (iOS) */
+  html,
   body {
-    @apply bg-background text-foreground;
-    transition: background-color 0.25s ease, color 0.25s ease;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+      Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  html {
-    @apply font-sans;
+  body {
+    @apply text-foreground;
+    background: transparent;
+    transition: color 0.25s ease;
   }
-  /* Industrial signage: condensed uppercase headings */
+  /* Fondo malla de construcción + degradé como CAPA FIJA (una sola composición,
+     sin repintar en cada scroll → mucho más liviano que background-attachment). */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--appbg);
+    pointer-events: none;
+  }
+  /* Títulos iOS: SF, sin uppercase, tracking negativo */
   h1,
   h2 {
-    font-family: var(--font-oswald), var(--font-geist-sans), sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
+    font-family: inherit;
+    text-transform: none;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+  }
+  /* Números tabulares (KPI, montos, %) */
+  .tabular,
+  [data-tabular] {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 
   /* Scrollbars finas integradas al tema (kanban, tablas, main) */
@@ -190,6 +234,15 @@
     scrollbar-width: thin;
     scrollbar-color: var(--avbd) transparent;
   }
+}
+
+/* Glassmorfismo: superficies grandes translúcidas dejan ver la malla apenas
+   detrás. Acotado a sidebar y tarjetas de nivel superior (no a chips/badges
+   anidados) para no recargar el compositor. */
+.bg-side,
+.bg-card {
+  -webkit-backdrop-filter: saturate(150%) blur(9px);
+  backdrop-filter: saturate(150%) blur(9px);
 }
 
 /* Mapa de oportunidades (Leaflet) integrado al tema */
