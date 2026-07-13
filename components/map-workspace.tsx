@@ -122,13 +122,17 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   // Sumar un prospecto de la web al viaje (geocodifica nombre + ciudad).
   async function addWebProspect(name: string, city: string) {
     setBusy("dest");
-    const res = await geocodePointAction(`${name}, ${city}`);
+    // Intento ubicar la empresa exacta; si no (Nominatim no conoce nombres de
+    // negocios), la pongo en el centro de la ciudad para no bloquear el sumar.
+    let res = await geocodePointAction(`${name}, ${city}`);
+    if (!res.ok) res = await geocodePointAction(city);
     setBusy(null);
     if (!res.ok) {
-      setError(res.error);
+      setError("No pude ubicar ese prospecto en el mapa.");
       return;
     }
     markStale();
+    setError(null);
     setCustomStops((prev) => [
       ...prev,
       { id: `web-${Date.now()}`, lat: res.lat, lng: res.lng, label: name },
