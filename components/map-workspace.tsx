@@ -49,6 +49,18 @@ function fmtDur(min: number): string {
 function fmtPesos(n: number): string {
   return `$${Math.round(n).toLocaleString("es-AR")}`;
 }
+function slug(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+/** Id estable para un prospecto web (para saber si ya está en el viaje). */
+function webStopId(name: string, city: string): string {
+  return `web-${slug(name)}-${slug(city)}`;
+}
 
 export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   const [car, setCar] = useState<CarProfile>(DEFAULT_CAR);
@@ -74,6 +86,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   const [savedTrips, setSavedTrips] = useState<SavedTripSummary[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [mapTab, setMapTab] = useState<"mapa" | "ruta">("mapa");
   const [suggestTab, setSuggestTab] = useState<"obras" | "clientes" | "web">("obras");
   const [optsOpen, setOptsOpen] = useState(false);
   const [dirty, setDirty] = useState(false); // hay cambios sin recalcular
@@ -114,6 +127,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     setWebProspects(null);
     setWebError(null);
     setDirty(false);
+    setMapTab("mapa");
   }
 
   // Prospección web OPCIONAL: busca empresas nuevas en las ciudades del viaje.
@@ -152,10 +166,10 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     }
     markStale();
     setError(null);
-    setCustomStops((prev) => [
-      ...prev,
-      { id: `web-${Date.now()}`, lat: res.lat, lng: res.lng, label: name },
-    ]);
+    const id = webStopId(name, city);
+    setCustomStops((prev) =>
+      prev.some((s) => s.id === id) ? prev : [...prev, { id, lat: res.lat, lng: res.lng, label: name }]
+    );
   }
 
   function togglePin(id: string) {
@@ -397,6 +411,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     setSaving(false);
     if (res.ok) {
       setSavedMsg("Hoja de ruta guardada ✓");
+      setMapTab("ruta"); // mostrar la hoja de ruta al confirmar
       listSavedTripsAction().then(setSavedTrips).catch(() => {});
     } else setError(res.error);
   }
@@ -470,13 +485,174 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     );
   }
 
+  // Hoja de ruta comercial: todo lo útil para el viajante, armado con datos que
+  // ya tenemos (sin llamadas de IA extra).
+  function RouteSheet() {
+    if (!plan) return null;
+    const stopMapUrl = (lat: number, lng: number) =>
+      `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    return (
+      <div className="mx-auto max-w-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-[20px] font-bold leading-tight">Hoja de ruta</h2>
+            <p className="text-[12px] text-muted-foreground">
+              Salida: <b className="text-text2">{origin?.label}</b> · {returnLabel}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-1.5">
+            <button
+              type="button"
+              onClick={openInMaps}
+              className="rounded-[8px] border px-2.5 py-1.5 text-[11.5px] font-semibold hover:border-primary hover:text-primary"
+            >
+              🧭 Maps
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="rounded-[8px] border px-2.5 py-1.5 text-[11.5px] font-semibold hover:border-primary hover:text-primary"
+            >
+              🖨 Imprimir
+            </button>
+          </div>
+        </div>
+
+        {/* Totales del viaje */}
+        <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+          {[
+            { k: "Visitas", v: String(plan.stops.length) },
+            { k: "Distancia", v: fmtKm(plan.totalKm) },
+            { k: "Tiempo", v: fmtDur(plan.totalMinutes) },
+            { k: "Combustible", v: fmtPesos(plan.fuelCost) },
+          ].map((s) => (
+            <div key={s.k} className="rounded-[9px] border bg-card2 px-2 py-2">
+              <div className="text-[14px] font-bold leading-none">{s.v}</div>
+              <div className="mt-1 text-[9.5px] uppercase tracking-wide text-muted2">{s.k}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Análisis comercial (IA, ya generado) */}
+        {narrative && (
+          <div className="mt-3 rounded-[10px] border bg-card2 p-3">
+            <AssistantMessage content={narrative} />
+          </div>
+        )}
+
+        {/* Especificaciones de cada visita */}
+        <div className="mt-3 space-y-2">
+          {plan.stops.map((s) => {
+            const prospecting = s.kind === "custom";
+            return (
+              <div key={s.id} className="rounded-[10px] border bg-panel p-3">
+                <div className="flex items-start gap-2.5">
+                  <span
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold text-white"
+                    style={{ background: "var(--primary)" }}
+                  >
+                    {s.order}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[14px] font-semibold">{s.name}</span>
+                      {s.stageName && (
+                        <span className="rounded-full bg-chip px-2 py-0.5 text-[10.5px] font-medium text-text2">
+                          {s.stageName}
+                        </span>
+                      )}
+                    </div>
+                    {s.title && !prospecting && (
+                      <div className="text-[12px] text-text2">{s.title}</div>
+                    )}
+                    {/* Datos comerciales */}
+                    <div className="mt-1.5 space-y-0.5 text-[12px] text-muted-foreground">
+                      {(s.m2Label || s.amountLabel) && (
+                        <div>
+                          {s.m2Label ? <b className="text-text2">{s.m2Label}</b> : null}
+                          {s.m2Label && s.amountLabel ? " · " : ""}
+                          {s.amountLabel ? (
+                            <b className="text-text2">{s.amountLabel}</b>
+                          ) : null}
+                        </div>
+                      )}
+                      {s.address && (
+                        <div>
+                          📍 {s.address}
+                          {s.city && !s.address.includes(s.city) ? `, ${s.city}` : ""}
+                        </div>
+                      )}
+                      {s.contactName && <div>👤 {s.contactName}</div>}
+                      {s.phone && (
+                        <div>
+                          📞{" "}
+                          <a href={`tel:${s.phone}`} className="text-primary underline">
+                            {s.phone}
+                          </a>
+                        </div>
+                      )}
+                      {s.notes && <div className="italic">📝 {s.notes}</div>}
+                      {prospecting && (
+                        <div className="italic">Prospección — cliente potencial a visitar.</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-[11px] font-semibold text-text2">{fmtKm(s.legKm)}</div>
+                    <a
+                      href={stopMapUrl(s.lat, s.lng)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-primary underline"
+                      title="Ir a esta parada"
+                    >
+                      ir →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Km entre paradas por ruta de manejo. Tocá 🧭 Maps arriba para navegar el
+          viaje completo con GPS, o &quot;ir →&quot; en cada visita.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
-      {/* Mapa */}
+      {/* Mapa / Hoja de ruta */}
       <div
         className="relative order-2 overflow-hidden rounded-[12px] border lg:order-1"
         style={panelStyle}
       >
+        {/* Pestañas del sector: mapa o hoja de ruta */}
+        {plan && (
+          <div className="absolute left-2 top-2 z-[1001] flex gap-1 rounded-[9px] border bg-card/95 p-0.5 shadow-md backdrop-blur">
+            <button
+              type="button"
+              onClick={() => setMapTab("mapa")}
+              className={`rounded-[7px] px-3 py-1 text-[12px] font-semibold ${
+                mapTab === "mapa" ? "bg-[var(--primary)] text-white" : "text-text2 hover:bg-hoverbg"
+              }`}
+            >
+              🗺 Mapa
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapTab("ruta")}
+              className={`rounded-[7px] px-3 py-1 text-[12px] font-semibold ${
+                mapTab === "ruta" ? "bg-[var(--primary)] text-white" : "text-text2 hover:bg-hoverbg"
+              }`}
+            >
+              📋 Hoja de ruta
+            </button>
+          </div>
+        )}
         {pins.length === 0 ? (
           <div className="flex h-full items-center justify-center bg-panel px-6 text-center text-sm text-muted-foreground">
             Sin obras ubicadas todavía. Cargá la dirección de la obra en cada
@@ -501,7 +677,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             }))}
           />
         )}
-        {pins.length > 0 && (
+        {pins.length > 0 && mapTab === "mapa" && (
           <button
             type="button"
             onClick={() => setShowPins((v) => !v)}
@@ -510,6 +686,13 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
           >
             {showPins ? "◉ Ocultar obras" : "○ Ver obras"}
           </button>
+        )}
+
+        {/* Overlay: hoja de ruta (el mapa queda montado debajo) */}
+        {mapTab === "ruta" && plan && (
+          <div className="absolute inset-0 z-[900] overflow-y-auto bg-panel px-4 pb-4 pt-14">
+            <RouteSheet />
+          </div>
         )}
       </div>
 
@@ -868,10 +1051,21 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                               </span>
                             )}
                           </div>
-                          {cp.prospects.length === 0 ? (
-                            <p className="text-[11px] text-muted-foreground">Sin resultados.</p>
-                          ) : (
-                            cp.prospects.map((p, i) => (
+                          {(() => {
+                            const visibles = cp.prospects.filter(
+                              (p) => !customStops.some((s) => s.id === webStopId(p.name, cp.city))
+                            );
+                            if (cp.prospects.length === 0)
+                              return (
+                                <p className="text-[11px] text-muted-foreground">Sin resultados.</p>
+                              );
+                            if (visibles.length === 0)
+                              return (
+                                <p className="text-[11px] text-muted-foreground">
+                                  Todos sumados al viaje ✓
+                                </p>
+                              );
+                            return visibles.map((p, i) => (
                               <div
                                 key={i}
                                 className="mt-1 flex items-start justify-between gap-2 rounded-[8px] border bg-panel px-2.5 py-1.5"
@@ -891,8 +1085,8 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                                   + Sumar
                                 </button>
                               </div>
-                            ))
-                          )}
+                            ));
+                          })()}
                         </div>
                       ))}
                       {webError && <p className="mt-1 text-[11px] text-primary">{webError}</p>}

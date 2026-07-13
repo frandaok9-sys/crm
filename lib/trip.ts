@@ -48,10 +48,16 @@ export type TripStop = {
   kind: "opportunity" | "custom";
   order: number;
   name: string; // razón social (obra) o etiqueta del destino (prospección)
+  title: string | null; // título de la oportunidad (obra)
   city: string | null; // ciudad (para la prospección web por zona)
   stageName: string | null;
   m2Label: string | null;
   amountLabel: string | null;
+  // Datos comerciales para el viajante (todo de la base, sin IA):
+  address: string | null; // dónde ir
+  contactName: string | null; // a quién buscar
+  phone: string | null; // cómo llamar
+  notes: string | null; // qué hablar / contexto
   lat: number;
   lng: number;
   legKm: number;
@@ -125,7 +131,19 @@ export async function planTrip(
     ? await prisma.opportunity.findMany({
         where: { ...scope, id: { in: oppIds }, latitude: { not: null }, longitude: { not: null } },
         include: {
-          client: { select: { legalName: true, city: true } },
+          client: {
+            select: {
+              legalName: true,
+              city: true,
+              address: true,
+              phone: true,
+              contacts: {
+                where: { isPrimary: true },
+                take: 1,
+                select: { name: true, phone: true },
+              },
+            },
+          },
           stage: { select: { name: true } },
         },
       })
@@ -135,36 +153,54 @@ export async function planTrip(
     id: string;
     kind: "opportunity" | "custom";
     name: string;
+    title: string | null;
     city: string | null;
     stageName: string | null;
     m2Label: string | null;
     amountLabel: string | null;
+    address: string | null;
+    contactName: string | null;
+    phone: string | null;
+    notes: string | null;
   };
 
   const resolved: Resolved[] = [
-    ...opps.map((o) => ({
-      lat: Number(o.latitude),
-      lng: Number(o.longitude),
-      id: o.id,
-      kind: "opportunity" as const,
-      name: o.client.legalName,
-      city: o.client.city,
-      stageName: o.stage.name,
-      m2Label: o.estimatedM2
-        ? `${Number(o.estimatedM2).toLocaleString("es-AR")} m²`
-        : null,
-      amountLabel: formatMoney(o.amount ? o.amount.toString() : null, o.currency),
-    })),
+    ...opps.map((o) => {
+      const contact = o.client.contacts[0];
+      return {
+        lat: Number(o.latitude),
+        lng: Number(o.longitude),
+        id: o.id,
+        kind: "opportunity" as const,
+        name: o.client.legalName,
+        title: o.title,
+        city: o.client.city,
+        stageName: o.stage.name,
+        m2Label: o.estimatedM2
+          ? `${Number(o.estimatedM2).toLocaleString("es-AR")} m²`
+          : null,
+        amountLabel: formatMoney(o.amount ? o.amount.toString() : null, o.currency),
+        address: o.siteAddress ?? o.client.address,
+        contactName: contact?.name ?? null,
+        phone: contact?.phone ?? o.client.phone,
+        notes: o.notes,
+      };
+    }),
     ...customs.map((c) => ({
       lat: c.lat,
       lng: c.lng,
       id: c.id,
       kind: "custom" as const,
       name: c.label,
+      title: null,
       city: c.label, // el destino tipeado suele ser una ciudad
       stageName: "Prospección" as string | null,
       m2Label: null,
       amountLabel: null,
+      address: c.label,
+      contactName: null,
+      phone: null,
+      notes: null,
     })),
   ];
 
@@ -192,10 +228,15 @@ export async function planTrip(
       kind: s.kind,
       order: idx + 1,
       name: s.name,
+      title: s.title,
       city: s.city,
       stageName: s.stageName,
       m2Label: s.m2Label,
       amountLabel: s.amountLabel,
+      address: s.address,
+      contactName: s.contactName,
+      phone: s.phone,
+      notes: s.notes,
       lat: s.lat,
       lng: s.lng,
       legKm,
