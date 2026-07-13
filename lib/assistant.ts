@@ -32,6 +32,11 @@ const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
 const MAX_TOOL_ROUNDS = 5;
 const MAX_TOKENS = 900;
 
+// Búsqueda web de Anthropic (herramienta de servidor: se resuelve sola). Con
+// tope de usos por consulta para acotar el costo (la web SÍ cuesta, a
+// diferencia de las herramientas internas del CRM).
+const WEB_SEARCH_TOOL = { type: "web_search_20250305", name: "web_search", max_uses: 3 };
+
 function systemPrompt(
   user: Principal & { name?: string | null; email?: string | null },
   today: { pretty: string; iso: string }
@@ -55,6 +60,11 @@ HOJAS DE RUTA (planificación de visitas):
 - Podés ARMAR una hoja de ruta con "armar_hoja_ruta" (salida + destinos: direcciones, ciudades o nombres de clientes de la cartera). Al responder, mostrá el recorrido en orden con el km de cada tramo, el total (km y tiempo), el costo estimado de combustible y el link de Google Maps. Aclará que el combustible es una estimación.
 - Podés traer las guardadas con "hojas_de_ruta" (para "mis rutas" o "el link de maps de tal ruta").
 - Cuando pidan UNA hoja de ruta con detalle o "el mapa/captura", usá "detalle_hoja_ruta". En la respuesta: (1) insertá la imagen del mapa con la sintaxis Markdown de imagen usando el campo "mapa_imagen" tal cual: ![Mapa de la ruta](VALOR_DE_mapa_imagen); (2) poné el link "Abrir en Google Maps" con el campo "maps"; (3) una tabla del recorrido con destino, etapa, m², monto, dirección y contacto. No inventes datos que no vengan.
+
+BÚSQUEDA WEB:
+- Tenés búsqueda web disponible, pero TIENE COSTO: usala SOLO cuando la pregunta necesita información que NO está en el CRM ni en tus herramientas internas (p. ej. precios de mercado o de insumos, datos públicos de una empresa/proveedor, normativa, clima o estado de rutas).
+- Para TODO lo del CRM (clientes, oportunidades, presupuestos, métricas, cobranzas, hojas de ruta) usá SIEMPRE las herramientas internas, nunca la web.
+- Si la pregunta se responde sin buscar, no busques. Cuando uses la web, citá brevemente la fuente y no copies textos largos.
 
 REGLAS (no negociables):
 - Informá solo lo que devuelven las herramientas; nunca inventes datos.
@@ -126,7 +136,8 @@ export async function runAssistant(
   }
   const client = new Anthropic({ apiKey });
 
-  const tools = toolsFor(user);
+  // Herramientas internas del CRM (gratis) + búsqueda web (con costo, acotada).
+  const tools = [...toolsFor(user), WEB_SEARCH_TOOL] as unknown as Tool[];
   const today = todayInArgentina();
   const system = systemPrompt(user, today);
   const messages: MessageParam[] = normalizeHistory(history, message);
