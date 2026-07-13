@@ -38,6 +38,8 @@ export type TripPdfData = {
   date: string;
   origin: string;
   returnLabel: string;
+  fechaSalida: string | null;
+  fechaLlegada: string | null;
   totalKm: string;
   totalTime: string;
   fuelCost: string;
@@ -78,6 +80,13 @@ function TripDoc({ data }: { data: TripPdfData }) {
             <Text style={s.sub}>
               Salida: {data.origin} · {data.returnLabel}
             </Text>
+            {data.fechaSalida || data.fechaLlegada ? (
+              <Text style={s.sub}>
+                {data.fechaSalida ? `Salida ${data.fechaSalida}` : ""}
+                {data.fechaSalida && data.fechaLlegada ? "   ·   " : ""}
+                {data.fechaLlegada ? `Llegada ${data.fechaLlegada}` : ""}
+              </Text>
+            ) : null}
           </View>
           <Text style={s.date}>{data.date}</Text>
         </View>

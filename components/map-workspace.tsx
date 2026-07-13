@@ -66,6 +66,11 @@ function slug(s: string): string {
 function webStopId(name: string, city: string): string {
   return `web-${slug(name)}-${slug(city)}`;
 }
+/** AAAA-MM-DD → DD/MM/AAAA (para mostrar). */
+function fmtFecha(s: string): string {
+  const [y, m, d] = (s || "").split("-");
+  return d && m && y ? `${d}/${m}/${y}` : "";
+}
 /** Markdown → texto plano (para el PDF). */
 function stripMd(t: string): string {
   return t
@@ -254,6 +259,8 @@ export function MapWorkspace({
   const [corridorKm, setCorridorKm] = useState(10);
   const [returnMode, setReturnMode] = useState<"origin" | "point" | "none">("origin");
   const [endPoint, setEndPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const [fechaSalida, setFechaSalida] = useState("");
+  const [fechaLlegada, setFechaLlegada] = useState("");
   const [showPins, setShowPins] = useState(true);
   const [savedTrips, setSavedTrips] = useState<SavedTripSummary[]>([]);
   const [saving, setSaving] = useState(false);
@@ -503,6 +510,8 @@ export function MapWorkspace({
     setError(null);
     setSavedMsg(null);
     setShowPins(true);
+    setFechaSalida("");
+    setFechaLlegada("");
   }
 
   // Link de Google Maps para navegar la ruta con GPS.
@@ -544,6 +553,8 @@ export function MapWorkspace({
       }),
       origin: origin.label,
       returnLabel,
+      fechaSalida: fechaSalida ? fmtFecha(fechaSalida) : null,
+      fechaLlegada: fechaLlegada ? fmtFecha(fechaLlegada) : null,
       totalKm: fmtKm(plan.totalKm),
       totalTime: fmtDur(plan.totalMinutes),
       fuelCost: fmtPesos(plan.fuelCost),
@@ -590,6 +601,8 @@ export function MapWorkspace({
     plan?: TripPlan; // plan completo pre-calculado (para abrir sin recalcular)
     waypoints?: SavedWaypoint[]; // para editar (restaura los destinos)
     mapsUrl?: string;
+    fechaSalida?: string;
+    fechaLlegada?: string;
   };
 
   // Confirmar y guardar (o actualizar) la hoja de ruta. Guarda el PLAN COMPLETO
@@ -612,6 +625,8 @@ export function MapWorkspace({
         })),
       ],
       mapsUrl: buildMapsUrl(plan),
+      fechaSalida: fechaSalida || undefined,
+      fechaLlegada: fechaLlegada || undefined,
     };
     const name =
       tripName.trim() ||
@@ -653,6 +668,8 @@ export function MapWorkspace({
       setEditingId(s.id);
       setTripName(s.name);
     }
+    setFechaSalida(d.fechaSalida ?? "");
+    setFechaLlegada(d.fechaLlegada ?? "");
 
     if (d.plan?.origin) {
       // Formato nuevo: mostramos el plan guardado directamente (sin rutear).
@@ -730,6 +747,13 @@ export function MapWorkspace({
             <p className="text-[12px] text-muted-foreground">
               Salida: <b className="text-text2">{origin?.label}</b> · {returnLabel}
             </p>
+            {(fechaSalida || fechaLlegada) && (
+              <p className="text-[12px] text-muted-foreground">
+                📅 {fechaSalida ? `Salida ${fmtFecha(fechaSalida)}` : ""}
+                {fechaSalida && fechaLlegada ? " · " : ""}
+                {fechaLlegada ? `Llegada ${fmtFecha(fechaLlegada)}` : ""}
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 gap-1.5">
             <button
@@ -1008,43 +1032,37 @@ export function MapWorkspace({
             </div>
           )}
 
-          {/* Llegada: a dónde termina el viaje */}
-          <div className="mt-2.5">
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted2">
-                Llegada
+          {/* Fechas del viaje: salida y llegada (opcionales) */}
+          <div className="mt-2.5 flex items-center gap-2">
+            <label className="min-w-0 flex-1">
+              <span className="mb-0.5 block text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted2">
+                Salida
               </span>
-              <select
-                value={returnMode}
+              <input
+                type="date"
+                value={fechaSalida}
                 onChange={(e) => {
-                  setReturnMode(e.target.value as "origin" | "point" | "none");
+                  setFechaSalida(e.target.value);
                   markStale();
                 }}
-                className="min-w-0 flex-1 rounded-[8px] border bg-panel px-2 py-1.5 text-[12px] outline-none focus:border-primary"
-              >
-                <option value="origin">Vuelvo a la salida</option>
-                <option value="point">Termino en otro lugar</option>
-                <option value="none">Termino en la última visita</option>
-              </select>
-            </div>
-            {returnMode === "point" && (
-              <div className="mt-1.5">
-                <TripSearchBox
-                  allowClient={false}
-                  onAddPlace={(label, lat, lng) => {
-                    setEndPoint({ lat, lng, label });
-                    markStale();
-                  }}
-                  onAddClient={() => {}}
-                />
-                {endPoint && (
-                  <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-text2">
-                    <span className="text-primary">◍</span>
-                    <span className="min-w-0 truncate">Llego a: {endPoint.label}</span>
-                  </div>
-                )}
-              </div>
-            )}
+                className="w-full rounded-[8px] border bg-panel px-2 py-1.5 text-[12px] outline-none focus:border-primary"
+              />
+            </label>
+            <label className="min-w-0 flex-1">
+              <span className="mb-0.5 block text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted2">
+                Llegada
+              </span>
+              <input
+                type="date"
+                value={fechaLlegada}
+                min={fechaSalida || undefined}
+                onChange={(e) => {
+                  setFechaLlegada(e.target.value);
+                  markStale();
+                }}
+                className="w-full rounded-[8px] border bg-panel px-2 py-1.5 text-[12px] outline-none focus:border-primary"
+              />
+            </label>
           </div>
 
           {/* Sumar destino: autocompletado de lugares o cliente de la cartera */}
@@ -1109,12 +1127,29 @@ export function MapWorkspace({
             onClick={() => setOptsOpen((v) => !v)}
             className="mt-2.5 flex w-full items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2"
           >
-            <span>⚙︎ sugerencias {corridorKm} km · 🚗 {car.consumption}L</span>
+            <span>
+              ⚙︎ {returnMode === "origin" ? "ida y vuelta" : returnMode === "point" ? "vuelta a otro punto" : "solo ida"} · sugerencias {corridorKm} km · 🚗 {car.consumption}L
+            </span>
             <span>{optsOpen ? "▲" : "▼"}</span>
           </button>
           {optsOpen && (
             <div className="mt-2 space-y-2 rounded-[8px] border bg-card2 p-2.5">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px]">
+                <label className="flex items-center gap-1.5">
+                  Vuelta
+                  <select
+                    value={returnMode}
+                    onChange={(e) => {
+                      setReturnMode(e.target.value as "origin" | "point" | "none");
+                      markStale();
+                    }}
+                    className="rounded-[6px] border bg-panel px-1.5 py-1 outline-none"
+                  >
+                    <option value="origin">A la salida</option>
+                    <option value="point">A otro punto</option>
+                    <option value="none">Sin vuelta</option>
+                  </select>
+                </label>
                 <label className="flex items-center gap-1.5">
                   Sugerencias a
                   <select
@@ -1131,6 +1166,28 @@ export function MapWorkspace({
                   </select>
                 </label>
               </div>
+
+              {returnMode === "point" && (
+                <div>
+                  <div className="mb-1 text-[11px] text-muted-foreground">
+                    ¿Dónde terminás el viaje?
+                  </div>
+                  <TripSearchBox
+                    allowClient={false}
+                    onAddPlace={(label, lat, lng) => {
+                      setEndPoint({ lat, lng, label });
+                      markStale();
+                    }}
+                    onAddClient={() => {}}
+                  />
+                  {endPoint && (
+                    <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-text2">
+                      <span className="text-primary">◍</span>
+                      <span className="min-w-0 truncate">Termina en: {endPoint.label}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-[11px] text-muted-foreground">
                   Consumo (L/100km)

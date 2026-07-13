@@ -37,6 +37,8 @@ export async function POST(request: Request) {
     date: req(body.date, ""),
     origin: req(body.origin, "—"),
     returnLabel: req(body.returnLabel, ""),
+    fechaSalida: str(body.fechaSalida, 20),
+    fechaLlegada: str(body.fechaLlegada, 20),
     totalKm: req(body.totalKm, ""),
     totalTime: req(body.totalTime, ""),
     fuelCost: req(body.fuelCost, ""),
