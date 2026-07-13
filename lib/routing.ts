@@ -198,6 +198,39 @@ export function distanceToRouteKm(p: Geo, polyline: [number, number][]): number 
   return best;
 }
 
+export type BBox = { minLat: number; maxLat: number; minLng: number; maxLng: number };
+
+/**
+ * Caja geográfica de la ruta, expandida `padKm` por lado. Sirve para pre-filtrar
+ * en la BASE DE DATOS qué clientes/obras están cerca del camino ANTES de medir
+ * distancias, para que la búsqueda escale a carteras de miles de clientes.
+ */
+export function routeBoundingBox(
+  polyline: [number, number][],
+  padKm: number
+): BBox | null {
+  if (polyline.length === 0) return null;
+  let minLat = Infinity,
+    maxLat = -Infinity,
+    minLng = Infinity,
+    maxLng = -Infinity;
+  for (const [lat, lng] of polyline) {
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+  }
+  const dLat = padKm / 111;
+  const midLat = (minLat + maxLat) / 2;
+  const dLng = padKm / (111 * Math.max(0.2, Math.cos(toRad(midLat))));
+  return {
+    minLat: minLat - dLat,
+    maxLat: maxLat + dLat,
+    minLng: minLng - dLng,
+    maxLng: maxLng + dLng,
+  };
+}
+
 /** Costo de combustible del viaje. */
 export function fuelCost(
   totalKm: number,

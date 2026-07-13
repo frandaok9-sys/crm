@@ -208,6 +208,12 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
         m2Label: l.m2Label,
         detourKm: l.detourKm,
       })),
+      clientVisits: p.clientVisits.map((c) => ({
+        name: c.name,
+        city: c.city,
+        segment: c.segment,
+        detourKm: c.detourKm,
+      })),
     });
     setNarrating(false);
     setNarrative(nar.ok ? nar.narrative : null);
@@ -216,6 +222,17 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   function addLead(id: string) {
     invalidatePlan();
     setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+
+  // Sumar al viaje un cliente de la cartera (sin obra) como parada.
+  function addClientVisit(c: { id: string; name: string; lat: number; lng: number }) {
+    const cid = `client-${c.id}`;
+    invalidatePlan();
+    setCustomStops((prev) =>
+      prev.some((s) => s.id === cid)
+        ? prev
+        : [...prev, { id: cid, lat: c.lat, lng: c.lng, label: c.name }]
+    );
   }
 
   function reset() {
@@ -258,6 +275,9 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             origin={origin}
             showPins={showPins}
             customStops={customStops}
+            clientPins={(plan?.clientVisits ?? [])
+              .filter((c) => !customStops.some((s) => s.id === `client-${c.id}`))
+              .map((c) => ({ id: c.id, lat: c.lat, lng: c.lng, name: c.name }))}
           />
         )}
         {pins.length > 0 && (
@@ -547,6 +567,41 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                       <button
                         type="button"
                         onClick={() => addLead(l.id)}
+                        className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium hover:border-primary hover:text-primary"
+                      >
+                        + Sumar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {plan.clientVisits.length > 0 && (
+              <div className="mt-3 border-t pt-3">
+                <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2">
+                  🏢 Clientes en el camino (sin obra activa)
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  De tu cartera, para visitar y reactivar aunque no tengan una
+                  obra cargada.
+                </p>
+                <div className="mt-1.5 space-y-1.5">
+                  {plan.clientVisits.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between gap-2 rounded-[8px] border bg-panel px-2.5 py-1.5"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-[12.5px] font-medium">{c.name}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {[c.segment, c.city].filter(Boolean).join(" · ")}
+                          {(c.segment || c.city) ? " · " : ""}a {fmtKm(c.detourKm)}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addClientVisit({ id: c.id, name: c.name, lat: c.lat, lng: c.lng })}
                         className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium hover:border-primary hover:text-primary"
                       >
                         + Sumar

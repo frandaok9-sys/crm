@@ -1,12 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import { prisma } from "@/lib/prisma";
-import { opportunityScope, type Principal } from "@/lib/permissions";
+import { opportunityScope, clientScope, type Principal } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import {
   drivingRoute,
   orderStops,
   distanceToRouteKm,
+  routeBoundingBox,
   fuelCost,
   type Geo,
 } from "@/lib/routing";
@@ -61,10 +62,22 @@ export type TripLead = {
   lng: number;
 };
 
+/** Cliente de la cartera en el camino, SIN obra en el pipeline (visita/prospección). */
+export type TripClientVisit = {
+  id: string;
+  name: string;
+  city: string | null;
+  segment: string | null;
+  detourKm: number;
+  lat: number;
+  lng: number;
+};
+
 export type TripPlan = {
   origin: TripInput["origin"];
   stops: TripStop[];
   leads: TripLead[];
+  clientVisits: TripClientVisit[];
   totalKm: number;
   totalMinutes: number;
   fuelCost: number;
@@ -175,20 +188,29 @@ export async function planTrip(
     };
   });
 
+  // Caja geográfica de la ruta: pre-filtra en la BASE qué está cerca del camino
+  // (así escala a carteras de miles sin traer todo ni cortar por un `take`).
+  const bbox = routeBoundingBox(route.polyline, corridorKm);
+  const inCorridorBox = bbox
+    ? {
+        latitude: { gte: bbox.minLat, lte: bbox.maxLat },
+        longitude: { gte: bbox.minLng, lte: bbox.maxLng },
+      }
+    : { latitude: { not: null }, longitude: { not: null } };
+
   // 4) Leads en el corredor: otras obras de la cartera cerca de la ruta.
   const excluded = new Set(oppIds);
   const candidates = await prisma.opportunity.findMany({
     where: {
       ...scope,
       id: { notIn: [...excluded] },
-      latitude: { not: null },
-      longitude: { not: null },
+      ...inCorridorBox,
     },
     include: {
       client: { select: { legalName: true } },
       stage: { select: { name: true } },
     },
-    take: 400,
+    take: 1000,
   });
 
   const leads: TripLead[] = candidates
@@ -212,10 +234,56 @@ export async function planTrip(
       lng: c.p.lng,
     }));
 
+  // 5) Clientes de la cartera en el camino SIN obra en el pipeline: cuentas
+  //    para visitar/reactivar aunque no tengan una oportunidad cargada.
+  const customClientIds = customs
+    .map((c) => (c.id.startsWith("client-") ? c.id.slice("client-".length) : null))
+    .filter((x): x is string => !!x);
+  const excludedClients = new Set<string>([
+    ...customClientIds,
+    ...opps.map((o) => o.clientId),
+  ]);
+  const cartera = await prisma.client.findMany({
+    where: {
+      ...clientScope(user),
+      ...inCorridorBox,
+      id: { notIn: [...excludedClients] },
+      opportunities: { none: {} }, // sin nada en el pipeline
+    },
+    select: {
+      id: true,
+      legalName: true,
+      city: true,
+      segment: true,
+      latitude: true,
+      longitude: true,
+    },
+    take: 1000,
+  });
+
+  const clientVisits: TripClientVisit[] = cartera
+    .map((c) => {
+      const p = { lat: Number(c.latitude), lng: Number(c.longitude) };
+      return { c, p, detourKm: distanceToRouteKm(p, route.polyline) };
+    })
+    .filter((x) => x.detourKm <= corridorKm)
+    .sort((a, b) => a.detourKm - b.detourKm)
+    .slice(0, 6)
+    .map((x) => ({
+      id: x.c.id,
+      name: x.c.legalName,
+      city: x.c.city,
+      segment: x.c.segment,
+      detourKm: x.detourKm,
+      lat: x.p.lat,
+      lng: x.p.lng,
+    }));
+
   return {
     origin,
     stops,
     leads,
+    clientVisits,
     totalKm: route.totalKm,
     totalMinutes: route.totalMinutes,
     fuelCost: fuelCost(route.totalKm, litersPer100Km, pricePerLiter),
@@ -239,6 +307,7 @@ export type NarrateInput = {
   estimated: boolean;
   stops: { order: number; name: string; stageName: string | null; m2Label: string | null; legKm: number }[];
   leads: { clientName: string; stageName: string; m2Label: string | null; detourKm: number }[];
+  clientVisits: { name: string; city: string | null; segment: string | null; detourKm: number }[];
 };
 
 /** Redacta la hoja de ruta con la IA (o un texto básico si no hay API). */
@@ -265,6 +334,12 @@ export async function narrateTrip(d: NarrateInput): Promise<string> {
       m2: l.m2Label,
       desvio: fmtKm(l.detourKm),
     })),
+    clientes_cartera_sin_obra: d.clientVisits.map((c) => ({
+      cliente: c.name,
+      ciudad: c.city,
+      segmento: c.segment,
+      desvio: fmtKm(c.detourKm),
+    })),
   };
 
   const system = `Sos el asistente de campo de RC Pisos Industriales (pisos industriales por m² en Mendoza). Redactás la HOJA DE RUTA de una jornada para un vendedor viajante que combina visitas a obras y prospección de clientes nuevos. Español rioplatense, concreto, motivador pero sin relleno.
@@ -275,7 +350,8 @@ REGLAS:
 - Formato Markdown, breve:
   1) Una línea de resumen (total km, tiempo, costo de combustible).
   2) Sección "Recorrido": las paradas en orden con su tramo, una por línea.
-  3) Sección "Aprovechá en el camino": por cada lead, 1 frase con por qué conviene pasar (etapa temprana = oportunidad fresca; m² grande = obra importante; desvío chico = casi sin costo). Si no hay leads, omití la sección.
+  3) Sección "Aprovechá en el camino": por cada lead (obra del pipeline), 1 frase con por qué conviene pasar (etapa temprana = oportunidad fresca; m² grande = obra importante; desvío chico = casi sin costo). Si no hay leads, omití la sección.
+  4) Sección "Cuentas para reactivar": por cada cliente de "clientes_cartera_sin_obra" (clientes de la cartera SIN obra en el pipeline), 1 frase para pasar a visitarlo y generar una oportunidad nueva. Si no hay, omití la sección.
 - Si "estimado" es true, aclaralo en una línea corta (km aproximados).
 - No repitas toda la tabla; la interfaz ya la muestra. Aportá criterio comercial.`;
 

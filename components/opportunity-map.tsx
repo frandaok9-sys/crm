@@ -40,6 +40,8 @@ type MapProps = {
   showPins?: boolean;
   /** Destinos de prospección cargados a mano (dirección/ciudad). */
   customStops?: { id: string; lat: number; lng: number; label: string }[];
+  /** Clientes de la cartera sugeridos en el camino (sin obra activa). */
+  clientPins?: { id: string; lat: number; lng: number; name: string }[];
 };
 
 const AR_CENTER: [number, number] = [-38.5, -64.5];
@@ -88,6 +90,7 @@ export function OpportunityMap({
   origin,
   showPins = true,
   customStops,
+  clientPins,
 }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -263,6 +266,23 @@ export function OpportunityMap({
         marker.addTo(layer);
       }
 
+      // ---- Clientes de la cartera sugeridos (sin obra activa) ----------------
+      for (const cp of clientPins ?? []) {
+        L.marker([cp.lat, cp.lng], {
+          icon: L.divIcon({
+            className: "trip-marker",
+            html: `<div class="trip-client">🏢</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          }),
+        })
+          .bindTooltip(`Cliente (sin obra): ${escapeHtml(cp.name)}`, {
+            direction: "top",
+            offset: [0, -8],
+          })
+          .addTo(layer);
+      }
+
       // ---- Encuadre ---------------------------------------------------------
       if (route && route.length > 1) {
         map.fitBounds(route as [number, number][], { padding: [50, 50] });
@@ -275,7 +295,7 @@ export function OpportunityMap({
     return () => {
       cancelled = true;
     };
-  }, [pins, selectedIds, orderMap, leadIds, route, origin, onTogglePin, tripMode, showPins, customStops]);
+  }, [pins, selectedIds, orderMap, leadIds, route, origin, onTogglePin, tripMode, showPins, customStops, clientPins]);
 
   useEffect(() => {
     return () => {

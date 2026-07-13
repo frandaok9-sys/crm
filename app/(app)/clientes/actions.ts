@@ -12,7 +12,8 @@ import {
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
-import { IvaCondition, ClientSegment } from "@/lib/generated/prisma/enums";
+import { geocodeClient } from "@/lib/geocode";
+import { IvaCondition, ClientSegment, GeocodeStatus } from "@/lib/generated/prisma/enums";
 import { Prisma } from "@/lib/generated/prisma/client";
 import ExcelJS from "exceljs";
 import {
@@ -103,6 +104,8 @@ export async function createClient(formData: FormData): Promise<void> {
       userId: user.id,
       detail: legalName,
     });
+    // Ubicar la cuenta en el mapa (para sugerir visitas en la hoja de ruta).
+    await geocodeClient(client.id);
   } catch (error) {
     if (duplicateTaxId(error)) {
       throw new Error("Ya existe un cliente con ese CUIT.");
@@ -135,6 +138,17 @@ export async function updateClient(formData: FormData): Promise<void> {
       throw new Error("Ya existe un cliente con ese CUIT.");
     }
     throw error;
+  }
+
+  // Re-ubicar en el mapa si cambió la dirección (o si aún no se geocodificó).
+  const addressChanged =
+    opt(formData, "address") !== existing.address ||
+    opt(formData, "city") !== existing.city ||
+    opt(formData, "province") !== existing.province;
+  if (addressChanged) {
+    await geocodeClient(id, { force: true });
+  } else if (existing.geocodeStatus === GeocodeStatus.PENDING) {
+    await geocodeClient(id);
   }
 
   await logAudit({

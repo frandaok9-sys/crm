@@ -35,6 +35,64 @@ export async function geocodeAddress(query: string): Promise<GeoPoint | null> {
 }
 
 /**
+ * Geocodifica un CLIENTE (cuenta) y guarda el resultado. Sirve para ubicar la
+ * cartera en el mapa y sugerir visitas en la hoja de ruta, aunque el cliente
+ * no tenga obras en el pipeline. Nunca lanza.
+ */
+export async function geocodeClient(
+  clientId: string,
+  options: { force?: boolean } = {}
+): Promise<void> {
+  try {
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: {
+        address: true,
+        city: true,
+        province: true,
+        geocodeStatus: true,
+      },
+    });
+    if (!client) return;
+    if (client.geocodeStatus === GeocodeStatus.MANUAL && !options.force) return;
+
+    const query = [client.address, client.city, client.province]
+      .filter(Boolean)
+      .join(", ");
+    if (!query) {
+      await prisma.client.update({
+        where: { id: clientId },
+        data: { geocodeStatus: GeocodeStatus.FAILED, geocodedAt: new Date() },
+      });
+      return;
+    }
+
+    let point = await geocodeAddress(`${query}, Argentina`);
+    // Reintento más laxo: ciudad + provincia.
+    if (!point && client.address) {
+      const fallback = [client.city, client.province, "Argentina"]
+        .filter(Boolean)
+        .join(", ");
+      if (fallback !== "Argentina") point = await geocodeAddress(fallback);
+    }
+
+    await prisma.client.update({
+      where: { id: clientId },
+      data: point
+        ? {
+            latitude: point.lat,
+            longitude: point.lng,
+            geocodeStatus: GeocodeStatus.OK,
+            geocodedAt: new Date(),
+          }
+        : { geocodeStatus: GeocodeStatus.FAILED, geocodedAt: new Date() },
+    });
+  } catch (error) {
+    console.error("geocodeClient failed:", error);
+  }
+}
+
+/**
  * Geocodifica una oportunidad y guarda el resultado. Nunca lanza: un fallo
  * queda como FAILED y no rompe el guardado que la disparó.
  * `force` re-geocodifica aunque el pin sea MANUAL (usar cuando la dirección cambió).

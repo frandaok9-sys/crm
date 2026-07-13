@@ -148,6 +148,12 @@ model Client {
   segment      ClientSegment? // Segmento (bodega, constructora, fábrica…)
   notes        String?
 
+  // Geolocalización de la cuenta (para sugerir visitas en el mapa/hoja de ruta).
+  latitude      Decimal?      @db.Decimal(9, 6)
+  longitude     Decimal?      @db.Decimal(9, 6)
+  geocodeStatus GeocodeStatus @default(PENDING)
+  geocodedAt    DateTime?
+
   ownerId String?
   owner   User?   @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
