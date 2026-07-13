@@ -35,6 +35,7 @@ export default async function DashboardPage() {
     quotesSent,
     quotesApproved,
     quotesRejected,
+    draftClients,
     stages,
     opps,
   ] = await Promise.all([
@@ -49,6 +50,7 @@ export default async function DashboardPage() {
     prisma.quote.count({
       where: { ...quoteScope(user), status: QuoteStatus.REJECTED },
     }),
+    prisma.client.count({ where: { ...clientScope(user), isDraft: true } }),
     prisma.stage.findMany({ orderBy: { position: "asc" } }),
     prisma.opportunity.findMany({
       where: opportunityScope(user),
@@ -72,6 +74,13 @@ export default async function DashboardPage() {
   // Requiere atención (hasta 3)
   const alerts: Alert[] = [];
   const now = Date.now();
+  if (draftClients > 0) {
+    alerts.push({
+      color: "#E0503A",
+      title: `${draftClients} cliente(s) por completar`,
+      subtitle: "Altas rápidas (para rutas) que faltan terminar: cargales CUIT, IVA y contacto",
+    });
+  }
   const stale = opps
     .filter(
       (o) =>

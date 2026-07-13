@@ -131,7 +131,8 @@ export async function updateClient(formData: FormData): Promise<void> {
   try {
     await prisma.client.update({
       where: { id },
-      data: { legalName, ...clientData(formData) },
+      // Editar desde el CRM completa el alta: se limpia el flag de borrador.
+      data: { legalName, ...clientData(formData), isDraft: false },
     });
   } catch (error) {
     if (duplicateTaxId(error)) {

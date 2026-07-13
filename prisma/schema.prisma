@@ -147,6 +147,9 @@ model Client {
   industry     String? // Rubro (texto libre)
   segment      ClientSegment? // Segmento (bodega, constructora, fábrica…)
   notes        String?
+  /// Alta rápida (p. ej. desde el asistente para armar rutas): faltan datos.
+  /// Queda en TRUE hasta que se completa/edita el cliente desde el CRM.
+  isDraft      Boolean       @default(false)
 
   // Geolocalización de la cuenta (para sugerir visitas en el mapa/hoja de ruta).
   latitude      Decimal?      @db.Decimal(9, 6)

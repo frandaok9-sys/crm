@@ -117,12 +117,23 @@ export default async function ClientsPage({
                 className={`${GRID} border-b border-border2 px-5 py-[14px] text-[13px] transition-colors last:border-0 hover:bg-hoverbg`}
               >
                 <span className="min-w-0 pr-3">
-                  <Link
-                    href={`/clientes/${client.id}`}
-                    className="block truncate text-[13.5px] font-bold text-foreground hover:underline"
-                  >
-                    {client.legalName}
-                  </Link>
+                  <span className="flex items-center gap-1.5">
+                    <Link
+                      href={`/clientes/${client.id}`}
+                      className="min-w-0 truncate text-[13.5px] font-bold text-foreground hover:underline"
+                    >
+                      {client.legalName}
+                    </Link>
+                    {client.isDraft && (
+                      <Link
+                        href={`/clientes/${client.id}`}
+                        title="Alta rápida sin terminar — cargale CUIT, IVA y contacto"
+                        className="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-1.5 py-px text-[10px] font-semibold text-primary hover:bg-primary/20"
+                      >
+                        Por completar
+                      </Link>
+                    )}
+                  </span>
                   {client.tradeName && (
                     <span className="block truncate text-[11.5px] text-muted-foreground">
                       {client.tradeName}

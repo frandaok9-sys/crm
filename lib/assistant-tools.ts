@@ -13,7 +13,8 @@ import { formatMoney } from "@/lib/opportunities";
 import { getMetrics } from "@/lib/metrics";
 import { getReceivables } from "@/lib/receivables";
 import { computeBalances } from "@/lib/ledger-calc";
-import { geocodeAddress } from "@/lib/geocode";
+import { geocodeAddress, geocodeClient } from "@/lib/geocode";
+import { defaultTenantId } from "@/lib/nexus/central";
 import { planTrip, tripMapsUrl, type TripWaypoint } from "@/lib/trip";
 import { IVA_LABELS, SEGMENT_LABELS } from "@/lib/clients";
 import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
@@ -156,6 +157,21 @@ export const ASSISTANT_TOOLS = [
       },
     },
   },
+  {
+    name: "crear_cliente_rapido",
+    description:
+      "Alta RÁPIDA de un cliente (solo nombre + dirección/ciudad) para poder armar rutas o visitarlo sin tenerlo cargado. Queda como BORRADOR incompleto: hay que completarlo después en el CRM. Usala cuando pidan agregar/cargar un cliente que todavía no existe.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nombre: { type: "string", description: "Razón social o nombre del cliente." },
+        direccion: { type: "string", description: "Dirección (opcional)." },
+        ciudad: { type: "string", description: "Ciudad o localidad (opcional, ayuda a ubicarlo)." },
+      },
+      required: ["nombre"],
+    },
+    requires: "clients.manage",
+  },
 ] as const;
 
 /**
@@ -238,6 +254,12 @@ export async function runTool(
       return listarHojasRuta(user);
     case "detalle_hoja_ruta":
       return detalleHojaRuta(user, str("nombre"));
+    case "crear_cliente_rapido":
+      // CAPA 2: re-verificar permiso de escritura de clientes.
+      if (!hasPermission(user, "clients.manage")) {
+        return { error: "Este usuario no puede crear clientes." };
+      }
+      return crearClienteRapido(user, str("nombre") ?? "", str("direccion"), str("ciudad"));
     default:
       return { error: `Herramienta desconocida: ${name}` };
   }
@@ -770,5 +792,66 @@ async function detalleHojaRuta(user: Principal, nombre?: string) {
     })),
     maps: data.mapsUrl ?? null,
     mapa_imagen: `/mapa/hoja/${trip.id}/imagen`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Alta rápida de cliente (BORRADOR) — para armar rutas sin tenerlo cargado
+// ---------------------------------------------------------------------------
+
+/**
+ * Crea un cliente mínimo (borrador) para poder usarlo en rutas al instante.
+ * Queda marcado isDraft=true hasta que se complete/edite desde el CRM, y se
+ * geolocaliza para que aparezca en el mapa y el planificador de viajes.
+ */
+async function crearClienteRapido(
+  user: Principal,
+  nombre: string,
+  direccion?: string,
+  ciudad?: string
+) {
+  const name = nombre.trim();
+  if (name.length < 2) return { error: "Indicá el nombre del cliente." };
+
+  // Evitar duplicar uno que ya está en su cartera.
+  const dup = await prisma.client.findFirst({
+    where: { ...clientScope(user), legalName: { equals: name, mode: "insensitive" } },
+    select: { id: true, isDraft: true },
+  });
+  if (dup) {
+    return {
+      error: `Ya existe un cliente "${name}" en tu cartera${dup.isDraft ? " (está como borrador, completalo en el CRM)" : ""}.`,
+    };
+  }
+
+  let tenantId: string | null = null;
+  try {
+    tenantId = await defaultTenantId();
+  } catch {
+    /* sin tenant por defecto */
+  }
+
+  const created = await prisma.client.create({
+    data: {
+      legalName: name,
+      address: direccion?.trim() || null,
+      city: ciudad?.trim() || null,
+      ownerId: user.id,
+      isDraft: true,
+      tenantId,
+    },
+  });
+  // Ubicarlo en el mapa (para rutas). Nunca rompe el alta.
+  try {
+    await geocodeClient(created.id);
+  } catch {
+    /* geocodificación diferida */
+  }
+
+  return {
+    creado: name,
+    borrador: true,
+    ya_sirve_para_rutas: true,
+    nota: "Cliente creado como BORRADOR: ya podés usarlo para armar rutas. FALTAN datos (CUIT, condición de IVA, contacto). Quedará una alerta 'clientes por completar' hasta que lo termines desde Clientes → editar.",
   };
 }
