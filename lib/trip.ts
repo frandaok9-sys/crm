@@ -351,6 +351,28 @@ export async function planTrip(
   };
 }
 
+/** Link de Google Maps para navegar la ruta con GPS (origen → paradas → vuelta). */
+export function tripMapsUrl(p: TripPlan): string {
+  const fmt = (lat: number, lng: number) => `${lat},${lng}`;
+  const o = fmt(p.origin.lat, p.origin.lng);
+  const stops = p.stops.map((s) => fmt(s.lat, s.lng));
+  let destination: string;
+  let waypoints: string[];
+  if (p.returnMode === "origin") {
+    destination = o;
+    waypoints = stops;
+  } else if (p.returnMode === "point" && p.endPoint) {
+    destination = fmt(p.endPoint.lat, p.endPoint.lng);
+    waypoints = stops;
+  } else {
+    destination = stops[stops.length - 1] ?? o;
+    waypoints = stops.slice(0, -1);
+  }
+  const params = new URLSearchParams({ api: "1", origin: o, destination, travelmode: "driving" });
+  if (waypoints.length) params.set("waypoints", waypoints.slice(0, 9).join("|"));
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 // ---------------------------------------------------------------------------
 // Redacción de la hoja de ruta (IA) — paso aparte, con los números ya listos
 // ---------------------------------------------------------------------------

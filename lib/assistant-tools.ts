@@ -13,6 +13,8 @@ import { formatMoney } from "@/lib/opportunities";
 import { getMetrics } from "@/lib/metrics";
 import { getReceivables } from "@/lib/receivables";
 import { computeBalances } from "@/lib/ledger-calc";
+import { geocodeAddress } from "@/lib/geocode";
+import { planTrip, tripMapsUrl, type TripWaypoint } from "@/lib/trip";
 import { IVA_LABELS, SEGMENT_LABELS } from "@/lib/clients";
 import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
@@ -120,6 +122,29 @@ export const ASSISTANT_TOOLS = [
     inputSchema: { type: "object", properties: {} },
     requires: "ledger.manage",
   },
+  {
+    name: "armar_hoja_ruta",
+    description:
+      "Arma y GUARDA una hoja de ruta de visitas. Recibe la salida y los destinos (direcciones, ciudades o nombres de clientes de la cartera), optimiza el orden y devuelve km, tiempo, costo aproximado y el link de Google Maps. Es la única acción que crea algo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        salida: { type: "string", description: "Punto de partida: dirección o ciudad." },
+        destinos: {
+          type: "array",
+          items: { type: "string" },
+          description: "Destinos a visitar: direcciones, ciudades o nombres de clientes de la cartera.",
+        },
+      },
+      required: ["salida", "destinos"],
+    },
+  },
+  {
+    name: "hojas_de_ruta",
+    description:
+      "Lista las hojas de ruta guardadas (nombre, km, fecha y link de Google Maps). Úsala cuando pidan sus rutas guardadas o el link de maps de una ruta.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ] as const;
 
 /**
@@ -161,6 +186,13 @@ export async function runTool(
     const value = args[key];
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
   };
+  const strList = (key: string): string[] => {
+    const value = args[key];
+    if (Array.isArray(value)) {
+      return value.filter((v): v is string => typeof v === "string" && v.trim().length > 0).map((v) => v.trim());
+    }
+    return typeof value === "string" && value.trim() ? [value.trim()] : [];
+  };
 
   switch (name) {
     case "resumen_cartera":
@@ -189,6 +221,10 @@ export async function runTool(
         return { error: "Este usuario no tiene permiso para ver cuentas por cobrar." };
       }
       return cobranzasResumen();
+    case "armar_hoja_ruta":
+      return armarHojaRuta(user, str("salida") ?? "", strList("destinos"));
+    case "hojas_de_ruta":
+      return listarHojasRuta(user);
     default:
       return { error: `Herramienta desconocida: ${name}` };
   }
@@ -535,5 +571,123 @@ async function compactMetrics(user: Principal) {
       montos: f.amounts,
     })),
     por_vendedor: m.bySeller,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Hojas de ruta (planificador de viajes) — la ÚNICA acción que crea algo
+// ---------------------------------------------------------------------------
+
+/** Ubica un texto (dirección/ciudad) en coordenadas. */
+async function geocodeText(
+  q: string
+): Promise<{ lat: number; lng: number; label: string } | null> {
+  const p = await geocodeAddress(`${q}, Argentina`);
+  return p ? { lat: Number(p.lat), lng: Number(p.lng), label: q } : null;
+}
+
+/**
+ * Arma y guarda una hoja de ruta a partir de texto. Los destinos pueden ser
+ * clientes de la cartera (por nombre) o lugares (dirección/ciudad). Respeta el
+ * alcance del usuario. Devuelve un resumen conciso + el link de Maps.
+ */
+async function armarHojaRuta(user: Principal, salida: string, destinos: string[]) {
+  if (!salida) return { error: "Indicá el punto de salida (dirección o ciudad)." };
+  if (destinos.length === 0) return { error: "Indicá al menos un destino a visitar." };
+
+  const origin = await geocodeText(salida);
+  if (!origin) return { error: `No pude ubicar la salida: "${salida}".` };
+
+  const waypoints: TripWaypoint[] = [];
+  const noUbicados: string[] = [];
+  for (let i = 0; i < destinos.length; i++) {
+    const d = destinos[i];
+    // Primero, cliente de la cartera (ya geolocalizado).
+    const client = await prisma.client.findFirst({
+      where: {
+        ...clientScope(user),
+        latitude: { not: null },
+        longitude: { not: null },
+        OR: [
+          { legalName: { contains: d, mode: "insensitive" } },
+          { tradeName: { contains: d, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, legalName: true, latitude: true, longitude: true },
+    });
+    if (client) {
+      waypoints.push({
+        kind: "custom",
+        id: `client-${client.id}`,
+        lat: Number(client.latitude),
+        lng: Number(client.longitude),
+        label: client.legalName,
+      });
+      continue;
+    }
+    const g = await geocodeText(d);
+    if (g) waypoints.push({ kind: "custom", id: `asst-${i}`, lat: g.lat, lng: g.lng, label: d });
+    else noUbicados.push(d);
+  }
+
+  if (waypoints.length === 0) {
+    return { error: "No pude ubicar ninguno de los destinos. Probá con la ciudad." };
+  }
+
+  const plan = await planTrip(user, {
+    origin,
+    waypoints,
+    returnMode: "origin",
+    endPoint: null,
+    litersPer100Km: 8,
+    pricePerLiter: 1200,
+    corridorKm: 10,
+  });
+  const mapsUrl = tripMapsUrl(plan);
+
+  // Guardar (para que aparezca en "las hojas de ruta ya cargadas" del mapa).
+  const name = `${origin.label} · ${plan.stops.length} visita${plan.stops.length === 1 ? "" : "s"}`;
+  await prisma.savedTrip.create({
+    data: {
+      ownerId: user.id,
+      name,
+      totalKm: plan.totalKm,
+      data: { plan: { ...plan, narrative: "" }, waypoints, mapsUrl },
+    },
+  });
+
+  const h = Math.floor(plan.totalMinutes / 60);
+  const m = Math.round(plan.totalMinutes % 60);
+  return {
+    guardada: name,
+    salida: origin.label,
+    recorrido: plan.stops.map((s) => ({ n: s.order, destino: s.name, tramo_km: Math.round(s.legKm) })),
+    total_km: Math.round(plan.totalKm),
+    tiempo: h > 0 ? `${h} h ${m} min` : `${m} min`,
+    combustible_aprox: `$${Math.round(plan.fuelCost).toLocaleString("es-AR")} (estimado 8L/100km, $1200/L)`,
+    volver_a_la_salida: true,
+    maps: mapsUrl,
+    no_ubicados: noUbicados.length ? noUbicados : undefined,
+    nota: "Hoja de ruta guardada; aparece en el mapa. El costo de combustible es una estimación.",
+  };
+}
+
+/** Lista las hojas de ruta guardadas del usuario (o todas, si ve toda la cartera). */
+async function listarHojasRuta(user: Principal) {
+  const rows = await prisma.savedTrip.findMany({
+    where: canViewAllRecords(user) ? {} : { ownerId: user.id },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+  if (rows.length === 0) {
+    return { hojas: [], nota: "No hay hojas de ruta guardadas todavía." };
+  }
+  return {
+    hojas: rows.map((r) => ({
+      nombre: r.name,
+      km: Math.round(r.totalKm),
+      fecha: r.createdAt.toLocaleDateString("es-AR"),
+      maps: (r.data as { mapsUrl?: string })?.mapsUrl ?? null,
+    })),
   };
 }

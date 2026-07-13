@@ -14,9 +14,10 @@ export default async function AssistantPage() {
             <TintBadge variant="amber">Demo interno</TintBadge>
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Preguntale por clientes, oportunidades, presupuestos o métricas.
-            Solo consulta información — todavía no está conectado a WhatsApp
-            ni puede crear o editar nada.
+            Preguntale por clientes, oportunidades, presupuestos o métricas, o
+            pedile que te arme una hoja de ruta de visitas. Solo consulta —
+            salvo armar hojas de ruta, no crea ni edita nada más. Todavía no
+            está conectado a WhatsApp.
           </p>
         </div>
       </div>
