@@ -2,8 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canViewAllRecords } from "@/lib/permissions";
-import { geocodeAddress } from "@/lib/geocode";
+import { canViewAllRecords, clientScope } from "@/lib/permissions";
+import { geocodeAddress, suggestPlaces, type PlaceSuggestion } from "@/lib/geocode";
 import { findWebProspects, type CityProspects } from "@/lib/prospects";
 import {
   planTrip,
@@ -18,6 +18,52 @@ const MAX_STOPS = 15;
 
 function clamp(n: number, min: number, max: number, fallback: number): number {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
+/** Autocompletado de lugares (tipo Maps): coincidencias reales para elegir. */
+export async function placeSuggestAction(query: string): Promise<PlaceSuggestion[]> {
+  await requireActiveUser();
+  try {
+    return await suggestPlaces(query);
+  } catch {
+    return [];
+  }
+}
+
+export type ClientHit = {
+  id: string;
+  name: string;
+  city: string | null;
+  lat: number;
+  lng: number;
+};
+
+/** Busca clientes de la cartera (por nombre) ya ubicados, para sumarlos al viaje. */
+export async function searchClientsAction(query: string): Promise<ClientHit[]> {
+  const user = await requireActiveUser();
+  const q = String(query || "").trim();
+  if (q.length < 2) return [];
+  const rows = await prisma.client.findMany({
+    where: {
+      ...clientScope(user),
+      latitude: { not: null },
+      longitude: { not: null },
+      OR: [
+        { legalName: { contains: q, mode: "insensitive" } },
+        { tradeName: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, legalName: true, city: true, latitude: true, longitude: true },
+    orderBy: { legalName: "asc" },
+    take: 8,
+  });
+  return rows.map((c) => ({
+    id: c.id,
+    name: c.legalName,
+    city: c.city,
+    lat: Number(c.latitude),
+    lng: Number(c.longitude),
+  }));
 }
 
 /** Convierte una dirección o ciudad escrita en un punto (lat/lng). */

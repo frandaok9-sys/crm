@@ -8,13 +8,17 @@ import {
   planTripAction,
   narrateTripAction,
   geocodePointAction,
+  placeSuggestAction,
+  searchClientsAction,
   findProspectsAction,
   saveTripAction,
   updateTripAction,
   listSavedTripsAction,
   deleteSavedTripAction,
   type SavedTripSummary,
+  type ClientHit,
 } from "@/app/(app)/mapa/trip-actions";
+import type { PlaceSuggestion } from "@/lib/geocode";
 import type { TripPlan, TripWaypoint } from "@/lib/trip";
 import type { CityProspects } from "@/lib/prospects";
 
@@ -63,6 +67,151 @@ function webStopId(name: string, city: string): string {
   return `web-${slug(name)}-${slug(city)}`;
 }
 
+/**
+ * Buscador con autocompletado (tipo Maps) para sumar destinos.
+ * Modo LUGAR: sugiere direcciones/ciudades reales de un geocodificador → el
+ * usuario elige (no se adivina). Modo CLIENTE: busca clientes de la cartera.
+ */
+function TripSearchBox({
+  allowClient,
+  onAddPlace,
+  onAddClient,
+}: {
+  allowClient: boolean;
+  onAddPlace: (label: string, lat: number, lng: number) => void;
+  onAddClient: (hit: ClientHit) => void;
+}) {
+  const [mode, setMode] = useState<"place" | "client">("place");
+  const [q, setQ] = useState("");
+  const [places, setPlaces] = useState<PlaceSuggestion[]>([]);
+  const [clients, setClients] = useState<ClientHit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const text = q.trim();
+    if (text.length < 3) {
+      setPlaces([]);
+      setClients([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const t = setTimeout(async () => {
+      if (mode === "place") {
+        const res = await placeSuggestAction(text);
+        setPlaces(res);
+        setClients([]);
+      } else {
+        const res = await searchClientsAction(text);
+        setClients(res);
+        setPlaces([]);
+      }
+      setLoading(false);
+      setOpen(true);
+    }, 450); // debounce: espera a que el usuario pare de tipear
+    return () => clearTimeout(t);
+  }, [q, mode]);
+
+  const hasResults = mode === "place" ? places.length > 0 : clients.length > 0;
+
+  return (
+    <div className="relative">
+      {allowClient && (
+        <div className="mb-1.5 flex gap-1 rounded-[8px] border bg-card2 p-0.5 text-[11.5px]">
+          {(["place", "client"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                setMode(m);
+                setQ("");
+                setPlaces([]);
+                setClients([]);
+              }}
+              className={`flex-1 rounded-[6px] px-2 py-1 font-semibold ${
+                mode === m ? "bg-[var(--primary)] text-white" : "text-text2 hover:bg-hoverbg"
+              }`}
+            >
+              {m === "place" ? "📍 Lugar" : "👤 Cliente"}
+            </button>
+          ))}
+        </div>
+      )}
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => hasResults && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={
+          mode === "client"
+            ? "Buscar cliente de tu cartera…"
+            : "Dirección, ciudad o lugar…"
+        }
+        className="w-full rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
+      />
+      {loading && (
+        <span className="absolute right-2.5 top-[calc(50%+2px)] h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      )}
+      {open && (hasResults || (!loading && q.trim().length >= 3)) && (
+        <div className="absolute left-0 right-0 top-full z-[1200] mt-1 max-h-60 overflow-y-auto rounded-[10px] border bg-card shadow-lg">
+          {mode === "place" &&
+            (places.length === 0 ? (
+              <div className="px-3 py-2 text-[11.5px] text-muted-foreground">
+                Sin coincidencias. Probá otra forma.
+              </div>
+            ) : (
+              places.map((p, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onAddPlace(p.label, p.lat, p.lng);
+                    setQ("");
+                    setPlaces([]);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-start gap-2 border-b border-[var(--border-2)] px-3 py-2 text-left last:border-0 hover:bg-hoverbg"
+                >
+                  <span>📍</span>
+                  <span className="min-w-0 text-[12px]">{p.label}</span>
+                </button>
+              ))
+            ))}
+          {mode === "client" &&
+            (clients.length === 0 ? (
+              <div className="px-3 py-2 text-[11.5px] text-muted-foreground">
+                Sin clientes ubicados con ese nombre en tu cartera.
+              </div>
+            ) : (
+              clients.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onAddClient(c);
+                    setQ("");
+                    setClients([]);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-start gap-2 border-b border-[var(--border-2)] px-3 py-2 text-left last:border-0 hover:bg-hoverbg"
+                >
+                  <span>👤</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[12.5px] font-medium">{c.name}</span>
+                    {c.city && <span className="block text-[11px] text-muted-foreground">{c.city}</span>}
+                  </span>
+                </button>
+              ))
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MapWorkspace({
   pins,
   canManage = false,
@@ -73,10 +222,8 @@ export function MapWorkspace({
   const [car, setCar] = useState<CarProfile>(DEFAULT_CAR);
   const [carOpen, setCarOpen] = useState(false);
   const [origin, setOrigin] = useState<{ lat: number; lng: number; label: string } | null>(null);
-  const [address, setAddress] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [customStops, setCustomStops] = useState<CustomStop[]>([]);
-  const [destInput, setDestInput] = useState("");
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
   const [narrating, setNarrating] = useState(false);
@@ -88,7 +235,6 @@ export function MapWorkspace({
   const [corridorKm, setCorridorKm] = useState(10);
   const [returnMode, setReturnMode] = useState<"origin" | "point" | "none">("origin");
   const [endPoint, setEndPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
-  const [endAddress, setEndAddress] = useState("");
   const [showPins, setShowPins] = useState(true);
   const [savedTrips, setSavedTrips] = useState<SavedTripSummary[]>([]);
   const [saving, setSaving] = useState(false);
@@ -214,38 +360,16 @@ export function MapWorkspace({
     );
   }
 
-  async function useAddress() {
-    setError(null);
-    if (address.trim().length < 3) return;
-    setBusy("geocode");
-    const res = await geocodePointAction(address);
-    setBusy(null);
-    if (res.ok) setOrigin({ lat: res.lat, lng: res.lng, label: res.label });
-    else setError(res.error);
-  }
-
-  // Sumar un destino de prospección (una dirección o ciudad).
-  async function addDestination() {
-    setError(null);
-    if (destInput.trim().length < 3) return;
-    setBusy("dest");
-    const res = await geocodePointAction(destInput);
-    setBusy(null);
-    if (!res.ok) {
-      setError(res.error);
-      return;
-    }
-    markStale();
-    setCustomStops((prev) => [
-      ...prev,
-      { id: `custom-${Date.now()}`, lat: res.lat, lng: res.lng, label: res.label },
-    ]);
-    setDestInput("");
-  }
-
   function removeCustom(id: string) {
     markStale();
     setCustomStops((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  // Sumar un lugar elegido del autocompletado (coordenadas exactas, sin adivinar).
+  function addPlaceStop(label: string, lat: number, lng: number) {
+    markStale();
+    setError(null);
+    setCustomStops((prev) => [...prev, { id: `place-${Date.now()}`, lat, lng, label }]);
   }
 
   const stopCount = selectedIds.length + customStops.length;
@@ -351,19 +475,6 @@ export function MapWorkspace({
     setError(null);
     setSavedMsg(null);
     setShowPins(true);
-  }
-
-  // Punto de vuelta por dirección/ciudad.
-  async function useEndAddress() {
-    setError(null);
-    if (endAddress.trim().length < 3) return;
-    setBusy("geocode");
-    const res = await geocodePointAction(endAddress);
-    setBusy(null);
-    if (res.ok) {
-      setEndPoint({ lat: res.lat, lng: res.lng, label: res.label });
-      markStale();
-    } else setError(res.error);
   }
 
   // Link de Google Maps para navegar la ruta con GPS.
@@ -769,60 +880,47 @@ export function MapWorkspace({
 
         {/* Cuerpo con scroll propio (el mapa queda fijo) */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          {/* Origen */}
-          <div className="flex items-center gap-1.5">
-            <span className="shrink-0 text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted2">
-              Salida
-            </span>
+          {/* Salida: GPS o buscador con autocompletado */}
+          <div className="flex items-start gap-1.5">
             <button
               type="button"
               onClick={useMyLocation}
               disabled={busy === "geo"}
-              className="shrink-0 rounded-[8px] border px-2 py-1 text-[11.5px] font-medium hover:bg-hoverbg disabled:opacity-50"
+              className="mt-[26px] shrink-0 rounded-[8px] border px-2 py-1.5 text-[11.5px] font-medium hover:bg-hoverbg disabled:opacity-50"
               title="Usar mi ubicación GPS"
             >
               {busy === "geo" ? "…" : "◉ GPS"}
             </button>
-            <input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && useAddress()}
-              placeholder="dirección / ciudad"
-              className="min-w-0 flex-1 rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={useAddress}
-              disabled={busy === "geocode" || address.trim().length < 3}
-              className="shrink-0 rounded-[8px] border px-2 py-1.5 text-[11.5px] font-medium hover:bg-hoverbg disabled:opacity-50"
-            >
-              {busy === "geocode" ? "…" : "OK"}
-            </button>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-muted2">
+                Salida
+              </div>
+              <TripSearchBox
+                allowClient={false}
+                onAddPlace={(label, lat, lng) => {
+                  setOrigin({ lat, lng, label });
+                  markStale();
+                }}
+                onAddClient={() => {}}
+              />
+            </div>
           </div>
           {origin && (
             <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-text2">
               <span className="text-primary">◉</span>
-              <span className="min-w-0 truncate">{origin.label}</span>
+              <span className="min-w-0 truncate">Salís de: {origin.label}</span>
             </div>
           )}
 
-          {/* Sumar destino por dirección/ciudad */}
-          <div className="mt-2.5 flex gap-1.5">
-            <input
-              value={destInput}
-              onChange={(e) => setDestInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addDestination()}
-              placeholder="Sumar destino: dirección o ciudad"
-              className="min-w-0 flex-1 rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
+          {/* Sumar destino: autocompletado de lugares o cliente de la cartera */}
+          <div className="mt-2.5">
+            <TripSearchBox
+              allowClient
+              onAddPlace={addPlaceStop}
+              onAddClient={(c) =>
+                addClientVisit({ id: c.id, name: c.name, lat: c.lat, lng: c.lng })
+              }
             />
-            <button
-              type="button"
-              onClick={addDestination}
-              disabled={busy === "dest" || destInput.trim().length < 3}
-              className="shrink-0 rounded-[8px] border px-2.5 py-1.5 text-[12px] font-medium hover:bg-hoverbg disabled:opacity-50"
-            >
-              {busy === "dest" ? "…" : "+ Sumar"}
-            </button>
           </div>
 
           {/* Chips de destinos elegidos */}
@@ -877,12 +975,12 @@ export function MapWorkspace({
             className="mt-2.5 flex w-full items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2"
           >
             <span>
-              ⚙︎ vuelta:{" "}
+              ⚙︎ fin:{" "}
               {returnMode === "origin"
-                ? "a la salida"
+                ? "vuelvo a la salida"
                 : returnMode === "point"
-                  ? "a otro punto"
-                  : "sin vuelta"}{" "}
+                  ? "en otro lugar"
+                  : "última visita"}{" "}
               · corredor {corridorKm} km · 🚗 {car.consumption}L
             </span>
             <span>{optsOpen ? "▲" : "▼"}</span>
@@ -891,7 +989,7 @@ export function MapWorkspace({
             <div className="mt-2 space-y-2 rounded-[8px] border bg-card2 p-2.5">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px]">
                 <label className="flex items-center gap-1.5">
-                  Vuelta
+                  El viaje termina
                   <select
                     value={returnMode}
                     onChange={(e) => {
@@ -900,9 +998,9 @@ export function MapWorkspace({
                     }}
                     className="rounded-[6px] border bg-panel px-1.5 py-1 outline-none"
                   >
-                    <option value="origin">A la salida</option>
-                    <option value="point">A otro punto</option>
-                    <option value="none">Sin vuelta</option>
+                    <option value="origin">Vuelvo a la salida</option>
+                    <option value="point">En otro lugar</option>
+                    <option value="none">En la última visita</option>
                   </select>
                 </label>
                 <label className="flex items-center gap-1.5">
@@ -924,27 +1022,21 @@ export function MapWorkspace({
 
               {returnMode === "point" && (
                 <div>
-                  <div className="flex gap-1.5">
-                    <input
-                      value={endAddress}
-                      onChange={(e) => setEndAddress(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && useEndAddress()}
-                      placeholder="Punto de vuelta: dirección o ciudad"
-                      className="min-w-0 flex-1 rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={useEndAddress}
-                      disabled={busy === "geocode" || endAddress.trim().length < 3}
-                      className="shrink-0 rounded-[8px] border px-2.5 py-1.5 text-[12px] font-medium hover:bg-hoverbg disabled:opacity-50"
-                    >
-                      OK
-                    </button>
+                  <div className="mb-1 text-[11px] text-muted-foreground">
+                    ¿Dónde terminás el viaje?
                   </div>
+                  <TripSearchBox
+                    allowClient={false}
+                    onAddPlace={(label, lat, lng) => {
+                      setEndPoint({ lat, lng, label });
+                      markStale();
+                    }}
+                    onAddClient={() => {}}
+                  />
                   {endPoint && (
                     <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-text2">
                       <span className="text-primary">◍</span>
-                      <span className="min-w-0 truncate">Vuelta: {endPoint.label}</span>
+                      <span className="min-w-0 truncate">Termina en: {endPoint.label}</span>
                     </div>
                   )}
                 </div>

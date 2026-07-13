@@ -12,6 +12,33 @@ const USER_AGENT = "RC-CRM/1.0 (crm-rc-pisos; frandaok9@gmail.com)";
 
 export type GeoPoint = { lat: string; lng: string; display: string };
 
+export type PlaceSuggestion = { label: string; lat: number; lng: number };
+
+/**
+ * Sugerencias de lugares para autocompletar (tipo Maps): devuelve varias
+ * coincidencias reales en Argentina, así el usuario elige en vez de que el
+ * sistema "adivine" una sola. Limitado a Argentina.
+ */
+export async function suggestPlaces(query: string, limit = 6): Promise<PlaceSuggestion[]> {
+  const q = query.trim();
+  if (q.length < 3) return [];
+  const url = `${NOMINATIM}?format=jsonv2&limit=${limit}&countrycodes=ar&q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT },
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!res.ok) return [];
+  const results = (await res.json()) as Array<{ lat: string; lon: string; display_name: string }>;
+  return results
+    .filter((r) => r.lat && r.lon)
+    .map((r) => ({
+      // Acortar el display_name (Nominatim agrega provincia/país/código postal).
+      label: r.display_name.split(",").slice(0, 4).join(",").trim(),
+      lat: Number(r.lat),
+      lng: Number(r.lon),
+    }));
+}
+
 /** Convierte una dirección de texto en coordenadas (limitado a Argentina). */
 export async function geocodeAddress(query: string): Promise<GeoPoint | null> {
   const url = `${NOMINATIM}?format=jsonv2&limit=1&countrycodes=ar&q=${encodeURIComponent(query)}`;
