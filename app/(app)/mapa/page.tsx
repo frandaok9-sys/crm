@@ -104,7 +104,7 @@ export default async function MapPage() {
       </div>
 
       {/* Mapa + planificador de viajes */}
-      <MapWorkspace pins={pins} />
+      <MapWorkspace pins={pins} canManage={companyWide} />
     </div>
   );
 }

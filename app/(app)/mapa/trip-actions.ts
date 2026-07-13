@@ -166,6 +166,8 @@ export type SavedTripSummary = {
   totalKm: number;
   createdAt: string;
   mine: boolean;
+  canManage: boolean; // el usuario puede editar/borrar esta hoja
+  ownerName: string | null;
   data: unknown;
 };
 
@@ -196,21 +198,60 @@ export async function saveTripAction(input: {
   }
 }
 
+/** Edita una hoja de ruta guardada (dueño, o gerente/admin). */
+export async function updateTripAction(
+  id: string,
+  input: { name: string; totalKm: number; data: unknown }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireActiveUser();
+  const trip = await prisma.savedTrip.findUnique({ where: { id } });
+  if (!trip) return { ok: false, error: "No existe." };
+  if (trip.ownerId !== user.id && !canViewAllRecords(user)) {
+    return { ok: false, error: "No podés editar esta hoja de ruta." };
+  }
+  if (!input.data || typeof input.data !== "object") {
+    return { ok: false, error: "Faltan datos de la hoja de ruta." };
+  }
+  const name = String(input.name || "").trim().slice(0, 80) || trip.name;
+  const totalKm = Number(input.totalKm);
+  await prisma.savedTrip.update({
+    where: { id },
+    data: {
+      name,
+      totalKm: Number.isFinite(totalKm) ? totalKm : trip.totalKm,
+      data: input.data as object,
+    },
+  });
+  return { ok: true };
+}
+
 /** Lista las hojas de ruta del vendedor (o todas, para gerente/admin). */
 export async function listSavedTripsAction(): Promise<SavedTripSummary[]> {
   const user = await requireActiveUser();
-  const where = canViewAllRecords(user) ? {} : { ownerId: user.id };
+  const manager = canViewAllRecords(user);
+  const where = manager ? {} : { ownerId: user.id };
   const rows = await prisma.savedTrip.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    take: 20,
+    take: 30,
   });
+  // Nombre del vendedor dueño (SavedTrip.ownerId no tiene relación formal).
+  const ownerIds = [...new Set(rows.map((r) => r.ownerId).filter((x): x is string => !!x))];
+  const owners = ownerIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: ownerIds } },
+        select: { id: true, name: true, email: true },
+      })
+    : [];
+  const ownerName = new Map(owners.map((o) => [o.id, o.name ?? o.email]));
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     totalKm: r.totalKm,
     createdAt: r.createdAt.toISOString(),
     mine: r.ownerId === user.id,
+    canManage: r.ownerId === user.id || manager,
+    ownerName: r.ownerId ? ownerName.get(r.ownerId) ?? null : null,
     data: r.data,
   }));
 }

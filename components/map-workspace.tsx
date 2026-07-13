@@ -10,6 +10,7 @@ import {
   geocodePointAction,
   findProspectsAction,
   saveTripAction,
+  updateTripAction,
   listSavedTripsAction,
   deleteSavedTripAction,
   type SavedTripSummary,
@@ -62,7 +63,13 @@ function webStopId(name: string, city: string): string {
   return `web-${slug(name)}-${slug(city)}`;
 }
 
-export function MapWorkspace({ pins }: { pins: MapPin[] }) {
+export function MapWorkspace({
+  pins,
+  canManage = false,
+}: {
+  pins: MapPin[];
+  canManage?: boolean;
+}) {
   const [car, setCar] = useState<CarProfile>(DEFAULT_CAR);
   const [carOpen, setCarOpen] = useState(false);
   const [origin, setOrigin] = useState<{ lat: number; lng: number; label: string } | null>(null);
@@ -87,6 +94,8 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [mapTab, setMapTab] = useState<"mapa" | "ruta">("mapa");
+  const [editingId, setEditingId] = useState<string | null>(null); // hoja abierta para editar
+  const [tripName, setTripName] = useState("");
   const [suggestTab, setSuggestTab] = useState<"obras" | "clientes" | "web">("obras");
   const [optsOpen, setOptsOpen] = useState(false);
   const [dirty, setDirty] = useState(false); // hay cambios sin recalcular
@@ -128,6 +137,8 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     setWebError(null);
     setDirty(false);
     setMapTab("mapa");
+    setEditingId(null);
+    setTripName("");
   }
 
   // Prospección web OPCIONAL: busca empresas nuevas en las ciudades del viaje.
@@ -381,16 +392,24 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     if (plan) window.open(buildMapsUrl(plan), "_blank", "noopener");
   }
 
-  // Confirmar y guardar la hoja de ruta.
+  type SavedWaypoint =
+    | { kind: "opportunity"; id: string }
+    | { kind: "custom"; id: string; lat: number; lng: number; label: string };
+  type SavedData = {
+    plan?: TripPlan; // plan completo pre-calculado (para abrir sin recalcular)
+    waypoints?: SavedWaypoint[]; // para editar (restaura los destinos)
+    mapsUrl?: string;
+  };
+
+  // Confirmar y guardar (o actualizar) la hoja de ruta. Guarda el PLAN COMPLETO
+  // para poder reabrirla ya calculada, sin volver a rutear.
   async function guardar() {
     if (!plan || !origin) return;
     setSaving(true);
     setSavedMsg(null);
     setError(null);
-    const data = {
-      origin,
-      returnMode,
-      endPoint,
+    const data: SavedData = {
+      plan: { ...plan, narrative: narrative ?? plan.narrative },
       waypoints: [
         ...selectedIds.map((id) => ({ kind: "opportunity" as const, id })),
         ...customStops.map((c) => ({
@@ -401,54 +420,75 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
           label: c.label,
         })),
       ],
-      stops: plan.stops.map((s) => ({ name: s.name, order: s.order, lat: s.lat, lng: s.lng })),
-      totals: { totalKm: plan.totalKm, totalMinutes: plan.totalMinutes, fuelCost: plan.fuelCost },
-      narrative,
       mapsUrl: buildMapsUrl(plan),
     };
-    const name = `${origin.label} · ${plan.stops.length} visita${plan.stops.length === 1 ? "" : "s"}`;
-    const res = await saveTripAction({ name, totalKm: plan.totalKm, data });
-    setSaving(false);
-    if (res.ok) {
+    const name =
+      tripName.trim() ||
+      `${origin.label} · ${plan.stops.length} visita${plan.stops.length === 1 ? "" : "s"}`;
+
+    if (editingId) {
+      const res = await updateTripAction(editingId, { name, totalKm: plan.totalKm, data });
+      setSaving(false);
+      if (!res.ok) return setError(res.error);
+      setSavedMsg("Hoja de ruta actualizada ✓");
+    } else {
+      const res = await saveTripAction({ name, totalKm: plan.totalKm, data });
+      setSaving(false);
+      if (!res.ok) return setError(res.error);
+      setEditingId(res.id);
       setSavedMsg("Hoja de ruta guardada ✓");
-      setMapTab("ruta"); // mostrar la hoja de ruta al confirmar
-      listSavedTripsAction().then(setSavedTrips).catch(() => {});
-    } else setError(res.error);
+    }
+    setTripName(name);
+    setMapTab("ruta");
+    listSavedTripsAction().then(setSavedTrips).catch(() => {});
   }
 
-  type SavedData = {
-    origin: { lat: number; lng: number; label: string };
-    returnMode?: "origin" | "point" | "none";
-    endPoint?: { lat: number; lng: number; label: string } | null;
-    waypoints?: (
-      | { kind: "opportunity"; id: string }
-      | { kind: "custom"; id: string; lat: number; lng: number; label: string }
-    )[];
-    mapsUrl?: string;
-  };
-
-  // Reabrir una hoja de ruta guardada (restaura destinos; luego se recalcula).
+  // Reabrir una hoja de ruta guardada YA CALCULADA (sin recalcular).
   function reopenTrip(s: SavedTripSummary) {
-    const d = s.data as SavedData;
-    if (!d?.origin) return;
+    const d = s.data as SavedData & {
+      origin?: { lat: number; lng: number; label: string };
+      returnMode?: "origin" | "point" | "none";
+      endPoint?: { lat: number; lng: number; label: string } | null;
+    };
     clearResults();
-    setOrigin(d.origin);
-    setReturnMode(d.returnMode ?? "origin");
-    setEndPoint(d.endPoint ?? null);
     const wps = Array.isArray(d.waypoints) ? d.waypoints : [];
-    setSelectedIds(
-      wps.flatMap((w) => (w.kind === "opportunity" ? [w.id] : []))
-    );
+    setSelectedIds(wps.flatMap((w) => (w.kind === "opportunity" ? [w.id] : [])));
     setCustomStops(
       wps.flatMap((w) =>
         w.kind === "custom" ? [{ id: w.id, lat: w.lat, lng: w.lng, label: w.label }] : []
       )
     );
-    setShowPins(true);
-    setSavedMsg("Ruta cargada — tocá Recalcular para verla en el mapa.");
+    if (s.canManage) {
+      setEditingId(s.id);
+      setTripName(s.name);
+    }
+
+    if (d.plan?.origin) {
+      // Formato nuevo: mostramos el plan guardado directamente (sin rutear).
+      setOrigin(d.plan.origin);
+      setReturnMode(d.plan.returnMode ?? "origin");
+      setEndPoint(d.plan.endPoint ?? null);
+      setPlan(d.plan);
+      setNarrative(d.plan.narrative || null);
+      setDirty(false);
+      setShowPins(false);
+      setMapTab("ruta");
+      setSavedMsg(null);
+    } else if (d.origin) {
+      // Formato anterior: restauramos los destinos; hay que recalcular una vez.
+      setOrigin(d.origin);
+      setReturnMode(d.returnMode ?? "origin");
+      setEndPoint(d.endPoint ?? null);
+      setShowPins(true);
+      setSavedMsg("Ruta cargada (versión anterior) — tocá Recalcular para verla.");
+    }
   }
 
   async function borrarTrip(id: string) {
+    if (editingId === id) {
+      setEditingId(null);
+      setTripName("");
+    }
     await deleteSavedTripAction(id);
     listSavedTripsAction().then(setSavedTrips).catch(() => {});
   }
@@ -1124,12 +1164,15 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             <div className="mt-3 border-t pt-3">
               <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2">
                 Hojas de ruta guardadas
+                {canManage && <span className="ml-1 font-normal normal-case text-muted2">(todas)</span>}
               </div>
               <div className="mt-1.5 space-y-1.5">
                 {savedTrips.map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between gap-2 rounded-[8px] border bg-panel px-2.5 py-1.5"
+                    className={`flex items-center justify-between gap-2 rounded-[8px] border bg-panel px-2.5 py-1.5 ${
+                      editingId === t.id ? "border-primary" : ""
+                    }`}
                   >
                     <div className="min-w-0">
                       <div className="truncate text-[12px] font-medium">{t.name}</div>
@@ -1139,7 +1182,8 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                           day: "2-digit",
                           month: "2-digit",
                         })}
-                        {!t.mine ? " · otro vendedor" : ""}
+                        {!t.mine && t.ownerName ? ` · ${t.ownerName}` : ""}
+                        {editingId === t.id ? " · editando" : ""}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -1158,10 +1202,11 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                         type="button"
                         onClick={() => reopenTrip(t)}
                         className="rounded-full border px-2 py-0.5 text-[11px] font-medium hover:border-primary hover:text-primary"
+                        title={t.canManage ? "Abrir para ver o editar" : "Abrir (solo lectura)"}
                       >
-                        Abrir
+                        {t.canManage ? "Abrir / editar" : "Abrir"}
                       </button>
-                      {t.mine && (
+                      {t.canManage && (
                         <button
                           type="button"
                           onClick={() => borrarTrip(t.id)}
@@ -1187,25 +1232,37 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             </div>
           )}
           {plan && (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={openInMaps}
-                className="flex-1 rounded-[9px] border px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary"
-                title="Abrir la ruta en Google Maps para navegar con GPS"
-              >
-                🧭 Abrir en Maps
-              </button>
-              <button
-                type="button"
-                onClick={guardar}
-                disabled={saving || dirty}
-                className="flex-1 rounded-[9px] border px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary disabled:opacity-50"
-                title={dirty ? "Recalculá antes de guardar" : "Confirmar y guardar la hoja de ruta"}
-              >
-                {saving ? "Guardando…" : "✓ Confirmar y guardar"}
-              </button>
-            </div>
+            <>
+              <input
+                value={tripName}
+                onChange={(e) => setTripName(e.target.value)}
+                placeholder="Nombre de la hoja de ruta (opcional)"
+                className="w-full rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12px] outline-none focus:border-primary"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={openInMaps}
+                  className="flex-1 rounded-[9px] border px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary"
+                  title="Abrir la ruta en Google Maps para navegar con GPS"
+                >
+                  🧭 Abrir en Maps
+                </button>
+                <button
+                  type="button"
+                  onClick={guardar}
+                  disabled={saving || dirty}
+                  className="flex-1 rounded-[9px] border px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary disabled:opacity-50"
+                  title={dirty ? "Recalculá antes de guardar" : "Confirmar y guardar la hoja de ruta"}
+                >
+                  {saving
+                    ? "Guardando…"
+                    : editingId
+                      ? "✓ Guardar cambios"
+                      : "✓ Confirmar y guardar"}
+                </button>
+              </div>
+            </>
           )}
           <div className="flex gap-2">
             <button
