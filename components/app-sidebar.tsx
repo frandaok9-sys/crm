@@ -50,11 +50,20 @@ function ThemeIcon({ dark, stroke = "var(--muted)" }: { dark: boolean; stroke?: 
   );
 }
 
-function NavIcon({ d, active }: { d: string; active: boolean }) {
+function NavIcon({
+  d,
+  active,
+  badge,
+}: {
+  d: string;
+  active: boolean;
+  /** Si viene > 0, muestra un badge rojo en la esquina (sidebar plegado). */
+  badge?: number;
+}) {
   return (
     <span
       className={cn(
-        "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] transition-colors",
+        "relative flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] transition-colors",
         active ? "bg-primary" : "border border-border2 bg-avbg"
       )}
       style={active ? { boxShadow: "0 3px 8px rgba(224,80,58,0.32)" } : undefined}
@@ -71,6 +80,14 @@ function NavIcon({ d, active }: { d: string; active: boolean }) {
       >
         <path d={d} />
       </svg>
+      {badge != null && badge > 0 && (
+        <span
+          className="absolute -right-[5px] -top-[5px] flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold tabular-nums text-white"
+          style={{ border: "2px solid var(--side)" }}
+        >
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </span>
   );
 }
@@ -185,7 +202,11 @@ export function AppSidebar({
                   active ? "bg-navactive" : "hover:bg-hoverbg"
                 )}
               >
-                <NavIcon d={ICON_PATHS[item.href] ?? ICON_PATHS["/dashboard"]} active={active} />
+                <NavIcon
+                  d={ICON_PATHS[item.href] ?? ICON_PATHS["/dashboard"]}
+                  active={active}
+                  badge={expanded ? undefined : item.badge}
+                />
                 {expanded && (
                   <>
                     <span
