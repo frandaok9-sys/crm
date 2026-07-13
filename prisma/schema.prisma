@@ -636,3 +636,21 @@ model WebProspectCache {
 
   @@index([fetchedAt])
 }
+
+// ---------------------------------------------------------------------------
+// Hojas de ruta guardadas (planificador de viajes)
+// ---------------------------------------------------------------------------
+
+/// Hoja de ruta confirmada por un vendedor. Guarda lo necesario para reabrirla
+/// (origen, vuelta, destinos) y mostrar el resumen. `ownerId` sin relación
+/// formal para no tocar el modelo User; la visibilidad se aplica en la acción.
+model SavedTrip {
+  id        String   @id @default(cuid())
+  ownerId   String? // vendedor dueño de la hoja de ruta
+  name      String
+  data      Json // { origin, returnMode, endPoint, waypoints, stops, totals, narrative }
+  totalKm   Float    @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, createdAt])
+}

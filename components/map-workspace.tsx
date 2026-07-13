@@ -9,6 +9,10 @@ import {
   narrateTripAction,
   geocodePointAction,
   findProspectsAction,
+  saveTripAction,
+  listSavedTripsAction,
+  deleteSavedTripAction,
+  type SavedTripSummary,
 } from "@/app/(app)/mapa/trip-actions";
 import type { TripPlan, TripWaypoint } from "@/lib/trip";
 import type { CityProspects } from "@/lib/prospects";
@@ -63,13 +67,28 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   const [busy, setBusy] = useState<null | "geo" | "geocode" | "dest" | "plan">(null);
   const [error, setError] = useState<string | null>(null);
   const [corridorKm, setCorridorKm] = useState(10);
-  const [roundTrip, setRoundTrip] = useState(true);
+  const [returnMode, setReturnMode] = useState<"origin" | "point" | "none">("origin");
+  const [endPoint, setEndPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const [endAddress, setEndAddress] = useState("");
   const [showPins, setShowPins] = useState(true);
+  const [savedTrips, setSavedTrips] = useState<SavedTripSummary[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [suggestTab, setSuggestTab] = useState<"obras" | "clientes" | "web">("obras");
   const [optsOpen, setOptsOpen] = useState(false);
   const [dirty, setDirty] = useState(false); // hay cambios sin recalcular
 
   useEffect(() => setCar(loadCar()), []);
+  useEffect(() => {
+    listSavedTripsAction().then(setSavedTrips).catch(() => {});
+  }, []);
+
+  const returnLabel =
+    returnMode === "origin"
+      ? "vuelve al punto de salida"
+      : returnMode === "point"
+        ? `termina en ${endPoint?.label ?? "otro punto"}`
+        : "sin vuelta (termina en la última visita)";
 
   function saveCar(next: CarProfile) {
     setCar(next);
@@ -227,11 +246,16 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
       })),
     ];
 
+    if (returnMode === "point" && !endPoint) {
+      setError("Fijá el punto de vuelta o cambiá la opción de regreso.");
+      return;
+    }
     setBusy("plan");
     const res = await planTripAction({
       origin,
       waypoints,
-      roundTrip,
+      returnMode,
+      endPoint,
       litersPer100Km: car.consumption,
       pricePerLiter: car.fuelPrice,
       corridorKm,
@@ -250,7 +274,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     setNarrating(true);
     const nar = await narrateTripAction({
       origin: p.origin.label,
-      roundTrip: p.roundTrip,
+      returnLabel,
       totalKm: p.totalKm,
       totalMinutes: p.totalMinutes,
       fuelCost: p.fuelCost,
@@ -300,7 +324,118 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     setSelectedIds([]);
     setCustomStops([]);
     setError(null);
+    setSavedMsg(null);
     setShowPins(true);
+  }
+
+  // Punto de vuelta por dirección/ciudad.
+  async function useEndAddress() {
+    setError(null);
+    if (endAddress.trim().length < 3) return;
+    setBusy("geocode");
+    const res = await geocodePointAction(endAddress);
+    setBusy(null);
+    if (res.ok) {
+      setEndPoint({ lat: res.lat, lng: res.lng, label: res.label });
+      markStale();
+    } else setError(res.error);
+  }
+
+  // Link de Google Maps para navegar la ruta con GPS.
+  function buildMapsUrl(p: TripPlan): string {
+    const fmt = (x: number, y: number) => `${x},${y}`;
+    const o = fmt(p.origin.lat, p.origin.lng);
+    const stops = p.stops.map((s) => fmt(s.lat, s.lng));
+    let destination: string;
+    let waypoints: string[];
+    if (p.returnMode === "origin") {
+      destination = o;
+      waypoints = stops;
+    } else if (p.returnMode === "point" && p.endPoint) {
+      destination = fmt(p.endPoint.lat, p.endPoint.lng);
+      waypoints = stops;
+    } else {
+      destination = stops[stops.length - 1] ?? o;
+      waypoints = stops.slice(0, -1);
+    }
+    const params = new URLSearchParams({ api: "1", origin: o, destination, travelmode: "driving" });
+    if (waypoints.length) params.set("waypoints", waypoints.slice(0, 9).join("|"));
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  function openInMaps() {
+    if (plan) window.open(buildMapsUrl(plan), "_blank", "noopener");
+  }
+
+  // Confirmar y guardar la hoja de ruta.
+  async function guardar() {
+    if (!plan || !origin) return;
+    setSaving(true);
+    setSavedMsg(null);
+    setError(null);
+    const data = {
+      origin,
+      returnMode,
+      endPoint,
+      waypoints: [
+        ...selectedIds.map((id) => ({ kind: "opportunity" as const, id })),
+        ...customStops.map((c) => ({
+          kind: "custom" as const,
+          id: c.id,
+          lat: c.lat,
+          lng: c.lng,
+          label: c.label,
+        })),
+      ],
+      stops: plan.stops.map((s) => ({ name: s.name, order: s.order, lat: s.lat, lng: s.lng })),
+      totals: { totalKm: plan.totalKm, totalMinutes: plan.totalMinutes, fuelCost: plan.fuelCost },
+      narrative,
+      mapsUrl: buildMapsUrl(plan),
+    };
+    const name = `${origin.label} · ${plan.stops.length} visita${plan.stops.length === 1 ? "" : "s"}`;
+    const res = await saveTripAction({ name, totalKm: plan.totalKm, data });
+    setSaving(false);
+    if (res.ok) {
+      setSavedMsg("Hoja de ruta guardada ✓");
+      listSavedTripsAction().then(setSavedTrips).catch(() => {});
+    } else setError(res.error);
+  }
+
+  type SavedData = {
+    origin: { lat: number; lng: number; label: string };
+    returnMode?: "origin" | "point" | "none";
+    endPoint?: { lat: number; lng: number; label: string } | null;
+    waypoints?: (
+      | { kind: "opportunity"; id: string }
+      | { kind: "custom"; id: string; lat: number; lng: number; label: string }
+    )[];
+    mapsUrl?: string;
+  };
+
+  // Reabrir una hoja de ruta guardada (restaura destinos; luego se recalcula).
+  function reopenTrip(s: SavedTripSummary) {
+    const d = s.data as SavedData;
+    if (!d?.origin) return;
+    clearResults();
+    setOrigin(d.origin);
+    setReturnMode(d.returnMode ?? "origin");
+    setEndPoint(d.endPoint ?? null);
+    const wps = Array.isArray(d.waypoints) ? d.waypoints : [];
+    setSelectedIds(
+      wps.flatMap((w) => (w.kind === "opportunity" ? [w.id] : []))
+    );
+    setCustomStops(
+      wps.flatMap((w) =>
+        w.kind === "custom" ? [{ id: w.id, lat: w.lat, lng: w.lng, label: w.label }] : []
+      )
+    );
+    setShowPins(true);
+    setSavedMsg("Ruta cargada — tocá Recalcular para verla en el mapa.");
+  }
+
+  async function borrarTrip(id: string) {
+    await deleteSavedTripAction(id);
+    listSavedTripsAction().then(setSavedTrips).catch(() => {});
   }
 
   const orderMap = useMemo(() => {
@@ -519,8 +654,13 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             className="mt-2.5 flex w-full items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2"
           >
             <span>
-              ⚙︎ {roundTrip ? "ida y vuelta" : "solo ida"} · corredor {corridorKm} km · 🚗{" "}
-              {car.consumption}L
+              ⚙︎ vuelta:{" "}
+              {returnMode === "origin"
+                ? "a la salida"
+                : returnMode === "point"
+                  ? "a otro punto"
+                  : "sin vuelta"}{" "}
+              · corredor {corridorKm} km · 🚗 {car.consumption}L
             </span>
             <span>{optsOpen ? "▲" : "▼"}</span>
           </button>
@@ -528,16 +668,19 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             <div className="mt-2 space-y-2 rounded-[8px] border bg-card2 p-2.5">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px]">
                 <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={roundTrip}
+                  Vuelta
+                  <select
+                    value={returnMode}
                     onChange={(e) => {
-                      setRoundTrip(e.target.checked);
+                      setReturnMode(e.target.value as "origin" | "point" | "none");
                       markStale();
                     }}
-                    className="accent-[var(--primary)]"
-                  />
-                  Volver al inicio
+                    className="rounded-[6px] border bg-panel px-1.5 py-1 outline-none"
+                  >
+                    <option value="origin">A la salida</option>
+                    <option value="point">A otro punto</option>
+                    <option value="none">Sin vuelta</option>
+                  </select>
                 </label>
                 <label className="flex items-center gap-1.5">
                   Sugerencias a
@@ -555,6 +698,34 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                   </select>
                 </label>
               </div>
+
+              {returnMode === "point" && (
+                <div>
+                  <div className="flex gap-1.5">
+                    <input
+                      value={endAddress}
+                      onChange={(e) => setEndAddress(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && useEndAddress()}
+                      placeholder="Punto de vuelta: dirección o ciudad"
+                      className="min-w-0 flex-1 rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={useEndAddress}
+                      disabled={busy === "geocode" || endAddress.trim().length < 3}
+                      className="shrink-0 rounded-[8px] border px-2.5 py-1.5 text-[12px] font-medium hover:bg-hoverbg disabled:opacity-50"
+                    >
+                      OK
+                    </button>
+                  </div>
+                  {endPoint && (
+                    <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-text2">
+                      <span className="text-primary">◍</span>
+                      <span className="min-w-0 truncate">Vuelta: {endPoint.label}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-[11px] text-muted-foreground">
                   Consumo (L/100km)
@@ -753,10 +924,95 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
               </div>
             </div>
           )}
+
+          {/* Hojas de ruta guardadas */}
+          {savedTrips.length > 0 && (
+            <div className="mt-3 border-t pt-3">
+              <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2">
+                Hojas de ruta guardadas
+              </div>
+              <div className="mt-1.5 space-y-1.5">
+                {savedTrips.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between gap-2 rounded-[8px] border bg-panel px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-[12px] font-medium">{t.name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {fmtKm(t.totalKm)} ·{" "}
+                        {new Date(t.createdAt).toLocaleDateString("es-AR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        })}
+                        {!t.mine ? " · otro vendedor" : ""}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {(t.data as { mapsUrl?: string })?.mapsUrl && (
+                        <a
+                          href={(t.data as { mapsUrl?: string }).mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-full border px-2 py-0.5 text-[11px] font-medium hover:border-primary hover:text-primary"
+                          title="Abrir en Google Maps"
+                        >
+                          🧭
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => reopenTrip(t)}
+                        className="rounded-full border px-2 py-0.5 text-[11px] font-medium hover:border-primary hover:text-primary"
+                      >
+                        Abrir
+                      </button>
+                      {t.mine && (
+                        <button
+                          type="button"
+                          onClick={() => borrarTrip(t.id)}
+                          className="rounded-full border px-1.5 py-0.5 text-[11px] text-muted2 hover:border-primary hover:text-primary"
+                          title="Borrar"
+                        >
+                          🗑
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Footer fijo: acción primaria siempre a mano */}
-        <div className="shrink-0 border-t px-4 py-3">
+        {/* Footer fijo: acciones siempre a mano */}
+        <div className="shrink-0 space-y-2 border-t px-4 py-3">
+          {savedMsg && (
+            <div className="rounded-[8px] border border-green-500/40 bg-green-500/10 px-3 py-1.5 text-[11.5px] font-medium text-green-600 dark:text-green-400">
+              {savedMsg}
+            </div>
+          )}
+          {plan && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={openInMaps}
+                className="flex-1 rounded-[9px] border px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary"
+                title="Abrir la ruta en Google Maps para navegar con GPS"
+              >
+                🧭 Abrir en Maps
+              </button>
+              <button
+                type="button"
+                onClick={guardar}
+                disabled={saving || dirty}
+                className="flex-1 rounded-[9px] border px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary disabled:opacity-50"
+                title={dirty ? "Recalculá antes de guardar" : "Confirmar y guardar la hoja de ruta"}
+              >
+                {saving ? "Guardando…" : "✓ Confirmar y guardar"}
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

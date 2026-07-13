@@ -1,6 +1,8 @@
 "use server";
 
+import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
+import { canViewAllRecords } from "@/lib/permissions";
 import { geocodeAddress } from "@/lib/geocode";
 import { findWebProspects, type CityProspects } from "@/lib/prospects";
 import {
@@ -63,11 +65,21 @@ function parseWaypoints(raw: unknown): TripWaypoint[] {
   return out.filter((w) => (seen.has(w.id) ? false : (seen.add(w.id), true))).slice(0, MAX_STOPS);
 }
 
+function pointOrNull(p: unknown): { lat: number; lng: number; label: string } | null {
+  if (!p || typeof p !== "object") return null;
+  const o = p as { lat?: unknown; lng?: unknown; label?: unknown };
+  const lat = Number(o.lat);
+  const lng = Number(o.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng, label: String(o.label || "").slice(0, 120) };
+}
+
 /** Arma la hoja de ruta (sin narrativa). Aplica permisos dentro de planTrip(). */
 export async function planTripAction(raw: {
   origin: { lat: number; lng: number; label: string };
   waypoints: unknown;
-  roundTrip: boolean;
+  returnMode: string;
+  endPoint?: unknown;
   litersPer100Km: number;
   pricePerLiter: number;
   corridorKm: number;
@@ -85,10 +97,18 @@ export async function planTripAction(raw: {
     return { ok: false, error: "Sumá al menos un destino (una obra o una ciudad)." };
   }
 
+  const returnMode: TripInput["returnMode"] =
+    raw.returnMode === "point" ? "point" : raw.returnMode === "none" ? "none" : "origin";
+  const endPoint = returnMode === "point" ? pointOrNull(raw.endPoint) : null;
+  if (returnMode === "point" && !endPoint) {
+    return { ok: false, error: "Fijá el punto de vuelta o cambiá la opción de regreso." };
+  }
+
   const input: TripInput = {
     origin: { lat, lng, label: String(raw.origin.label || "Punto de partida").slice(0, 120) },
     waypoints,
-    roundTrip: !!raw.roundTrip,
+    returnMode,
+    endPoint,
     litersPer100Km: clamp(Number(raw.litersPer100Km), 2, 40, 8),
     pricePerLiter: clamp(Number(raw.pricePerLiter), 1, 100000, 1200),
     corridorKm: clamp(Number(raw.corridorKm), 1, 50, 10),
@@ -134,4 +154,77 @@ export async function narrateTripAction(
   } catch (error) {
     return { ok: false, error: (error as Error).message || "No se pudo redactar la hoja de ruta." };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Hojas de ruta guardadas
+// ---------------------------------------------------------------------------
+
+export type SavedTripSummary = {
+  id: string;
+  name: string;
+  totalKm: number;
+  createdAt: string;
+  mine: boolean;
+  data: unknown;
+};
+
+/** Confirma y guarda una hoja de ruta del vendedor. */
+export async function saveTripAction(input: {
+  name: string;
+  totalKm: number;
+  data: unknown;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const user = await requireActiveUser();
+  const name = String(input.name || "").trim().slice(0, 80) || "Hoja de ruta";
+  const totalKm = Number(input.totalKm);
+  if (!input.data || typeof input.data !== "object") {
+    return { ok: false, error: "Faltan datos de la hoja de ruta." };
+  }
+  try {
+    const saved = await prisma.savedTrip.create({
+      data: {
+        ownerId: user.id,
+        name,
+        totalKm: Number.isFinite(totalKm) ? totalKm : 0,
+        data: input.data as object,
+      },
+    });
+    return { ok: true, id: saved.id };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message || "No se pudo guardar." };
+  }
+}
+
+/** Lista las hojas de ruta del vendedor (o todas, para gerente/admin). */
+export async function listSavedTripsAction(): Promise<SavedTripSummary[]> {
+  const user = await requireActiveUser();
+  const where = canViewAllRecords(user) ? {} : { ownerId: user.id };
+  const rows = await prisma.savedTrip.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    totalKm: r.totalKm,
+    createdAt: r.createdAt.toISOString(),
+    mine: r.ownerId === user.id,
+    data: r.data,
+  }));
+}
+
+/** Borra una hoja de ruta (solo el dueño, o gerente/admin). */
+export async function deleteSavedTripAction(
+  id: string
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireActiveUser();
+  const trip = await prisma.savedTrip.findUnique({ where: { id } });
+  if (!trip) return { ok: false, error: "No existe." };
+  if (trip.ownerId !== user.id && !canViewAllRecords(user)) {
+    return { ok: false, error: "No podés borrar esta hoja de ruta." };
+  }
+  await prisma.savedTrip.delete({ where: { id } });
+  return { ok: true };
 }

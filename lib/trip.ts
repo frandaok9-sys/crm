@@ -28,10 +28,16 @@ export type TripWaypoint =
   | { kind: "opportunity"; id: string }
   | { kind: "custom"; id: string; lat: number; lng: number; label: string };
 
+export type TripPoint = { lat: number; lng: number; label: string };
+
+/** Cómo termina el viaje: vuelve a la salida, termina en otro punto, o sin vuelta. */
+export type ReturnMode = "origin" | "point" | "none";
+
 export type TripInput = {
-  origin: { lat: number; lng: number; label: string };
+  origin: TripPoint;
   waypoints: TripWaypoint[];
-  roundTrip: boolean;
+  returnMode: ReturnMode;
+  endPoint?: TripPoint | null; // destino final si returnMode === "point"
   litersPer100Km: number;
   pricePerLiter: number;
   corridorKm: number; // ancho del corredor para buscar leads (por lado)
@@ -83,7 +89,8 @@ export type TripPlan = {
   totalMinutes: number;
   fuelCost: number;
   estimated: boolean;
-  roundTrip: boolean;
+  returnMode: ReturnMode;
+  endPoint: TripPoint | null;
   polyline: [number, number][];
   narrative: string; // se completa en un segundo paso (narrateTrip)
 };
@@ -102,7 +109,8 @@ export async function planTrip(
   user: Principal & { name?: string | null },
   input: TripInput
 ): Promise<TripPlan> {
-  const { origin, roundTrip, litersPer100Km, pricePerLiter, corridorKm } = input;
+  const { origin, returnMode, litersPer100Km, pricePerLiter, corridorKm } = input;
+  const endPoint = returnMode === "point" ? input.endPoint ?? null : null;
 
   const oppIds = input.waypoints
     .filter((w): w is Extract<TripWaypoint, { kind: "opportunity" }> => w.kind === "opportunity")
@@ -164,11 +172,13 @@ export async function planTrip(
   const order = orderStops(origin, resolved);
   const ordered = order.map((i) => resolved[i]);
 
-  // 2) Ruta real por calles (origen → paradas [→ origen]).
+  // 2) Ruta real por calles (salida → paradas → vuelta según returnMode).
+  const finalPoint: Geo | null =
+    returnMode === "origin" ? origin : returnMode === "point" && endPoint ? endPoint : null;
   const routePoints: Geo[] = [
     origin,
     ...ordered.map((s) => ({ lat: s.lat, lng: s.lng })),
-    ...(roundTrip ? [origin] : []),
+    ...(finalPoint ? [finalPoint] : []),
   ];
   const route = await drivingRoute(routePoints);
 
@@ -293,7 +303,8 @@ export async function planTrip(
     totalMinutes: route.totalMinutes,
     fuelCost: fuelCost(route.totalKm, litersPer100Km, pricePerLiter),
     estimated: route.estimated,
-    roundTrip,
+    returnMode,
+    endPoint,
     polyline: route.polyline,
     narrative: "",
   };
@@ -305,7 +316,7 @@ export async function planTrip(
 
 export type NarrateInput = {
   origin: string;
-  roundTrip: boolean;
+  returnLabel: string; // "vuelve a la salida" | "termina en X" | "sin vuelta"
   totalKm: number;
   totalMinutes: number;
   fuelCost: number;
@@ -322,7 +333,7 @@ export async function narrateTrip(d: NarrateInput): Promise<string> {
 
   const digest = {
     origen: d.origin,
-    vuelta_al_origen: d.roundTrip,
+    vuelta: d.returnLabel,
     total: `${fmtKm(d.totalKm)} · ${fmtDur(d.totalMinutes)}`,
     combustible: `$${Math.round(d.fuelCost).toLocaleString("es-AR")}`,
     estimado: d.estimated,
