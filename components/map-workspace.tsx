@@ -8,8 +8,10 @@ import {
   planTripAction,
   narrateTripAction,
   geocodePointAction,
+  findProspectsAction,
 } from "@/app/(app)/mapa/trip-actions";
 import type { TripPlan, TripWaypoint } from "@/lib/trip";
+import type { CityProspects } from "@/lib/prospects";
 
 type CustomStop = { id: string; lat: number; lng: number; label: string };
 
@@ -55,6 +57,9 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
   const [narrating, setNarrating] = useState(false);
+  const [webProspects, setWebProspects] = useState<CityProspects[] | null>(null);
+  const [searchingWeb, setSearchingWeb] = useState(false);
+  const [webError, setWebError] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "geo" | "geocode" | "dest" | "plan">(null);
   const [error, setError] = useState<string | null>(null);
   const [corridorKm, setCorridorKm] = useState(10);
@@ -78,6 +83,45 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   function invalidatePlan() {
     setPlan(null);
     setNarrative(null);
+    setWebProspects(null);
+    setWebError(null);
+  }
+
+  // Prospección web OPCIONAL: busca empresas nuevas en las ciudades del viaje.
+  async function buscarProspectosWeb() {
+    if (!plan) return;
+    const cities = [
+      origin?.label,
+      ...plan.stops.map((s) => s.city ?? s.name),
+      ...plan.clientVisits.map((c) => c.city),
+    ].filter((c): c is string => !!c && c.trim().length > 2);
+    if (cities.length === 0) return;
+    setSearchingWeb(true);
+    setWebError(null);
+    const res = await findProspectsAction(cities);
+    setSearchingWeb(false);
+    if (!res.ok) {
+      setWebError(res.error);
+      return;
+    }
+    setWebProspects(res.cities);
+    if (res.error) setWebError(res.error);
+  }
+
+  // Sumar un prospecto de la web al viaje (geocodifica nombre + ciudad).
+  async function addWebProspect(name: string, city: string) {
+    setBusy("dest");
+    const res = await geocodePointAction(`${name}, ${city}`);
+    setBusy(null);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    invalidatePlan();
+    setCustomStops((prev) => [
+      ...prev,
+      { id: `web-${Date.now()}`, lat: res.lat, lng: res.lng, label: name },
+    ]);
   }
 
   function togglePin(id: string) {
@@ -611,6 +655,81 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                 </div>
               </div>
             )}
+
+            {/* Prospección web (opcional, con costo) */}
+            <div className="mt-3 border-t pt-3">
+              {!webProspects ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={buscarProspectosWeb}
+                    disabled={searchingWeb}
+                    className="w-full rounded-[9px] border border-dashed px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary disabled:opacity-60"
+                  >
+                    {searchingWeb ? "Buscando en la web…" : "🌐 Buscar prospectos nuevos en la zona"}
+                  </button>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Busca empresas en la web sobre tu ruta. Se cachea por ciudad
+                    para no repetir costo.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2">
+                    🌐 Prospectos nuevos (web)
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Sugerencias de la web — validá antes de visitar.
+                  </p>
+                  <div className="mt-1.5 space-y-2.5">
+                    {webProspects.map((cp) => (
+                      <div key={cp.city}>
+                        <div className="text-[11px] font-semibold text-text2">
+                          {cp.city}
+                          {cp.cached && (
+                            <span className="ml-1 text-[10px] font-normal text-muted2">
+                              (de caché)
+                            </span>
+                          )}
+                        </div>
+                        {cp.prospects.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">Sin resultados.</p>
+                        ) : (
+                          <div className="mt-1 space-y-1.5">
+                            {cp.prospects.map((p, i) => (
+                              <div
+                                key={i}
+                                className="flex items-start justify-between gap-2 rounded-[8px] border bg-panel px-2.5 py-1.5"
+                              >
+                                <div className="min-w-0">
+                                  <div className="truncate text-[12.5px] font-medium">
+                                    {p.name}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {p.segment ? `${p.segment} · ` : ""}
+                                    {p.reason}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => addWebProspect(p.name, cp.city)}
+                                  className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium hover:border-primary hover:text-primary"
+                                >
+                                  + Sumar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {webError && (
+                <p className="mt-2 text-[11px] text-primary">{webError}</p>
+              )}
+            </div>
           </div>
         )}
       </aside>

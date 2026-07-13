@@ -42,6 +42,7 @@ export type TripStop = {
   kind: "opportunity" | "custom";
   order: number;
   name: string; // razón social (obra) o etiqueta del destino (prospección)
+  city: string | null; // ciudad (para la prospección web por zona)
   stageName: string | null;
   m2Label: string | null;
   amountLabel: string | null;
@@ -116,7 +117,7 @@ export async function planTrip(
     ? await prisma.opportunity.findMany({
         where: { ...scope, id: { in: oppIds }, latitude: { not: null }, longitude: { not: null } },
         include: {
-          client: { select: { legalName: true } },
+          client: { select: { legalName: true, city: true } },
           stage: { select: { name: true } },
         },
       })
@@ -126,6 +127,7 @@ export async function planTrip(
     id: string;
     kind: "opportunity" | "custom";
     name: string;
+    city: string | null;
     stageName: string | null;
     m2Label: string | null;
     amountLabel: string | null;
@@ -138,6 +140,7 @@ export async function planTrip(
       id: o.id,
       kind: "opportunity" as const,
       name: o.client.legalName,
+      city: o.client.city,
       stageName: o.stage.name,
       m2Label: o.estimatedM2
         ? `${Number(o.estimatedM2).toLocaleString("es-AR")} m²`
@@ -150,6 +153,7 @@ export async function planTrip(
       id: c.id,
       kind: "custom" as const,
       name: c.label,
+      city: c.label, // el destino tipeado suele ser una ciudad
       stageName: "Prospección" as string | null,
       m2Label: null,
       amountLabel: null,
@@ -178,6 +182,7 @@ export async function planTrip(
       kind: s.kind,
       order: idx + 1,
       name: s.name,
+      city: s.city,
       stageName: s.stageName,
       m2Label: s.m2Label,
       amountLabel: s.amountLabel,

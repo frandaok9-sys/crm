@@ -619,3 +619,20 @@ model SyncLog {
   @@index([entity])
   @@index([createdAt])
 }
+
+// ---------------------------------------------------------------------------
+// Prospección web (hoja de ruta) — caché por ciudad para no re-buscar
+// ---------------------------------------------------------------------------
+
+/// Caché de prospectos encontrados en la web por ciudad. Evita pagar búsqueda
+/// web + IA cada vez: si otro vendedor rutea por la misma ciudad dentro de la
+/// ventana de frescura, se reutiliza. Se refresca al vencer (~30 días).
+model WebProspectCache {
+  id        String   @id @default(cuid())
+  cityKey   String   @unique // "ciudad|provincia" normalizado
+  city      String
+  prospects Json // [{ name, segment, reason }]
+  fetchedAt DateTime @default(now())
+
+  @@index([fetchedAt])
+}

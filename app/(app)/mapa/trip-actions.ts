@@ -2,6 +2,7 @@
 
 import { requireActiveUser } from "@/lib/auth";
 import { geocodeAddress } from "@/lib/geocode";
+import { findWebProspects, type CityProspects } from "@/lib/prospects";
 import {
   planTrip,
   narrateTrip,
@@ -101,6 +102,24 @@ export async function planTripAction(raw: {
     return { ok: true, plan };
   } catch (error) {
     return { ok: false, error: (error as Error).message || "No se pudo armar la hoja de ruta." };
+  }
+}
+
+/**
+ * Prospección web OPCIONAL: busca empresas nuevas en las ciudades del viaje.
+ * Con costo (búsqueda web + IA), por eso es a pedido y con caché por ciudad.
+ */
+export async function findProspectsAction(
+  cities: string[]
+): Promise<{ ok: true; cities: CityProspects[]; error?: string } | { ok: false; error: string }> {
+  await requireActiveUser();
+  const list = Array.isArray(cities) ? cities.filter((c) => typeof c === "string") : [];
+  if (list.length === 0) return { ok: false, error: "No hay ciudades en la ruta para prospectar." };
+  try {
+    const { cities: found, error } = await findWebProspects(list);
+    return { ok: true, cities: found, error };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message || "No se pudo buscar prospectos." };
   }
 }
 
