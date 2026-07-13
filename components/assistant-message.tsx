@@ -111,8 +111,28 @@ const MD_COMPONENTS: Components = {
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
   a: ({ href, children }) => {
-    // Links externos y descargas (PDF) abren en pestaña nueva para no perder el chat.
-    const nueva = !!href && (href.startsWith("http") || href.endsWith("/pdf"));
+    // PDF (p. ej. presupuesto): vista previa embebida + botón para abrirlo.
+    if (typeof href === "string" && href.endsWith("/pdf")) {
+      return (
+        <span className="my-2 block max-w-md overflow-hidden rounded-[10px] border border-border2">
+          <iframe
+            src={`${href}#toolbar=0&navpanes=0`}
+            title="Vista previa del PDF"
+            className="block h-[360px] w-full bg-white"
+          />
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block bg-card2 px-3 py-2 text-center text-[12.5px] font-semibold text-primary hover:underline"
+          >
+            ↗ Abrir el PDF en pantalla completa
+          </a>
+        </span>
+      );
+    }
+    // Links externos abren en pestaña nueva para no perder el chat.
+    const nueva = !!href && href.startsWith("http");
     return (
       <a
         href={href}
