@@ -16,6 +16,7 @@ const APPROVED = "#E0503A";
 const QUOTED = "#5B82D6";
 const MODE_KEY = "metrics-chart-mode";
 const ORDER_KEY = "metrics-card-order";
+const SIZE_KEY = "metrics-card-sizes";
 
 type Month = { label: string; quoted: string; approved: string };
 export type MetricsSeries = { currency: string; maxValue: string; months: Month[] };
@@ -96,50 +97,95 @@ function MonthlyBars({ series }: { series: MetricsSeries }) {
   );
 }
 
-/** Serie mensual en LÍNEAS ascendentes (área + trazo), 2 series. */
+type Pt = { x: number; y: number };
+/** Path suave (Catmull-Rom → Bézier) para curvas realistas. */
+function smoothPath(pts: Pt[]): string {
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M ${pts[0].x},${pts[0].y}`;
+  let d = `M ${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+  }
+  return d;
+}
+
+/** Serie mensual en LÍNEAS suaves con área degradé y puntos (2 series). */
 function MonthlyLines({ series }: { series: MetricsSeries }) {
   const max = Number(series.maxValue) || 1;
   const n = series.months.length;
-  const xy = (i: number, v: string) => ({
-    x: n <= 1 ? 50 : (i / (n - 1)) * 100,
-    y: 100 - (Number(v) / max) * 100,
-  });
-  const line = (key: "quoted" | "approved") =>
-    series.months.map((m, i) => { const p = xy(i, m[key]); return `${p.x},${p.y}`; }).join(" ");
-  const area = (key: "quoted" | "approved") => {
-    const pts = series.months.map((m, i) => xy(i, m[key]));
-    return `M0,100 ${pts.map((p) => `L${p.x},${p.y}`).join(" ")} L100,100 Z`;
-  };
+  const gid = `mg-${series.currency}`;
+  const pts = (key: "quoted" | "approved"): Pt[] =>
+    series.months.map((m, i) => ({
+      x: n <= 1 ? 50 : (i / (n - 1)) * 100,
+      y: 100 - (Number(m[key]) / max) * 92 - 4, // margen sup/inf para respirar
+    }));
+  const qPts = pts("quoted");
+  const aPts = pts("approved");
+  const areaPath = `${smoothPath(aPts)} L 100,100 L 0,100 Z`;
+  const dot = (p: Pt, color: string, big = false) => (
+    <span
+      className="absolute rounded-full"
+      style={{
+        left: `${p.x}%`,
+        top: `${p.y}%`,
+        width: big ? 11 : 6,
+        height: big ? 11 : 6,
+        transform: "translate(-50%,-50%)",
+        background: big ? color : "var(--card)",
+        border: `${big ? 3 : 1.5}px solid ${color}`,
+        boxShadow: big ? "var(--shadow-sm)" : "none",
+      }}
+    />
+  );
   return (
     <div className="relative h-44 border-b border-border">
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full"
-      >
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={APPROVED} stopOpacity={0.3} />
+            <stop offset="100%" stopColor={APPROVED} stopOpacity={0} />
+          </linearGradient>
+        </defs>
         {[25, 50, 75].map((y) => (
-          <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--border2)" strokeWidth="0.4" />
+          <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--border2)" strokeWidth="0.5" />
         ))}
-        <path d={area("approved")} fill={APPROVED} opacity={0.1} />
-        <polyline
-          points={line("quoted")}
+        <path d={areaPath} fill={`url(#${gid})`} />
+        <path
+          d={smoothPath(qPts)}
           fill="none"
           stroke={QUOTED}
           strokeWidth="2"
           vectorEffect="non-scaling-stroke"
           strokeLinejoin="round"
           strokeLinecap="round"
+          strokeDasharray="4 3"
+          opacity={0.85}
         />
-        <polyline
-          points={line("approved")}
+        <path
+          d={smoothPath(aPts)}
           fill="none"
           stroke={APPROVED}
-          strokeWidth="2.5"
+          strokeWidth="2.75"
           vectorEffect="non-scaling-stroke"
           strokeLinejoin="round"
           strokeLinecap="round"
         />
       </svg>
+      {/* Puntos (HTML, redondos aunque el SVG esté estirado) */}
+      {qPts.map((p, i) => (
+        <span key={`q${i}`}>{dot(p, QUOTED)}</span>
+      ))}
+      {aPts.map((p, i) => (
+        <span key={`a${i}`}>{dot(p, APPROVED, i === aPts.length - 1)}</span>
+      ))}
     </div>
   );
 }
@@ -232,6 +278,7 @@ function FunnelCard({ funnel }: { funnel: MetricsFunnel[] }) {
 export function MetricsBoard({ monthly, bySegment, funnel }: Props) {
   const [mode, setMode] = useState<"lineas" | "barras">("barras");
   const [order, setOrder] = useState<string[]>([]);
+  const [sizes, setSizes] = useState<Record<string, "full" | "half">>({});
   const [ready, setReady] = useState(false);
 
   // Descriptor de cada tarjeta reordenable.
@@ -251,11 +298,24 @@ export function MetricsBoard({ monthly, bySegment, funnel }: Props) {
       if (m === "lineas" || m === "barras") setMode(m);
       const o = localStorage.getItem(ORDER_KEY);
       if (o) setOrder(JSON.parse(o));
+      const sz = localStorage.getItem(SIZE_KEY);
+      if (sz) setSizes(JSON.parse(sz));
     } catch {
       /* localStorage no disponible */
     }
     setReady(true);
   }, []);
+
+  function toggleSize(id: string) {
+    setSizes((prev) => {
+      const value: "full" | "half" = prev[id] === "half" ? "full" : "half";
+      const next: Record<string, "full" | "half"> = { ...prev, [id]: value };
+      try {
+        localStorage.setItem(SIZE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
 
   const orderedIds = useMemo(() => {
     const ids = cards.map((c) => c.id);
@@ -309,12 +369,13 @@ export function MetricsBoard({ monthly, bySegment, funnel }: Props) {
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="metrics">
+        <Droppable droppableId="metrics" direction="horizontal">
           {(dp) => (
-            <div ref={dp.innerRef} {...dp.droppableProps} className="space-y-[14px]">
+            <div ref={dp.innerRef} {...dp.droppableProps} className="flex flex-wrap gap-[14px]">
               {orderedIds.map((id, i) => {
                 const card = byId.get(id);
                 if (!card) return null;
+                const half = (sizes[id] ?? "full") === "half";
                 return (
                   <Draggable key={id} draggableId={id} index={i} isDragDisabled={!ready}>
                     {(dr, snap) => (
@@ -323,12 +384,33 @@ export function MetricsBoard({ monthly, bySegment, funnel }: Props) {
                         {...dr.draggableProps}
                         className="rounded-[16px] border bg-card p-5"
                         style={{
+                          width: half ? "calc(50% - 7px)" : "100%",
                           boxShadow: snap.isDragging ? "var(--shadow)" : "var(--shadow-sm)",
                           ...dr.draggableProps.style,
                         }}
                       >
-                        <div className="mb-2 flex items-center justify-end" {...dr.dragHandleProps}>
-                          <Handle />
+                        <div className="mb-2 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => toggleSize(id)}
+                            className="flex items-center gap-1.5 rounded-[7px] border border-border2 px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-text1"
+                            title={half ? "Ancho completo" : "Cuadrado (2 por fila)"}
+                          >
+                            {half ? (
+                              <>
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="3" width="10" height="6" rx="1" /></svg>
+                                Completo
+                              </>
+                            ) : (
+                              <>
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="2" width="4.5" height="8" rx="1" /><rect x="6.5" y="2" width="4.5" height="8" rx="1" /></svg>
+                                Cuadrado
+                              </>
+                            )}
+                          </button>
+                          <span className="cursor-grab active:cursor-grabbing" {...dr.dragHandleProps}>
+                            <Handle />
+                          </span>
                         </div>
                         {card.render()}
                       </section>
