@@ -416,7 +416,7 @@ REGLAS:
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model: MODEL,
-      max_tokens: 600,
+      max_tokens: 450,
       temperature: 0.4,
       system,
       messages: [{ role: "user", content: JSON.stringify(digest) }],

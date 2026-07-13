@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
 const CACHE_DAYS = 30;
-const MAX_CITIES = 4;
+const MAX_CITIES = 3; // tope de ciudades por consulta (control de costo)
 const MAX_PER_CITY = 5;
 
 export type WebProspect = { name: string; segment: string; reason: string };
@@ -70,11 +70,12 @@ INSTRUCCIONES:
 async function searchCity(client: Anthropic, city: string): Promise<WebProspect[]> {
   const res = await client.messages.create({
     model: MODEL,
-    max_tokens: 900,
+    max_tokens: 700,
     system: SYSTEM,
     // Búsqueda web del lado del servidor (herramienta oficial de Anthropic).
+    // max_uses=2: menos búsquedas por ciudad = menos costo.
     tools: [
-      { type: "web_search_20250305", name: "web_search", max_uses: 3 },
+      { type: "web_search_20250305", name: "web_search", max_uses: 2 },
     ] as unknown as Anthropic.Messages.Tool[],
     messages: [
       {

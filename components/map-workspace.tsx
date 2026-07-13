@@ -289,9 +289,14 @@ export function MapWorkspace({
   const pinById = useMemo(() => new Map(pins.map((p) => [p.id, p])), [pins]);
 
   // Sumar/sacar destinos NO borra la ruta actual: la marca "por recalcular",
-  // así se pueden encadenar varias visitas y recalcular una sola vez.
+  // así se pueden encadenar varias visitas y recalcular una sola vez. El
+  // análisis de IA queda viejo → se descarta (se regenera a pedido, sin costo
+  // automático).
   function markStale() {
-    if (plan) setDirty(true);
+    if (plan) {
+      setDirty(true);
+      setNarrative(null);
+    }
   }
 
   // Limpia por completo los resultados (al reiniciar el viaje).
@@ -435,32 +440,36 @@ export function MapWorkspace({
     }
     const p = res.plan;
     setPlan(p);
+    setNarrative(null); // el análisis de IA es a pedido (no se gasta en cada armado)
     setDirty(false);
     setShowPins(false); // ruta limpia: se ocultan las demás obras
+  }
 
-    // La narrativa de la IA llega en un segundo paso (la ruta ya se ve).
+  // Análisis comercial con IA — A PEDIDO (único costo de tokens del mapa).
+  async function generarAnalisis() {
+    if (!plan || narrating) return;
     setNarrating(true);
     const nar = await narrateTripAction({
-      origin: p.origin.label,
+      origin: plan.origin.label,
       returnLabel,
-      totalKm: p.totalKm,
-      totalMinutes: p.totalMinutes,
-      fuelCost: p.fuelCost,
-      estimated: p.estimated,
-      stops: p.stops.map((s) => ({
+      totalKm: plan.totalKm,
+      totalMinutes: plan.totalMinutes,
+      fuelCost: plan.fuelCost,
+      estimated: plan.estimated,
+      stops: plan.stops.map((s) => ({
         order: s.order,
         name: s.name,
         stageName: s.stageName,
         m2Label: s.m2Label,
         legKm: s.legKm,
       })),
-      leads: p.leads.map((l) => ({
+      leads: plan.leads.map((l) => ({
         clientName: l.clientName,
         stageName: l.stageName,
         m2Label: l.m2Label,
         detourKm: l.detourKm,
       })),
-      clientVisits: p.clientVisits.map((c) => ({
+      clientVisits: plan.clientVisits.map((c) => ({
         name: c.name,
         city: c.city,
         segment: c.segment,
@@ -755,12 +764,26 @@ export function MapWorkspace({
           ))}
         </div>
 
-        {/* Análisis comercial (IA, ya generado) */}
-        {narrative && (
-          <div className="mt-3 rounded-[10px] border bg-card2 p-3">
+        {/* Análisis comercial (IA) — a pedido */}
+        <div className="mt-3 rounded-[10px] border bg-card2 p-3">
+          {narrating ? (
+            <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              Redactando…
+            </div>
+          ) : narrative ? (
             <AssistantMessage content={narrative} />
-          </div>
-        )}
+          ) : (
+            <button
+              type="button"
+              onClick={generarAnalisis}
+              disabled={dirty}
+              className="w-full rounded-[8px] border border-dashed px-3 py-2 text-[12px] font-semibold hover:border-primary hover:text-primary disabled:opacity-50"
+            >
+              ✦ Generar análisis comercial con IA (opcional)
+            </button>
+          )}
+        </div>
 
         {/* Especificaciones de cada visita */}
         <div className="mt-3 space-y-2">
@@ -1301,11 +1324,11 @@ export function MapWorkspace({
             </div>
           )}
 
-          {/* Hoja de ruta redactada */}
+          {/* Análisis comercial con IA — a pedido (para no gastar en cada armado) */}
           {plan && (
             <div className="mt-3 border-t pt-3">
               <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2">
-                Hoja de ruta
+                Análisis comercial (IA)
               </div>
               <div className="mt-1.5">
                 {narrating ? (
@@ -1316,9 +1339,20 @@ export function MapWorkspace({
                 ) : narrative ? (
                   <AssistantMessage content={narrative} />
                 ) : (
-                  <p className="text-[12px] text-muted-foreground">
-                    El recorrido y los números están listos arriba.
-                  </p>
+                  <>
+                    <button
+                      type="button"
+                      onClick={generarAnalisis}
+                      disabled={dirty}
+                      className="w-full rounded-[9px] border border-dashed px-3 py-2 text-[12.5px] font-semibold hover:border-primary hover:text-primary disabled:opacity-50"
+                    >
+                      ✦ Generar análisis con IA
+                    </button>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Opcional. El recorrido, km y costo ya están arriba (gratis).
+                      {dirty ? " Recalculá primero." : ""}
+                    </p>
+                  </>
                 )}
               </div>
             </div>
