@@ -13,6 +13,67 @@ export type SidebarItem = {
   badge?: number;
 };
 
+/* Line-icons industriales (paths 24×24 del handoff), por ruta. */
+const ICON_PATHS: Record<string, string> = {
+  "/dashboard": "M4 11l8-7 8 7M6 10v10h12V10",
+  "/clientes":
+    "M9 10a3 3 0 100-6 3 3 0 000 6M3.5 20a5.5 5.5 0 0111 0M16 4.5a3 3 0 010 6M18 14.5a5.5 5.5 0 013 4.5",
+  "/oportunidades": "M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z",
+  "/mapa": "M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11zM12 10a2 2 0 100-4 2 2 0 000 4",
+  "/presupuestos": "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
+  "/productos": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
+  "/cobranzas": "M3 6h18v12H3zM3 10h18M6 14h5",
+  "/metricas": "M4 20h16M6 20v-6M11 20V8M16 20v-9",
+  "/asistente": "M5 5h14v10H8l-3 3V5zM9 9h6M9 12h4",
+  "/admin": "M4 8h16M4 16h16M9 6v4M15 14v4",
+};
+
+function ThemeIcon({ dark, stroke = "var(--muted)" }: { dark: boolean; stroke?: string }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={stroke}
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {dark ? (
+        <path d="M12 8a4 4 0 100 8 4 4 0 000-8zM12 3v2M12 19v2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M3 12h2M19 12h2M5.2 18.8l1.4-1.4M17.4 6.6l1.4-1.4" />
+      ) : (
+        <path d="M20 14.5A8 8 0 019.5 4 7.5 7.5 0 1020 14.5z" />
+      )}
+    </svg>
+  );
+}
+
+function NavIcon({ d, active }: { d: string; active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] transition-colors",
+        active ? "bg-primary" : "bg-chip"
+      )}
+      style={active ? { boxShadow: "0 3px 8px rgba(224,80,58,0.32)" } : undefined}
+    >
+      <svg
+        width="17"
+        height="17"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={active ? "#FFFFFF" : "var(--muted)"}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d={d} />
+      </svg>
+    </span>
+  );
+}
+
 /**
  * Sidebar fija auto-plegable (handoff hifi): 68px colapsada → 236px al hover.
  * La versión expandida se superpone al contenido (absolute dentro de un
@@ -69,15 +130,37 @@ export function AppSidebar({
             !expanded && "justify-center px-0"
           )}
         >
-          <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[8px] bg-primary font-heading text-[15px] font-semibold text-white">
-            RC
-          </span>
+          <svg
+            width="34"
+            height="34"
+            viewBox="0 0 100 100"
+            className="shrink-0"
+            style={{ color: "var(--foreground)" }}
+          >
+            <path
+              d="M57 29 A27 27 0 1 0 57 71"
+              fill="none"
+              stroke="#E0503A"
+              strokeWidth="12"
+              strokeLinecap="round"
+            />
+            <text
+              x="49"
+              y="75"
+              fontSize="72"
+              fontWeight="800"
+              letterSpacing="-3"
+              fill="currentColor"
+            >
+              R
+            </text>
+          </svg>
           {expanded && (
             <span className="min-w-0">
-              <span className="block truncate font-heading text-[15px] font-semibold uppercase leading-tight text-foreground">
+              <span className="block truncate text-[15px] font-bold leading-tight tracking-[-0.02em] text-foreground">
                 {brandName}
               </span>
-              <span className="block truncate text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {brandTagline}
               </span>
             </span>
@@ -96,31 +179,26 @@ export function AppSidebar({
                 href={item.href}
                 title={item.label}
                 className={cn(
-                  "flex items-center rounded-[8px] px-3 py-[9px] transition-colors",
-                  expanded ? "gap-3" : "justify-center px-0",
+                  "flex items-center rounded-[10px] py-[7px] transition-colors",
+                  expanded ? "gap-3 px-2.5" : "justify-center px-0",
                   active ? "bg-navactive" : "hover:bg-hoverbg"
                 )}
               >
-                <span
-                  className={cn(
-                    "h-[6px] w-[6px] shrink-0 rounded-[2px]",
-                    active ? "bg-primary" : "bg-avbd"
-                  )}
-                />
+                <NavIcon d={ICON_PATHS[item.href] ?? ICON_PATHS["/dashboard"]} active={active} />
                 {expanded && (
                   <>
                     <span
                       className={cn(
-                        "min-w-0 flex-1 truncate text-[13.5px]",
+                        "min-w-0 flex-1 truncate text-[14px]",
                         active
-                          ? "font-bold text-foreground"
+                          ? "font-semibold text-foreground"
                           : "font-medium text-muted-foreground"
                       )}
                     >
                       {item.label}
                     </span>
                     {item.badge != null && item.badge > 0 && (
-                      <span className="rounded-[10px] bg-chip px-1.5 py-px text-[11px] tabular-nums text-muted2">
+                      <span className="flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold tabular-nums text-white">
                         {item.badge}
                       </span>
                     )}
@@ -154,13 +232,11 @@ export function AppSidebar({
                 {/* Glifo */}
                 <span
                   className={cn(
-                    "absolute top-1/2 -translate-y-1/2 text-[10px] leading-none",
-                    theme === "dark"
-                      ? "right-[5px] text-muted-foreground"
-                      : "left-[5px] text-white"
+                    "absolute top-1/2 -translate-y-1/2",
+                    theme === "dark" ? "right-[4px]" : "left-[4px]"
                   )}
                 >
-                  {theme === "dark" ? "☾" : "☀"}
+                  <ThemeIcon dark={theme === "dark"} stroke={theme === "dark" ? "var(--muted)" : "#fff"} />
                 </span>
                 {/* Perilla */}
                 <span
@@ -173,8 +249,8 @@ export function AppSidebar({
               </span>
             </>
           ) : (
-            <span className="text-[13px] text-muted-foreground">
-              {theme === "dark" ? "☾" : "☀"}
+            <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-chip">
+              <ThemeIcon dark={theme === "dark"} />
             </span>
           )}
         </button>
