@@ -109,7 +109,9 @@ export async function drivingRoute(points: Geo[]): Promise<RouteGeometry> {
   }
   try {
     const coords = points.map((p) => `${p.lng},${p.lat}`).join(";");
-    const url = `${OSRM}/${coords}?overview=full&geometries=geojson&steps=false&annotations=false`;
+    // overview=simplified: trazado liviano (pocos puntos) → respuesta rápida y
+    // menos datos a dibujar. Alcanza de sobra para ver la ruta en el mapa.
+    const url = `${OSRM}/${coords}?overview=simplified&geometries=geojson&steps=false&annotations=false`;
     const res = await fetch(url, {
       headers: { "User-Agent": "RC-CRM/1.0 (crm-rc-pisos)" },
       signal: AbortSignal.timeout(9000),

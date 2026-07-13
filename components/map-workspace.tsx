@@ -4,8 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { OpportunityMap, type MapPin } from "@/components/opportunity-map";
 import { AssistantMessage } from "@/components/assistant-message";
-import { planTripAction, geocodeOriginAction } from "@/app/(app)/mapa/trip-actions";
-import type { TripPlan } from "@/lib/trip";
+import {
+  planTripAction,
+  narrateTripAction,
+  geocodePointAction,
+} from "@/app/(app)/mapa/trip-actions";
+import type { TripPlan, TripWaypoint } from "@/lib/trip";
+
+type CustomStop = { id: string; lat: number; lng: number; label: string };
 
 type CarProfile = { consumption: number; fuelPrice: number };
 const CAR_KEY = "rc-trip-car";
@@ -44,8 +50,12 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
   const [origin, setOrigin] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [address, setAddress] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [customStops, setCustomStops] = useState<CustomStop[]>([]);
+  const [destInput, setDestInput] = useState("");
   const [plan, setPlan] = useState<TripPlan | null>(null);
-  const [busy, setBusy] = useState<null | "geo" | "geocode" | "plan">(null);
+  const [narrative, setNarrative] = useState<string | null>(null);
+  const [narrating, setNarrating] = useState(false);
+  const [busy, setBusy] = useState<null | "geo" | "geocode" | "dest" | "plan">(null);
   const [error, setError] = useState<string | null>(null);
   const [corridorKm, setCorridorKm] = useState(10);
   const [roundTrip, setRoundTrip] = useState(true);
@@ -64,8 +74,14 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
 
   const pinById = useMemo(() => new Map(pins.map((p) => [p.id, p])), [pins]);
 
+  // Cualquier cambio de destinos deja vieja la hoja de ruta.
+  function invalidatePlan() {
+    setPlan(null);
+    setNarrative(null);
+  }
+
   function togglePin(id: string) {
-    setPlan(null); // la selección cambió → la hoja de ruta queda vieja
+    invalidatePlan();
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
@@ -99,11 +115,37 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
     setError(null);
     if (address.trim().length < 3) return;
     setBusy("geocode");
-    const res = await geocodeOriginAction(address);
+    const res = await geocodePointAction(address);
     setBusy(null);
     if (res.ok) setOrigin({ lat: res.lat, lng: res.lng, label: res.label });
     else setError(res.error);
   }
+
+  // Sumar un destino de prospección (una dirección o ciudad).
+  async function addDestination() {
+    setError(null);
+    if (destInput.trim().length < 3) return;
+    setBusy("dest");
+    const res = await geocodePointAction(destInput);
+    setBusy(null);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    invalidatePlan();
+    setCustomStops((prev) => [
+      ...prev,
+      { id: `custom-${Date.now()}`, lat: res.lat, lng: res.lng, label: res.label },
+    ]);
+    setDestInput("");
+  }
+
+  function removeCustom(id: string) {
+    invalidatePlan();
+    setCustomStops((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  const stopCount = selectedIds.length + customStops.length;
 
   async function armar() {
     setError(null);
@@ -111,34 +153,75 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
       setError("Primero fijá desde dónde salís.");
       return;
     }
-    if (selectedIds.length === 0) {
-      setError("Tocá en el mapa las obras que vas a visitar.");
+    if (stopCount === 0) {
+      setError("Sumá destinos: tocá obras en el mapa o cargá una ciudad para prospectar.");
       return;
     }
+    const waypoints: TripWaypoint[] = [
+      ...selectedIds.map((id) => ({ kind: "opportunity" as const, id })),
+      ...customStops.map((c) => ({
+        kind: "custom" as const,
+        id: c.id,
+        lat: c.lat,
+        lng: c.lng,
+        label: c.label,
+      })),
+    ];
+
     setBusy("plan");
     const res = await planTripAction({
       origin,
-      stopIds: selectedIds,
+      waypoints,
       roundTrip,
       litersPer100Km: car.consumption,
       pricePerLiter: car.fuelPrice,
       corridorKm,
     });
     setBusy(null);
-    if (res.ok) {
-      setPlan(res.plan);
-      setShowPins(false); // ruta limpia: se ocultan las demás obras
-    } else setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    const p = res.plan;
+    setPlan(p);
+    setShowPins(false); // ruta limpia: se ocultan las demás obras
+
+    // La narrativa de la IA llega en un segundo paso (la ruta ya se ve).
+    setNarrating(true);
+    const nar = await narrateTripAction({
+      origin: p.origin.label,
+      roundTrip: p.roundTrip,
+      totalKm: p.totalKm,
+      totalMinutes: p.totalMinutes,
+      fuelCost: p.fuelCost,
+      estimated: p.estimated,
+      stops: p.stops.map((s) => ({
+        order: s.order,
+        name: s.name,
+        stageName: s.stageName,
+        m2Label: s.m2Label,
+        legKm: s.legKm,
+      })),
+      leads: p.leads.map((l) => ({
+        clientName: l.clientName,
+        stageName: l.stageName,
+        m2Label: l.m2Label,
+        detourKm: l.detourKm,
+      })),
+    });
+    setNarrating(false);
+    setNarrative(nar.ok ? nar.narrative : null);
   }
 
   function addLead(id: string) {
-    setPlan(null);
+    invalidatePlan();
     setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
   function reset() {
-    setPlan(null);
+    invalidatePlan();
     setSelectedIds([]);
+    setCustomStops([]);
     setError(null);
     setShowPins(true);
   }
@@ -174,6 +257,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             route={plan?.polyline}
             origin={origin}
             showPins={showPins}
+            customStops={customStops}
           />
         )}
         {pins.length > 0 && (
@@ -193,8 +277,8 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
         <div className="rounded-[12px] border bg-card p-4">
           <h2 className="text-[15px] font-semibold">Planificar viaje</h2>
           <p className="mt-0.5 text-[12px] text-muted-foreground">
-            Fijá desde dónde salís, tocá tus visitas en el mapa y la IA te arma
-            la hoja de ruta con km, tiempo y costo.
+            Fijá desde dónde salís, sumá destinos (obras del mapa o ciudades a
+            prospectar) y la IA te arma la hoja de ruta con km, tiempo y costo.
           </p>
 
           {/* Origen */}
@@ -237,14 +321,33 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             )}
           </div>
 
-          {/* Visitas */}
+          {/* Destinos: obras (mapa) + prospección (dirección/ciudad) */}
           <div className="mt-3">
             <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted2">
-              2 · Visitas ({selectedIds.length})
+              2 · Destinos ({stopCount})
             </div>
-            {selectedIds.length === 0 ? (
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Tocá los pines de las obras que vas a visitar.
+            <div className="mt-1.5 flex gap-1.5">
+              <input
+                value={destInput}
+                onChange={(e) => setDestInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addDestination()}
+                placeholder="Sumar dirección o ciudad a prospectar"
+                className="min-w-0 flex-1 rounded-[8px] border bg-panel px-2.5 py-1.5 text-[12.5px] outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                onClick={addDestination}
+                disabled={busy === "dest" || destInput.trim().length < 3}
+                className="shrink-0 rounded-[8px] border px-2.5 py-1.5 text-[12px] font-medium hover:bg-hoverbg disabled:opacity-50"
+              >
+                {busy === "dest" ? "…" : "+ Sumar"}
+              </button>
+            </div>
+
+            {stopCount === 0 ? (
+              <p className="mt-1.5 text-[12px] text-muted-foreground">
+                Tocá los pines de las obras en el mapa, o cargá una ciudad para
+                salir a prospectar clientes nuevos.
               </p>
             ) : (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -267,6 +370,22 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                     </button>
                   );
                 })}
+                {customStops.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => removeCustom(c.id)}
+                    className="group flex items-center gap-1 rounded-full border border-dashed bg-panel px-2 py-0.5 text-[11.5px] hover:border-primary"
+                    title="Sacar del viaje"
+                  >
+                    {orderMap?.[c.id] != null && (
+                      <span className="font-bold text-primary">{orderMap[c.id]}.</span>
+                    )}
+                    <span>📍</span>
+                    <span className="max-w-[130px] truncate">{c.label}</span>
+                    <span className="text-muted2 group-hover:text-primary">✕</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -279,7 +398,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                 checked={roundTrip}
                 onChange={(e) => {
                   setRoundTrip(e.target.checked);
-                  setPlan(null);
+                  invalidatePlan();
                 }}
                 className="accent-[var(--primary)]"
               />
@@ -291,7 +410,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
                 value={corridorKm}
                 onChange={(e) => {
                   setCorridorKm(Number(e.target.value));
-                  setPlan(null);
+                  invalidatePlan();
                 }}
                 className="rounded-[6px] border bg-panel px-1.5 py-1 outline-none"
               >
@@ -356,7 +475,7 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             >
               {busy === "plan" ? "Armando…" : "✦ Armar hoja de ruta con IA"}
             </button>
-            {(selectedIds.length > 0 || plan) && (
+            {(stopCount > 0 || plan) && (
               <button
                 type="button"
                 onClick={reset}
@@ -392,7 +511,19 @@ export function MapWorkspace({ pins }: { pins: MapPin[] }) {
             )}
 
             <div className="mt-3">
-              <AssistantMessage content={plan.narrative} />
+              {narrating ? (
+                <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Redactando la hoja de ruta…
+                </div>
+              ) : narrative ? (
+                <AssistantMessage content={narrative} />
+              ) : (
+                <p className="text-[12px] text-muted-foreground">
+                  No se pudo redactar la hoja de ruta, pero el recorrido y los
+                  números de arriba están listos.
+                </p>
+              )}
             </div>
 
             {plan.leads.length > 0 && (

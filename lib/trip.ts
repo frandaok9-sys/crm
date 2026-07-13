@@ -13,16 +13,23 @@ import {
 
 /**
  * Planificador de viajes: arma la hoja de ruta de un vendedor.
- * Todo el cálculo (orden, km, tiempo, costo, leads del corredor) es
- * determinístico y respeta permisos (solo la cartera del usuario). La IA
- * únicamente REDACTA la hoja de ruta con esos números ya calculados.
+ *
+ * Las paradas pueden ser OBRAS de su cartera (respetando permisos) o destinos
+ * de PROSPECCIÓN cargados a mano (una dirección o ciudad). Todo el cálculo
+ * (orden, km, tiempo, costo, leads del corredor) es determinístico. La IA solo
+ * REDACTA la hoja de ruta, en un paso aparte (planTrip es rápido; la narrativa
+ * llega después).
  */
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5";
 
+export type TripWaypoint =
+  | { kind: "opportunity"; id: string }
+  | { kind: "custom"; id: string; lat: number; lng: number; label: string };
+
 export type TripInput = {
   origin: { lat: number; lng: number; label: string };
-  stopIds: string[];
+  waypoints: TripWaypoint[];
   roundTrip: boolean;
   litersPer100Km: number;
   pricePerLiter: number;
@@ -31,16 +38,16 @@ export type TripInput = {
 
 export type TripStop = {
   id: string;
+  kind: "opportunity" | "custom";
   order: number;
-  clientName: string;
-  title: string;
+  name: string; // razón social (obra) o etiqueta del destino (prospección)
+  stageName: string | null;
   m2Label: string | null;
   amountLabel: string | null;
-  stageName: string;
   lat: number;
   lng: number;
-  legKm: number; // km desde la parada anterior (u origen)
-  cumKm: number; // km acumulado hasta esta parada
+  legKm: number;
+  cumKm: number;
 };
 
 export type TripLead = {
@@ -49,7 +56,7 @@ export type TripLead = {
   title: string;
   stageName: string;
   m2Label: string | null;
-  detourKm: number; // distancia al camino
+  detourKm: number;
   lat: number;
   lng: number;
 };
@@ -64,56 +71,81 @@ export type TripPlan = {
   estimated: boolean;
   roundTrip: boolean;
   polyline: [number, number][];
-  narrative: string;
+  narrative: string; // se completa en un segundo paso (narrateTrip)
 };
 
 function fmtKm(km: number): string {
   return `${km.toLocaleString("es-AR", { maximumFractionDigits: km < 10 ? 1 : 0 })} km`;
 }
-
 function fmtDur(min: number): string {
   const h = Math.floor(min / 60);
   const m = Math.round(min % 60);
   return h > 0 ? `${h} h ${m} min` : `${m} min`;
 }
 
-/** Arma la hoja de ruta completa. Respeta el alcance del usuario. */
+/** Arma la hoja de ruta (sin la narrativa). Respeta el alcance del usuario. */
 export async function planTrip(
   user: Principal & { name?: string | null },
   input: TripInput
 ): Promise<TripPlan> {
-  const {
-    origin,
-    roundTrip,
-    litersPer100Km,
-    pricePerLiter,
-    corridorKm,
-  } = input;
+  const { origin, roundTrip, litersPer100Km, pricePerLiter, corridorKm } = input;
 
-  // Solo obras de la cartera del usuario (capa central de permisos).
+  const oppIds = input.waypoints
+    .filter((w): w is Extract<TripWaypoint, { kind: "opportunity" }> => w.kind === "opportunity")
+    .map((w) => w.id);
+  const customs = input.waypoints.filter(
+    (w): w is Extract<TripWaypoint, { kind: "custom" }> => w.kind === "custom"
+  );
+
+  // Obras: solo las de la cartera del usuario (capa central de permisos).
   const scope = opportunityScope(user);
-  const selected = await prisma.opportunity.findMany({
-    where: {
-      ...scope,
-      id: { in: input.stopIds },
-      latitude: { not: null },
-      longitude: { not: null },
-    },
-    include: {
-      client: { select: { legalName: true } },
-      stage: { select: { name: true } },
-    },
-  });
+  const opps = oppIds.length
+    ? await prisma.opportunity.findMany({
+        where: { ...scope, id: { in: oppIds }, latitude: { not: null }, longitude: { not: null } },
+        include: {
+          client: { select: { legalName: true } },
+          stage: { select: { name: true } },
+        },
+      })
+    : [];
 
-  const stopsGeo: (Geo & { op: (typeof selected)[number] })[] = selected.map((o) => ({
-    lat: Number(o.latitude),
-    lng: Number(o.longitude),
-    op: o,
-  }));
+  type Resolved = Geo & {
+    id: string;
+    kind: "opportunity" | "custom";
+    name: string;
+    stageName: string | null;
+    m2Label: string | null;
+    amountLabel: string | null;
+  };
+
+  const resolved: Resolved[] = [
+    ...opps.map((o) => ({
+      lat: Number(o.latitude),
+      lng: Number(o.longitude),
+      id: o.id,
+      kind: "opportunity" as const,
+      name: o.client.legalName,
+      stageName: o.stage.name,
+      m2Label: o.estimatedM2
+        ? `${Number(o.estimatedM2).toLocaleString("es-AR")} m²`
+        : null,
+      amountLabel: formatMoney(o.amount ? o.amount.toString() : null, o.currency),
+    })),
+    ...customs.map((c) => ({
+      lat: c.lat,
+      lng: c.lng,
+      id: c.id,
+      kind: "custom" as const,
+      name: c.label,
+      stageName: "Prospección" as string | null,
+      m2Label: null,
+      amountLabel: null,
+    })),
+  ];
 
   // 1) Orden óptimo desde el origen.
-  const order = orderStops(origin, stopsGeo);
-  const ordered = order.map((i) => stopsGeo[i]);
+  const order = orderStops(origin, resolved);
+  const ordered = order.map((i) => resolved[i]);
 
   // 2) Ruta real por calles (origen → paradas [→ origen]).
   const routePoints: Geo[] = [
@@ -129,15 +161,13 @@ export async function planTrip(
     const legKm = route.legs[idx]?.km ?? 0;
     cum += legKm;
     return {
-      id: s.op.id,
+      id: s.id,
+      kind: s.kind,
       order: idx + 1,
-      clientName: s.op.client.legalName,
-      title: s.op.title,
-      m2Label: s.op.estimatedM2
-        ? `${Number(s.op.estimatedM2).toLocaleString("es-AR")} m²`
-        : null,
-      amountLabel: formatMoney(s.op.amount ? s.op.amount.toString() : null, s.op.currency),
-      stageName: s.op.stage.name,
+      name: s.name,
+      stageName: s.stageName,
+      m2Label: s.m2Label,
+      amountLabel: s.amountLabel,
       lat: s.lat,
       lng: s.lng,
       legKm,
@@ -146,11 +176,11 @@ export async function planTrip(
   });
 
   // 4) Leads en el corredor: otras obras de la cartera cerca de la ruta.
-  const selectedIds = new Set(input.stopIds);
+  const excluded = new Set(oppIds);
   const candidates = await prisma.opportunity.findMany({
     where: {
       ...scope,
-      id: { notIn: [...selectedIds] },
+      id: { notIn: [...excluded] },
       latitude: { not: null },
       longitude: { not: null },
     },
@@ -164,8 +194,7 @@ export async function planTrip(
   const leads: TripLead[] = candidates
     .map((o) => {
       const p = { lat: Number(o.latitude), lng: Number(o.longitude) };
-      const detourKm = distanceToRouteKm(p, route.polyline);
-      return { o, p, detourKm };
+      return { o, p, detourKm: distanceToRouteKm(p, route.polyline) };
     })
     .filter((c) => c.detourKm <= corridorKm)
     .sort((a, b) => a.detourKm - b.detourKm)
@@ -183,57 +212,40 @@ export async function planTrip(
       lng: c.p.lng,
     }));
 
-  const cost = fuelCost(route.totalKm, litersPer100Km, pricePerLiter);
-
-  // 5) La IA redacta la hoja de ruta con los números ya calculados.
-  const narrative = await writeNarrative(user, {
-    origin: origin.label,
-    roundTrip,
-    totalKm: route.totalKm,
-    totalMinutes: route.totalMinutes,
-    fuelCost: cost,
-    estimated: route.estimated,
-    stops,
-    leads,
-  });
-
   return {
     origin,
     stops,
     leads,
     totalKm: route.totalKm,
     totalMinutes: route.totalMinutes,
-    fuelCost: cost,
+    fuelCost: fuelCost(route.totalKm, litersPer100Km, pricePerLiter),
     estimated: route.estimated,
     roundTrip,
     polyline: route.polyline,
-    narrative,
+    narrative: "",
   };
 }
 
 // ---------------------------------------------------------------------------
-// Redacción de la hoja de ruta (IA) — digest mínimo, sin recalcular números
+// Redacción de la hoja de ruta (IA) — paso aparte, con los números ya listos
 // ---------------------------------------------------------------------------
 
-type NarrativeInput = {
+export type NarrateInput = {
   origin: string;
   roundTrip: boolean;
   totalKm: number;
   totalMinutes: number;
   fuelCost: number;
   estimated: boolean;
-  stops: TripStop[];
-  leads: TripLead[];
+  stops: { order: number; name: string; stageName: string | null; m2Label: string | null; legKm: number }[];
+  leads: { clientName: string; stageName: string; m2Label: string | null; detourKm: number }[];
 };
 
-async function writeNarrative(
-  user: { name?: string | null },
-  d: NarrativeInput
-): Promise<string> {
+/** Redacta la hoja de ruta con la IA (o un texto básico si no hay API). */
+export async function narrateTrip(d: NarrateInput): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return fallbackNarrative(d);
 
-  // Digest compacto: strings ya formateados, la IA no hace cuentas.
   const digest = {
     origen: d.origin,
     vuelta_al_origen: d.roundTrip,
@@ -242,7 +254,7 @@ async function writeNarrative(
     estimado: d.estimated,
     paradas: d.stops.map((s) => ({
       n: s.order,
-      cliente: s.clientName,
+      destino: s.name,
       etapa: s.stageName,
       m2: s.m2Label,
       tramo: fmtKm(s.legKm),
@@ -255,16 +267,17 @@ async function writeNarrative(
     })),
   };
 
-  const system = `Sos el asistente de campo de RC Pisos Industriales (pisos industriales por m² en Mendoza). Redactás la HOJA DE RUTA de una jornada de visitas para un vendedor. Español rioplatense, concreto, motivador pero sin relleno.
+  const system = `Sos el asistente de campo de RC Pisos Industriales (pisos industriales por m² en Mendoza). Redactás la HOJA DE RUTA de una jornada para un vendedor viajante que combina visitas a obras y prospección de clientes nuevos. Español rioplatense, concreto, motivador pero sin relleno.
 
 REGLAS:
 - Usá EXACTAMENTE los números del digest (ya calculados). No inventes ni recalcules km, tiempo ni costo.
+- Las paradas con etapa "Prospección" son destinos nuevos (una ciudad o zona para buscar clientes), no obras existentes: tratalas como oportunidad de prospección.
 - Formato Markdown, breve:
   1) Una línea de resumen (total km, tiempo, costo de combustible).
   2) Sección "Recorrido": las paradas en orden con su tramo, una por línea.
   3) Sección "Aprovechá en el camino": por cada lead, 1 frase con por qué conviene pasar (etapa temprana = oportunidad fresca; m² grande = obra importante; desvío chico = casi sin costo). Si no hay leads, omití la sección.
-- Si "estimado" es true, aclaralo en una línea corta (km aproximados, sin señal de ruteo).
-- No repitas toda la tabla de datos; la interfaz ya la muestra. Aportá criterio comercial.`;
+- Si "estimado" es true, aclaralo en una línea corta (km aproximados).
+- No repitas toda la tabla; la interfaz ya la muestra. Aportá criterio comercial.`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -275,10 +288,7 @@ REGLAS:
       system,
       messages: [{ role: "user", content: JSON.stringify(digest) }],
     });
-    const text = res.content
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("")
-      .trim();
+    const text = res.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
     return text || fallbackNarrative(d);
   } catch {
     return fallbackNarrative(d);
@@ -286,14 +296,14 @@ REGLAS:
 }
 
 /** Hoja de ruta básica sin IA (si falla la API), para no dejar al vendedor sin nada. */
-function fallbackNarrative(d: NarrativeInput): string {
+function fallbackNarrative(d: NarrateInput): string {
   const lines = [
     `**Viaje:** ${fmtKm(d.totalKm)} · ${fmtDur(d.totalMinutes)} · combustible ~$${Math.round(
       d.fuelCost
     ).toLocaleString("es-AR")}${d.estimated ? " (estimado)" : ""}.`,
     "",
     "**Recorrido:**",
-    ...d.stops.map((s) => `${s.order}. ${s.clientName} — ${s.stageName} (${fmtKm(s.legKm)})`),
+    ...d.stops.map((s) => `${s.order}. ${s.name} — ${s.stageName ?? ""} (${fmtKm(s.legKm)})`),
   ];
   if (d.leads.length > 0) {
     lines.push("", "**Aprovechá en el camino:**");

@@ -38,6 +38,8 @@ type MapProps = {
   origin?: MapOrigin | null;
   /** Mostrar los pines de obras que NO son del viaje (para no tapar la ruta). */
   showPins?: boolean;
+  /** Destinos de prospección cargados a mano (dirección/ciudad). */
+  customStops?: { id: string; lat: number; lng: number; label: string }[];
 };
 
 const AR_CENTER: [number, number] = [-38.5, -64.5];
@@ -85,6 +87,7 @@ export function OpportunityMap({
   route,
   origin,
   showPins = true,
+  customStops,
 }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -230,6 +233,36 @@ export function OpportunityMap({
         marker.addTo(layer);
       }
 
+      // ---- Destinos de prospección (dirección/ciudad) -----------------------
+      for (const cs of customStops ?? []) {
+        const latlng: [number, number] = [cs.lat, cs.lng];
+        bounds.push(latlng);
+        const order = orderMap?.[cs.id];
+        const marker =
+          order != null
+            ? L.marker(latlng, {
+                icon: L.divIcon({
+                  className: "trip-marker",
+                  html: `<div class="trip-stop" style="background:${ROUTE_COLOR}">${order}</div>`,
+                  iconSize: [28, 28],
+                  iconAnchor: [14, 14],
+                }),
+              })
+            : L.marker(latlng, {
+                icon: L.divIcon({
+                  className: "trip-marker",
+                  html: `<div class="trip-prospect">📍</div>`,
+                  iconSize: [26, 26],
+                  iconAnchor: [13, 13],
+                }),
+              });
+        marker.bindTooltip(`Prospección: ${escapeHtml(cs.label)}`, {
+          direction: "top",
+          offset: [0, -8],
+        });
+        marker.addTo(layer);
+      }
+
       // ---- Encuadre ---------------------------------------------------------
       if (route && route.length > 1) {
         map.fitBounds(route as [number, number][], { padding: [50, 50] });
@@ -242,7 +275,7 @@ export function OpportunityMap({
     return () => {
       cancelled = true;
     };
-  }, [pins, selectedIds, orderMap, leadIds, route, origin, onTogglePin, tripMode, showPins]);
+  }, [pins, selectedIds, orderMap, leadIds, route, origin, onTogglePin, tripMode, showPins, customStops]);
 
   useEffect(() => {
     return () => {
