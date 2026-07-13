@@ -849,7 +849,9 @@ export function MapWorkspace({
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       {/* Mapa / Hoja de ruta */}
       <div
-        className="relative order-2 overflow-hidden rounded-[12px] border lg:order-1"
+        className={`relative order-2 overflow-hidden rounded-[12px] border lg:order-1 ${
+          mapTab === "ruta" ? "[&_.leaflet-control-container]:hidden" : ""
+        }`}
         style={panelStyle}
       >
         {/* Pestañas del sector: mapa o hoja de ruta */}
