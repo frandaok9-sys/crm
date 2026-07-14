@@ -126,6 +126,43 @@ function normalizeHistory(
   return merged.map((m) => ({ role: m.role, content: m.text }));
 }
 
+/**
+ * Marca un ÚNICO punto de corte de "prompt caching" al final del historial.
+ * Anthropic cachea todo lo que está ANTES del corte (orden: herramientas →
+ * system → mensajes), así que un corte en el último mensaje cachea instrucciones
+ * + herramientas + turnos previos como un solo bloque reutilizable. En las
+ * vueltas siguientes del mismo pedido y en las repreguntas del mismo chat, ese
+ * prefijo se relee a ~10% del costo en vez de reprocesarse entero.
+ *
+ * Se limpia el corte anterior antes de poner el nuevo para no acumular
+ * breakpoints (la API admite máximo 4 por request). Haiku solo cachea prefijos
+ * de 4.096+ tokens: con instrucciones+herramientas (~2.600) el ahorro aparece
+ * cuando la conversación suma algo de historial/resultados; en preguntas
+ * sueltas y livianas simplemente no cachea (sin costo extra).
+ */
+const EPHEMERAL = { type: "ephemeral" as const };
+
+function markCacheCheckpoint(messages: MessageParam[]): void {
+  for (const m of messages) {
+    if (Array.isArray(m.content)) {
+      for (const block of m.content) {
+        delete (block as { cache_control?: unknown }).cache_control;
+      }
+    }
+  }
+  const last = messages[messages.length - 1];
+  if (!last) return;
+  if (typeof last.content === "string") {
+    // El texto suelto (pregunta del usuario) se envuelve en un bloque para
+    // poder marcarlo; el contenido es idéntico, así que no rompe el caché.
+    last.content = [{ type: "text", text: last.content, cache_control: EPHEMERAL }];
+  } else if (last.content.length > 0) {
+    (last.content[last.content.length - 1] as {
+      cache_control?: typeof EPHEMERAL;
+    }).cache_control = EPHEMERAL;
+  }
+}
+
 /** Ejecuta una consulta contra el modelo, resolviendo las llamadas a herramientas que pida. */
 export async function runAssistant(
   user: Principal & { name?: string | null; email?: string | null },
@@ -146,6 +183,8 @@ export async function runAssistant(
   const toolCalls: ToolCallLog[] = [];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    // Cachear el prefijo (instrucciones + herramientas + turnos previos).
+    markCacheCheckpoint(messages);
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
