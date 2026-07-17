@@ -203,12 +203,37 @@ export async function moveOpportunity(
 ): Promise<void> {
   const { user } = await requireEditableOpportunity(movedId);
 
+  // La lista de posiciones viene del navegador: se valida TODO en el servidor.
+  // (a) la etapa destino existe; (b) cada id de la columna es real, editable
+  // por este usuario y pertenece a la columna destino (salvo la tarjeta que
+  // se está moviendo). Sin esto, un vendedor podría mandar ids ajenos y
+  // arrastrar oportunidades de otros a cualquier etapa.
+  const stage = await prisma.stage.findUnique({ where: { id: toStageId } });
+  if (!stage) throw new Error("Etapa inválida.");
+
+  const ids = [...new Set(orderedIds)];
+  const rows = await prisma.opportunity.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, ownerId: true, stageId: true },
+  });
+  const byId = new Map(rows.map((o) => [o.id, o]));
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (!row) throw new Error("La columna incluye una oportunidad inexistente.");
+    if (!canEditOpportunity(user, row)) {
+      throw new Error("La columna incluye oportunidades que no podés modificar.");
+    }
+    if (row.id !== movedId && row.stageId !== toStageId) {
+      throw new Error("Solo se puede reordenar la columna de destino.");
+    }
+  }
+
   await prisma.$transaction([
     prisma.opportunity.update({
       where: { id: movedId },
       data: { stageId: toStageId },
     }),
-    ...orderedIds.map((id, index) =>
+    ...ids.map((id, index) =>
       prisma.opportunity.update({
         where: { id },
         data: { position: index, stageId: toStageId },

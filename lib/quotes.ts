@@ -27,6 +27,32 @@ export const ITEM_TYPE_LABELS: Record<QuoteItemType, string> = {
   [QuoteItemType.TEXT]: "Texto libre",
 };
 
+/**
+ * Máquina de estados del presupuesto (Borrador→Enviado→Aprobado/Rechazado/
+ * Vencido). Los estados finales no tienen salida: para "revivir" un
+ * presupuesto se crea una nueva revisión (Rev.N+1, que nace en Borrador).
+ * La pantalla ya muestra solo los botones válidos; esto es la validación del
+ * lado del servidor (regla del proyecto: no confiar solo en la pantalla).
+ */
+export const QUOTE_STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
+  [QuoteStatus.DRAFT]: [QuoteStatus.SENT],
+  [QuoteStatus.SENT]: [
+    QuoteStatus.APPROVED,
+    QuoteStatus.REJECTED,
+    QuoteStatus.EXPIRED,
+  ],
+  [QuoteStatus.APPROVED]: [],
+  [QuoteStatus.REJECTED]: [],
+  [QuoteStatus.EXPIRED]: [],
+};
+
+export function canTransitionQuote(
+  from: QuoteStatus,
+  to: QuoteStatus
+): boolean {
+  return QUOTE_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
 /** Un presupuesto puede tener varias revisiones (rootId agrupa Rev.1, Rev.2…). Nos quedamos con la más nueva de cada grupo. */
 export function latestRevisions<
   T extends { id: string; rootId: string | null; version: number },

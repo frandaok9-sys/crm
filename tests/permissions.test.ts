@@ -7,6 +7,8 @@ import {
   canManageLedger,
   canManageUsers,
   canEditClient,
+  canCreateTrips,
+  canManageTrip,
   clientScope,
   ROLE_DEFAULT_PERMISSIONS,
   type Principal,
@@ -78,5 +80,29 @@ describe("permission layer", () => {
     );
     expect(hasPermission(pending, "clients.manage")).toBe(false);
     expect(canManageUsers(pending)).toBe(false);
+  });
+});
+
+describe("hojas de ruta (SavedTrip)", () => {
+  it("crear: vendedor/gerente/admin sí; Solo lectura y Administración no", () => {
+    expect(canCreateTrips(principal(Role.SALES))).toBe(true);
+    expect(canCreateTrips(principal(Role.MANAGER))).toBe(true);
+    expect(canCreateTrips(principal(Role.ADMIN, []))).toBe(true);
+    expect(canCreateTrips(principal(Role.READ_ONLY))).toBe(false);
+    expect(canCreateTrips(principal(Role.ADMINISTRATION))).toBe(false);
+  });
+
+  it("editar/borrar: el dueño sí, otro vendedor no", () => {
+    const sales = principal(Role.SALES);
+    expect(canManageTrip(sales, { ownerId: "u1" })).toBe(true);
+    expect(canManageTrip(sales, { ownerId: "otro" })).toBe(false);
+  });
+
+  it("editar/borrar ajenas: gerente/admin sí; 'ver todo' NO alcanza (el bug)", () => {
+    expect(canManageTrip(principal(Role.MANAGER), { ownerId: "otro" })).toBe(true);
+    expect(canManageTrip(principal(Role.ADMIN, []), { ownerId: "otro" })).toBe(true);
+    // READ_ONLY y ADMINISTRATION tienen records.view_all, pero no gestionan hojas.
+    expect(canManageTrip(principal(Role.READ_ONLY), { ownerId: "otro" })).toBe(false);
+    expect(canManageTrip(principal(Role.ADMINISTRATION), { ownerId: "otro" })).toBe(false);
   });
 });

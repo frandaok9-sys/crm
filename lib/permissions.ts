@@ -233,6 +233,34 @@ export function canEditQuote(
 }
 
 // ---------------------------------------------------------------------------
+// Hojas de ruta (planificador de viajes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Armar/guardar hojas de ruta es ESCRITURA: requiere gestionar el pipeline
+ * (vendedor, gerente, admin). "Solo lectura" y "Administración" pueden verlas
+ * pero no crearlas. Regla compartida por la web y el asistente de IA.
+ */
+export function canCreateTrips(
+  principal: Principal | null | undefined
+): boolean {
+  return hasPermission(principal, "opportunities.manage");
+}
+
+/**
+ * Editar/borrar una hoja guardada: su dueño, o un gerente/admin. OJO: no
+ * alcanza con "ver toda la cartera" (eso lo tienen también Solo lectura y
+ * Administración, que no deben modificar hojas ajenas).
+ */
+export function canManageTrip(
+  principal: Principal | null | undefined,
+  trip: { ownerId?: string | null }
+): boolean {
+  if (!canCreateTrips(principal)) return false;
+  return ownsRecord(principal, trip) || canAssignClients(principal);
+}
+
+// ---------------------------------------------------------------------------
 // Financiero, catálogo y administración
 // ---------------------------------------------------------------------------
 

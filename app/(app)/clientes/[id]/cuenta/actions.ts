@@ -12,6 +12,7 @@ import {
   Currency,
   LedgerMovementType,
 } from "@/lib/generated/prisma/enums";
+import { Prisma } from "@/lib/generated/prisma/client";
 
 const MOVEMENT_TYPES = Object.values(LedgerMovementType) as string[];
 
@@ -65,7 +66,11 @@ export async function addMovement(formData: FormData): Promise<void> {
 
   // Movement + FIFO allocation happen in ONE transaction: the balance and
   // the imputations can never be left inconsistent.
-  const movement = await prisma.$transaction(async (tx) => {
+  //
+  // Aislamiento SERIALIZABLE: dos pagos del mismo cliente cargados a la vez
+  // leían ambos la factura como "abierta" y la imputaban de más. Con
+  // Serializable, la base rechaza el segundo (conflicto) y acá se reintenta.
+  const runOnce = () => prisma.$transaction(async (tx) => {
     const created = await tx.ledgerMovement.create({
       data: {
         clientId,
@@ -116,7 +121,21 @@ export async function addMovement(formData: FormData): Promise<void> {
     }
 
     return created;
-  });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+  let movement: Awaited<ReturnType<typeof runOnce>>;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      movement = await runOnce();
+      break;
+    } catch (error) {
+      // P2034: conflicto de serialización (otro pago concurrente). Reintentar.
+      const conflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034";
+      if (!conflict || attempt >= 3) throw error;
+    }
+  }
 
   await logAudit({
     action: "ledger.movement_created",

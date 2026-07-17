@@ -8,6 +8,7 @@ import {
   type Principal,
 } from "@/lib/permissions";
 import { SEGMENT_LABELS } from "@/lib/clients";
+import { latestRevisions } from "@/lib/quotes";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
 
 /**
@@ -72,10 +73,13 @@ function monthLabel(date: Date): string {
 
 export async function getMetrics(user: Principal): Promise<MetricsData> {
   const companyWide = canViewAllRecords(user);
-  const [quotes, opportunities] = await Promise.all([
+  const [allQuotes, opportunities] = await Promise.all([
     prisma.quote.findMany({
       where: quoteScope(user),
       select: {
+        id: true,
+        rootId: true,
+        version: true,
         status: true,
         total: true,
         currency: true,
@@ -95,6 +99,11 @@ export async function getMetrics(user: Principal): Promise<MetricsData> {
       },
     }),
   ]);
+
+  // Cada presupuesto cuenta UNA sola vez: si tiene revisiones (Rev.2, Rev.3…)
+  // se toma la última. Sin esto, un presupuesto revisado inflaba cotizado,
+  // aprobado y conversión por cada revisión.
+  const quotes = latestRevisions(allQuotes);
 
   // --- Totales y conversión ------------------------------------------------
   const totalsMap = new Map<string, { quoted: Decimal; approved: Decimal }>();

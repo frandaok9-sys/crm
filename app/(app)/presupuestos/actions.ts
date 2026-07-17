@@ -15,6 +15,7 @@ import {
 import { logAudit } from "@/lib/audit";
 import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { computeQuoteTotals, lineNet } from "@/lib/quotes-calc";
+import { canTransitionQuote, QUOTE_STATUS_LABELS } from "@/lib/quotes";
 import {
   Currency,
   QuoteStatus,
@@ -251,9 +252,29 @@ export async function setQuoteStatus(formData: FormData): Promise<void> {
     throw new Error("No tenés permisos para modificar este presupuesto.");
   }
 
+  // Máquina de estados en el servidor: la pantalla muestra solo los botones
+  // válidos, pero un pedido armado a mano podía saltearla (p. ej. pasar un
+  // Rechazado o Vencido a Aprobado).
+  const next = status as QuoteStatus;
+  if (!canTransitionQuote(existing.status, next)) {
+    throw new Error(
+      `No se puede pasar un presupuesto de "${QUOTE_STATUS_LABELS[existing.status]}" a "${QUOTE_STATUS_LABELS[next]}". Creá una nueva revisión.`
+    );
+  }
+  // Un presupuesto cuya validez ya venció no se aprueba: se revisa (Rev.N+1).
+  if (
+    next === QuoteStatus.APPROVED &&
+    existing.validUntil &&
+    existing.validUntil < new Date()
+  ) {
+    throw new Error(
+      "La validez de este presupuesto ya venció. Creá una nueva revisión para aprobarlo."
+    );
+  }
+
   await prisma.quote.update({
     where: { id },
-    data: { status: status as QuoteStatus },
+    data: { status: next },
   });
   await logAudit({
     action: "quote.status_changed",

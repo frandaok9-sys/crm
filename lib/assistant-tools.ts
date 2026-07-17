@@ -10,6 +10,7 @@ import {
   hasPermission,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
+import { logAudit } from "@/lib/audit";
 import { getMetrics } from "@/lib/metrics";
 import { getReceivables } from "@/lib/receivables";
 import { computeBalances } from "@/lib/ledger-calc";
@@ -139,6 +140,8 @@ export const ASSISTANT_TOOLS = [
       },
       required: ["salida", "destinos"],
     },
+    // Guardar una hoja es ESCRITURA: mismos permisos que en la web.
+    requires: "opportunities.manage",
   },
   {
     name: "hojas_de_ruta",
@@ -249,6 +252,10 @@ export async function runTool(
       }
       return cobranzasResumen();
     case "armar_hoja_ruta":
+      // CAPA 2: guardar hojas de ruta es escritura (roles de consulta, no).
+      if (!hasPermission(user, "opportunities.manage")) {
+        return { error: "Este usuario no puede crear hojas de ruta (rol de consulta)." };
+      }
       return armarHojaRuta(user, str("salida") ?? "", strList("destinos"));
     case "hojas_de_ruta":
       return listarHojasRuta(user);
@@ -683,13 +690,20 @@ async function armarHojaRuta(user: Principal, salida: string, destinos: string[]
 
   // Guardar (para que aparezca en "las hojas de ruta ya cargadas" del mapa).
   const name = `${origin.label} · ${plan.stops.length} visita${plan.stops.length === 1 ? "" : "s"}`;
-  await prisma.savedTrip.create({
+  const saved = await prisma.savedTrip.create({
     data: {
       ownerId: user.id,
       name,
       totalKm: plan.totalKm,
       data: { plan: { ...plan, narrative: "" }, waypoints, mapsUrl },
     },
+  });
+  await logAudit({
+    action: "trip.created",
+    actorId: user.id,
+    targetType: "SavedTrip",
+    targetId: saved.id,
+    metadata: { name, via: "assistant" },
   });
 
   const h = Math.floor(plan.totalMinutes / 60);
@@ -840,6 +854,14 @@ async function crearClienteRapido(
       isDraft: true,
       tenantId,
     },
+  });
+  // Misma traza de auditoría que el alta desde la web.
+  await logAudit({
+    action: "client.created",
+    actorId: user.id,
+    targetType: "Client",
+    targetId: created.id,
+    metadata: { legalName: name, via: "assistant", draft: true },
   });
   // Ubicarlo en el mapa (para rutas). Nunca rompe el alta.
   try {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import ExcelJS from "exceljs";
+import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
@@ -32,7 +33,11 @@ function num(value: unknown): string | null {
   } else if (s.includes(",")) {
     s = s.replace(",", ".");
   }
-  return /^\d+(\.\d+)?$/.test(s) ? Number(s).toFixed(2) : null;
+  // Decimal (no Number): es dinero que alimenta presupuestos; el redondeo
+  // flotante de Number("1.005").toFixed(2) daba "1.00" en vez de "1.01".
+  return /^\d+(\.\d+)?$/.test(s)
+    ? new Decimal(s).toDecimalPlaces(2).toFixed(2)
+    : null;
 }
 
 function parseCurrency(value: unknown): Currency {

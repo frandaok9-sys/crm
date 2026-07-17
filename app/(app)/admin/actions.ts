@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
@@ -290,8 +291,13 @@ export async function saveExchangeRate(dateStr: string, usdToArs: string): Promi
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     throw new Error("Fecha inválida.");
   }
-  const value = Number(String(usdToArs).replace(",", "."));
-  if (!Number.isFinite(value) || value <= 0) {
+  // Decimal (no Number): es un valor monetario, sin redondeo flotante.
+  const raw = String(usdToArs).replace(",", ".").trim();
+  if (!/^\d+(\.\d+)?$/.test(raw)) {
+    throw new Error("El tipo de cambio debe ser un número mayor a 0.");
+  }
+  const value = new Decimal(raw).toDecimalPlaces(4);
+  if (value.lte(0)) {
     throw new Error("El tipo de cambio debe ser un número mayor a 0.");
   }
   const date = new Date(`${dateStr}T00:00:00Z`);
@@ -304,7 +310,7 @@ export async function saveExchangeRate(dateStr: string, usdToArs: string): Promi
     action: "exchange_rate.created",
     actorId: admin.id,
     targetType: "ExchangeRate",
-    metadata: { date: dateStr, usdToArs: value },
+    metadata: { date: dateStr, usdToArs: value.toFixed(4) },
   });
   revalidatePath("/admin");
   revalidatePath("/metricas");

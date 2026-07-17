@@ -2,7 +2,13 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canViewAllRecords, clientScope } from "@/lib/permissions";
+import {
+  canCreateTrips,
+  canManageTrip,
+  canViewAllRecords,
+  clientScope,
+} from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
 import { geocodeAddress, suggestPlaces, type PlaceSuggestion } from "@/lib/geocode";
 import { findWebProspects, type CityProspects } from "@/lib/prospects";
 import {
@@ -18,6 +24,27 @@ const MAX_STOPS = 15;
 
 function clamp(n: number, min: number, max: number, fallback: number): number {
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
+/**
+ * Tope de uso por usuario para las acciones con costo externo (IA / búsqueda
+ * web). Cuenta las entradas recientes del AuditLog de esa acción — mismo
+ * patrón que el chat del asistente. Devuelve true si todavía puede.
+ */
+async function withinActionLimit(
+  userId: string,
+  action: string,
+  max: number,
+  windowMs: number
+): Promise<boolean> {
+  const count = await prisma.auditLog.count({
+    where: {
+      actorId: userId,
+      action,
+      createdAt: { gte: new Date(Date.now() - windowMs) },
+    },
+  });
+  return count < max;
 }
 
 /** Autocompletado de lugares (tipo Maps): coincidencias reales para elegir. */
@@ -178,11 +205,20 @@ export async function planTripAction(raw: {
 export async function findProspectsAction(
   cities: string[]
 ): Promise<{ ok: true; cities: CityProspects[]; error?: string } | { ok: false; error: string }> {
-  await requireActiveUser();
+  const user = await requireActiveUser();
   const list = Array.isArray(cities) ? cities.filter((c) => typeof c === "string") : [];
   if (list.length === 0) return { ok: false, error: "No hay ciudades en la ruta para prospectar." };
+  // Usa búsqueda web + IA (con costo real): tope por usuario por hora.
+  if (!(await withinActionLimit(user.id, "prospects.searched", 10, 60 * 60_000))) {
+    return { ok: false, error: "Alcanzaste el tope de búsquedas de prospectos por hora. Probá más tarde." };
+  }
   try {
     const { cities: found, error } = await findWebProspects(list);
+    await logAudit({
+      action: "prospects.searched",
+      actorId: user.id,
+      metadata: { cities: list.slice(0, 5) },
+    });
     return { ok: true, cities: found, error };
   } catch (error) {
     return { ok: false, error: (error as Error).message || "No se pudo buscar prospectos." };
@@ -193,9 +229,14 @@ export async function findProspectsAction(
 export async function narrateTripAction(
   input: NarrateInput
 ): Promise<{ ok: true; narrative: string } | { ok: false; error: string }> {
-  await requireActiveUser();
+  const user = await requireActiveUser();
+  // Llama a la IA (con costo): tope por usuario por hora.
+  if (!(await withinActionLimit(user.id, "trip.narrated", 15, 60 * 60_000))) {
+    return { ok: false, error: "Alcanzaste el tope de análisis con IA por hora. Probá más tarde." };
+  }
   try {
     const narrative = await narrateTrip(input);
+    await logAudit({ action: "trip.narrated", actorId: user.id });
     return { ok: true, narrative };
   } catch (error) {
     return { ok: false, error: (error as Error).message || "No se pudo redactar la hoja de ruta." };
@@ -224,6 +265,10 @@ export async function saveTripAction(input: {
   data: unknown;
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const user = await requireActiveUser();
+  // Guardar es escritura: los roles de solo consulta no crean hojas.
+  if (!canCreateTrips(user)) {
+    return { ok: false, error: "Tu rol es de consulta: no puede guardar hojas de ruta." };
+  }
   const name = String(input.name || "").trim().slice(0, 80) || "Hoja de ruta";
   const totalKm = Number(input.totalKm);
   if (!input.data || typeof input.data !== "object") {
@@ -237,6 +282,13 @@ export async function saveTripAction(input: {
         totalKm: Number.isFinite(totalKm) ? totalKm : 0,
         data: input.data as object,
       },
+    });
+    await logAudit({
+      action: "trip.created",
+      actorId: user.id,
+      targetType: "SavedTrip",
+      targetId: saved.id,
+      metadata: { name },
     });
     return { ok: true, id: saved.id };
   } catch (error) {
@@ -252,7 +304,7 @@ export async function updateTripAction(
   const user = await requireActiveUser();
   const trip = await prisma.savedTrip.findUnique({ where: { id } });
   if (!trip) return { ok: false, error: "No existe." };
-  if (trip.ownerId !== user.id && !canViewAllRecords(user)) {
+  if (!canManageTrip(user, trip)) {
     return { ok: false, error: "No podés editar esta hoja de ruta." };
   }
   if (!input.data || typeof input.data !== "object") {
@@ -267,6 +319,13 @@ export async function updateTripAction(
       totalKm: Number.isFinite(totalKm) ? totalKm : trip.totalKm,
       data: input.data as object,
     },
+  });
+  await logAudit({
+    action: "trip.updated",
+    actorId: user.id,
+    targetType: "SavedTrip",
+    targetId: id,
+    metadata: { name },
   });
   return { ok: true };
 }
@@ -296,7 +355,7 @@ export async function listSavedTripsAction(): Promise<SavedTripSummary[]> {
     totalKm: r.totalKm,
     createdAt: r.createdAt.toISOString(),
     mine: r.ownerId === user.id,
-    canManage: r.ownerId === user.id || manager,
+    canManage: canManageTrip(user, r),
     ownerName: r.ownerId ? ownerName.get(r.ownerId) ?? null : null,
     data: r.data,
   }));
@@ -309,9 +368,16 @@ export async function deleteSavedTripAction(
   const user = await requireActiveUser();
   const trip = await prisma.savedTrip.findUnique({ where: { id } });
   if (!trip) return { ok: false, error: "No existe." };
-  if (trip.ownerId !== user.id && !canViewAllRecords(user)) {
+  if (!canManageTrip(user, trip)) {
     return { ok: false, error: "No podés borrar esta hoja de ruta." };
   }
   await prisma.savedTrip.delete({ where: { id } });
+  await logAudit({
+    action: "trip.deleted",
+    actorId: user.id,
+    targetType: "SavedTrip",
+    targetId: id,
+    metadata: { name: trip.name },
+  });
   return { ok: true };
 }
