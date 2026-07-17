@@ -19,12 +19,10 @@ export default async function NewQuotePage() {
   if (!canCreateQuotes(user)) redirect("/presupuestos");
 
   const canAssign = canAssignClients(user);
-  const [clients, taxRates, owners] = await Promise.all([
-    prisma.client.findMany({
-      where: clientScope(user),
-      select: { id: true, legalName: true },
-      orderBy: { legalName: "asc" },
-    }),
+  // Solo el conteo (para el estado vacío): el selector busca on-type en el
+  // servidor, así no se serializa la cartera completa al navegador.
+  const [clientCount, taxRates, owners] = await Promise.all([
+    prisma.client.count({ where: clientScope(user) }),
     prisma.taxRate.findMany({ orderBy: { position: "asc" } }),
     canAssign
       ? prisma.user.findMany({
@@ -70,7 +68,7 @@ export default async function NewQuotePage() {
         </h1>
       </div>
 
-      {clients.length === 0 ? (
+      {clientCount === 0 ? (
         <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900">
           Primero necesitás un cliente en tu cartera.{" "}
           <Link href="/clientes/nuevo" className="text-primary hover:underline">
@@ -82,7 +80,6 @@ export default async function NewQuotePage() {
         <div className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
           <QuoteForm
             action={createQuote}
-            clients={clients}
             taxRates={taxRateOptions}
             defaultRate={defaultRate}
             canAssign={canAssign}

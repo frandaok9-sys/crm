@@ -1,3 +1,7 @@
+// Consultas con varias rondas de herramientas (+ búsqueda web) pueden pasar
+// el límite serverless por defecto; el chat hereda este tope.
+export const maxDuration = 60;
+
 import { requireActiveUser } from "@/lib/auth";
 import { TintBadge } from "@/components/tint-badge";
 import { AssistantChat } from "@/components/assistant-chat";

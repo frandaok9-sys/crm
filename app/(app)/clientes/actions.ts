@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
@@ -105,7 +106,9 @@ export async function createClient(formData: FormData): Promise<void> {
       detail: legalName,
     });
     // Ubicar la cuenta en el mapa (para sugerir visitas en la hoja de ruta).
-    await geocodeClient(client.id);
+    // Se hace DESPUÉS de responder (after): Nominatim puede tardar hasta 16s
+    // y el alta no tiene por qué esperarlo; el pin aparece enseguida solo.
+    after(() => geocodeClient(client.id));
   } catch (error) {
     if (duplicateTaxId(error)) {
       throw new Error("Ya existe un cliente con ese CUIT.");
@@ -142,14 +145,15 @@ export async function updateClient(formData: FormData): Promise<void> {
   }
 
   // Re-ubicar en el mapa si cambió la dirección (o si aún no se geocodificó).
+  // No bloqueante (after): el guardado responde al instante.
   const addressChanged =
     opt(formData, "address") !== existing.address ||
     opt(formData, "city") !== existing.city ||
     opt(formData, "province") !== existing.province;
   if (addressChanged) {
-    await geocodeClient(id, { force: true });
+    after(() => geocodeClient(id, { force: true }));
   } else if (existing.geocodeStatus === GeocodeStatus.PENDING) {
-    await geocodeClient(id);
+    after(() => geocodeClient(id));
   }
 
   await logAudit({

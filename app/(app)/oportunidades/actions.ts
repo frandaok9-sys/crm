@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
@@ -113,7 +114,8 @@ export async function createOpportunity(formData: FormData): Promise<void> {
   });
 
   // Pin en el mapa: convertir la dirección de la obra en coordenadas.
-  await geocodeOpportunity(opportunity.id);
+  // No bloqueante (after): el alta responde al instante.
+  after(() => geocodeOpportunity(opportunity.id));
 
   revalidatePath("/oportunidades");
   revalidatePath("/mapa");
@@ -182,11 +184,12 @@ export async function updateOpportunity(formData: FormData): Promise<void> {
   });
 
   // Re-geocodificar si cambió la dirección de la obra (o si nunca se ubicó).
+  // No bloqueante (after): el guardado responde al instante.
   const newAddress = opt(formData, "siteAddress");
   if (newAddress !== existing.siteAddress) {
-    await geocodeOpportunity(id, { force: true });
+    after(() => geocodeOpportunity(id, { force: true }));
   } else if (existing.geocodeStatus === GeocodeStatus.PENDING) {
-    await geocodeOpportunity(id);
+    after(() => geocodeOpportunity(id));
   }
 
   revalidatePath("/oportunidades");

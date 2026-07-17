@@ -30,6 +30,11 @@ export const prisma =
     adapter: new PrismaPg({
       connectionString,
       ssl: { rejectUnauthorized: false },
+      // En producción (Vercel) cada instancia serverless abre su propio pool
+      // contra el pooler de transacciones de Supabase: con el default (10)
+      // varias instancias en paralelo lo agotan. Un tope chico por instancia
+      // alcanza (las consultas son cortas) y evita "too many connections".
+      max: process.env.NODE_ENV === "production" ? 5 : 10,
     }),
   });
 

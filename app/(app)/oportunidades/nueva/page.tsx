@@ -21,12 +21,9 @@ export default async function NewOpportunityPage() {
   if (!canCreateOpportunities(user)) redirect("/oportunidades");
 
   const canAssign = canAssignClients(user);
-  const [clients, stages, owners] = await Promise.all([
-    prisma.client.findMany({
-      where: clientScope(user),
-      select: { id: true, legalName: true },
-      orderBy: { legalName: "asc" },
-    }),
+  // Solo el conteo (para el estado vacío): el selector busca on-type.
+  const [clientCount, stages, owners] = await Promise.all([
+    prisma.client.count({ where: clientScope(user) }),
     prisma.stage.findMany({ orderBy: { position: "asc" } }),
     canAssign
       ? prisma.user.findMany({
@@ -51,7 +48,7 @@ export default async function NewOpportunityPage() {
         </h1>
       </div>
 
-      {clients.length === 0 ? (
+      {clientCount === 0 ? (
         <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900">
           Primero necesitás tener al menos un cliente en tu cartera.{" "}
           <Link href="/clientes/nuevo" className="text-primary hover:underline">
@@ -79,7 +76,7 @@ export default async function NewOpportunityPage() {
                 <span className="mb-1 block text-xs font-medium text-zinc-500">
                   Cliente *
                 </span>
-                <ClientCombobox clients={clients} name="clientId" />
+                <ClientCombobox name="clientId" />
               </label>
 
               <label className="block">

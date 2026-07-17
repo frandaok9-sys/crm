@@ -1,3 +1,7 @@
+// Rutas con muchos destinos (OSRM + geocodificación) superan el límite
+// serverless por defecto; las acciones del mapa heredan este tope.
+export const maxDuration = 60;
+
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { opportunityScope, canViewAllRecords } from "@/lib/permissions";

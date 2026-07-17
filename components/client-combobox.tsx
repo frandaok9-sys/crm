@@ -1,27 +1,26 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-type Item = { id: string; legalName: string };
+import {
+  searchClientOptionsAction,
+  type ClientOption,
+} from "@/app/(app)/clientes/search-action";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
-function normalize(value: string): string {
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-}
-
 /**
- * Searchable client selector. Type to filter; the picked client's id is
- * submitted via a hidden input named `name`. Replaces a long <select>.
+ * Searchable client selector. Busca en el servidor a medida que se tipea
+ * (debounce), así nunca se manda la cartera completa al navegador — clave con
+ * 2000+ clientes. The picked client's id is submitted via a hidden input
+ * named `name`.
  */
 export function ClientCombobox({
-  clients,
   name,
   defaultId = "",
   defaultLabel = "",
 }: {
-  clients: Item[];
   name: string;
   defaultId?: string;
   defaultLabel?: string;
@@ -29,17 +28,30 @@ export function ClientCombobox({
   const [query, setQuery] = useState(defaultLabel);
   const [selectedId, setSelectedId] = useState(defaultId);
   const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<ClientOption[]>([]);
+  const [loading, setLoading] = useState(false);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSeq = useRef(0);
 
-  const filtered = useMemo(() => {
-    const q = normalize(query.trim());
-    const list = q
-      ? clients.filter((c) => normalize(c.legalName).includes(q))
-      : clients;
-    return list.slice(0, 50);
-  }, [query, clients]);
+  // Búsqueda con debounce; descarta respuestas viejas que lleguen tarde.
+  useEffect(() => {
+    if (!open) return;
+    const seq = ++requestSeq.current;
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const rows = await searchClientOptionsAction(query);
+        if (requestSeq.current === seq) setOptions(rows);
+      } catch {
+        if (requestSeq.current === seq) setOptions([]);
+      } finally {
+        if (requestSeq.current === seq) setLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, open]);
 
-  function select(item: Item) {
+  function select(item: ClientOption) {
     setSelectedId(item.id);
     setQuery(item.legalName);
     setOpen(false);
@@ -66,9 +78,9 @@ export function ClientCombobox({
       />
       <input type="hidden" name={name} value={selectedId} />
 
-      {open && filtered.length > 0 && (
+      {open && options.length > 0 && (
         <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-          {filtered.map((c) => (
+          {options.map((c) => (
             <li key={c.id}>
               <button
                 type="button"
@@ -85,9 +97,15 @@ export function ClientCombobox({
         </ul>
       )}
 
-      {open && query.trim() !== "" && filtered.length === 0 && (
+      {open && !loading && query.trim() !== "" && options.length === 0 && (
         <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
           Sin resultados
+        </div>
+      )}
+
+      {open && loading && options.length === 0 && (
+        <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm text-zinc-400 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+          Buscando…
         </div>
       )}
     </div>

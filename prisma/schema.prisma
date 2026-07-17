@@ -170,6 +170,10 @@ model Client {
 
   @@index([ownerId])
   @@index([legalName])
+  // Lista de clientes: filtra por cartera y ordena por razón social.
+  @@index([ownerId, legalName])
+  // Mapa / planificador: pre-filtro por caja de coordenadas.
+  @@index([latitude, longitude])
   @@index([tenantId])
   @@index([externalId])
 }
@@ -264,6 +268,8 @@ model Opportunity {
   reminders Reminder[]
 
   @@index([stageId])
+  // Tablero kanban: ordena por posición dentro de cada columna.
+  @@index([stageId, position])
   @@index([ownerId])
   @@index([clientId])
   @@index([tenantId])
@@ -378,6 +384,9 @@ model Quote {
   @@unique([rootId, version]) // Candado: nunca dos revisiones con el mismo número
   @@index([clientId])
   @@index([ownerId])
+  // Listados y métricas: por cartera/estado, ordenados por fecha.
+  @@index([ownerId, createdAt])
+  @@index([status, createdAt])
   @@index([status])
   @@index([rootId])
   @@index([tenantId])
@@ -448,6 +457,8 @@ model LedgerMovement {
   allocationsAsInvoice PaymentAllocation[] @relation("AllocInvoice")
 
   @@index([clientId, currency])
+  // Cobranzas: recorre facturas/pagos por tipo ordenados por fecha.
+  @@index([type, date])
   @@index([quoteId])
 }
 
@@ -511,6 +522,8 @@ model AuditLog {
   actor User? @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([actorId])
+  // Rate limits (asistente, prospectos, análisis IA): cuentan por actor+acción+fecha.
+  @@index([actorId, action, createdAt])
   @@index([targetType, targetId])
   @@index([createdAt])
 }

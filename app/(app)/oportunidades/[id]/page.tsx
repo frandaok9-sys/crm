@@ -57,13 +57,8 @@ export default async function OpportunityDetailPage({
     opportunity.currency
   );
 
-  const [stages, clients, owners] = await Promise.all([
+  const [stages, owners] = await Promise.all([
     prisma.stage.findMany({ orderBy: { position: "asc" } }),
-    prisma.client.findMany({
-      where: clientScope(user),
-      select: { id: true, legalName: true },
-      orderBy: { legalName: "asc" },
-    }),
     canAssign
       ? prisma.user.findMany({
           where: { status: UserStatus.ACTIVE },
@@ -128,7 +123,6 @@ export default async function OpportunityDetailPage({
                   Cliente *
                 </span>
                 <ClientCombobox
-                  clients={clients}
                   name="clientId"
                   defaultId={opportunity.client.id}
                   defaultLabel={opportunity.client.legalName}

@@ -15,6 +15,9 @@ import { InitialsAvatar } from "@/components/initials-avatar";
 
 const GRID = "grid grid-cols-[2.2fr_1.3fr_1.5fr_1fr_0.8fr_1.2fr] items-center";
 
+// Carteras de 2000+ clientes: la lista SIEMPRE viene paginada de la base.
+const PAGE_SIZE = 50;
+
 const IVA_VARIANT: Partial<Record<IvaCondition, TintVariant>> = {
   [IvaCondition.RESPONSABLE_INSCRIPTO]: "blue",
   [IvaCondition.EXENTO]: "amber",
@@ -24,32 +27,50 @@ const IVA_VARIANT: Partial<Record<IvaCondition, TintVariant>> = {
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; p?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, p } = await searchParams;
   const user = await requireActiveUser();
   const showOwner = canViewAllRecords(user);
   const canCreate = canCreateClients(user);
 
+  const where = {
+    ...clientScope(user),
+    ...(q
+      ? {
+          OR: [
+            { legalName: { contains: q, mode: "insensitive" as const } },
+            { tradeName: { contains: q, mode: "insensitive" as const } },
+            { taxId: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  // Total real para el encabezado y el paginado (la lista trae solo la página).
+  const total = await prisma.client.count({ where });
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(pageCount, Math.max(1, Number.parseInt(p ?? "1", 10) || 1));
+
   const clients = await prisma.client.findMany({
-    where: {
-      ...clientScope(user),
-      ...(q
-        ? {
-            OR: [
-              { legalName: { contains: q, mode: "insensitive" as const } },
-              { tradeName: { contains: q, mode: "insensitive" as const } },
-              { taxId: { contains: q, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
-    },
+    where,
     include: {
       owner: { select: { name: true, email: true } },
       _count: { select: { contacts: true } },
     },
     orderBy: { legalName: "asc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
+
+  // Link de página conservando la búsqueda actual.
+  const pageHref = (target: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (target > 1) params.set("p", String(target));
+    const qs = params.toString();
+    return qs ? `/clientes?${qs}` : "/clientes";
+  };
 
   return (
     <div className="space-y-5">
@@ -57,7 +78,7 @@ export default async function ClientsPage({
         <div>
           <h1 className="text-[26px] font-semibold leading-tight">Clientes</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {clients.length} cliente(s) en{" "}
+            {total} cliente(s) en{" "}
             {showOwner ? "la cartera general" : "tu cartera"}.
           </p>
         </div>
@@ -173,6 +194,30 @@ export default async function ClientsPage({
           })
         )}
       </section>
+
+      {pageCount > 1 && (
+        <nav className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            Página {page} de {pageCount} · mostrando {clients.length} de {total}
+          </span>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <Link href={pageHref(page - 1)}>
+                <Button variant="outline" size="sm">← Anterior</Button>
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled>← Anterior</Button>
+            )}
+            {page < pageCount ? (
+              <Link href={pageHref(page + 1)}>
+                <Button variant="outline" size="sm">Siguiente →</Button>
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled>Siguiente →</Button>
+            )}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

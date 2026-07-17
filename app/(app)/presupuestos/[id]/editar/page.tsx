@@ -33,12 +33,7 @@ export default async function EditQuotePage({
   if (quote.status !== QuoteStatus.DRAFT) redirect(`/presupuestos/${id}`);
 
   const canAssign = canAssignClients(user);
-  const [clients, taxRates, owners] = await Promise.all([
-    prisma.client.findMany({
-      where: clientScope(user),
-      select: { id: true, legalName: true },
-      orderBy: { legalName: "asc" },
-    }),
+  const [taxRates, owners] = await Promise.all([
     prisma.taxRate.findMany({ orderBy: { position: "asc" } }),
     canAssign
       ? prisma.user.findMany({
@@ -78,7 +73,6 @@ export default async function EditQuotePage({
       <div className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
         <QuoteForm
           action={updateQuote}
-          clients={clients}
           taxRates={taxRateOptions}
           defaultRate={defaultRate}
           canAssign={canAssign}

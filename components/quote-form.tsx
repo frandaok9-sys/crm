@@ -35,7 +35,6 @@ export type QuoteFormData = {
 
 export function QuoteForm({
   action,
-  clients,
   taxRates,
   defaultRate,
   canAssign,
@@ -45,7 +44,6 @@ export function QuoteForm({
   products,
 }: {
   action: (formData: FormData) => Promise<void>;
-  clients: { id: string; legalName: string }[];
   taxRates: { rate: string; name: string }[];
   defaultRate: string;
   canAssign: boolean;
@@ -67,7 +65,6 @@ export function QuoteForm({
             Cliente *
           </span>
           <ClientCombobox
-            clients={clients}
             name="clientId"
             defaultId={quote?.clientId ?? ""}
             defaultLabel={quote?.clientLegalName ?? ""}
