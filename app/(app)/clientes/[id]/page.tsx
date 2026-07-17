@@ -9,10 +9,18 @@ import {
   canAssignClients,
 } from "@/lib/permissions";
 import { IVA_LABELS } from "@/lib/clients";
-import { UserStatus } from "@/lib/generated/prisma/enums";
+import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS } from "@/lib/activities";
+import { UserStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
 import { ClientForm } from "@/components/client-form";
+import { ActivityForm } from "@/components/activity-form";
 import { Button } from "@/components/ui/button";
-import { updateClient, assignClient, addContact } from "../actions";
+import {
+  updateClient,
+  assignClient,
+  addContact,
+  toggleActivityDone,
+  deleteActivity,
+} from "../actions";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -30,6 +38,11 @@ export default async function ClientDetailPage({
     include: {
       owner: { select: { id: true, name: true, email: true } },
       contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }] },
+      activities: {
+        orderBy: { createdAt: "desc" },
+        take: 30,
+        include: { createdBy: { select: { name: true, email: true } } },
+      },
     },
   });
   if (!client) notFound();
@@ -37,6 +50,15 @@ export default async function ClientDetailPage({
 
   const canEdit = canEditClient(user, client);
   const canAssign = canAssignClients(user);
+
+  // Actividades: tareas abiertas arriba, después el historial.
+  const pendingTasks = client.activities.filter(
+    (a) => a.type === ClientActivityType.TASK && !a.doneAt
+  );
+  const history = client.activities.filter(
+    (a) => !(a.type === ClientActivityType.TASK && !a.doneAt)
+  );
+  const now = Date.now();
 
   const owners = canAssign
     ? await prisma.user.findMany({
@@ -202,6 +224,132 @@ export default async function ClientDetailPage({
             </div>
           </form>
         )}
+      </section>
+
+      {/* Actividades: historial comercial + tareas */}
+      <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
+        <h2 className="mb-4 text-sm font-medium text-zinc-500">
+          Actividades y tareas
+        </h2>
+
+        {canEdit && <ActivityForm clientId={client.id} />}
+
+        {pendingTasks.length > 0 && (
+          <div className="mt-5 space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              Tareas pendientes
+            </h3>
+            <ul className="space-y-2">
+              {pendingTasks.map((a) => {
+                const overdue = a.dueAt && a.dueAt.getTime() < now;
+                return (
+                  <li
+                    key={a.id}
+                    className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm ${
+                      overdue
+                        ? "border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/40"
+                        : "border-zinc-200 dark:border-zinc-700"
+                    }`}
+                  >
+                    <form action={toggleActivityDone}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <button
+                        type="submit"
+                        title="Marcar como completada"
+                        className="mt-0.5 h-4 w-4 rounded border border-zinc-400 hover:bg-emerald-100 dark:border-zinc-500 dark:hover:bg-emerald-900"
+                      />
+                    </form>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{a.title}</p>
+                      {a.notes && <p className="text-zinc-500">{a.notes}</p>}
+                      <p className="mt-0.5 text-xs text-zinc-400">
+                        {a.dueAt ? (
+                          <span className={overdue ? "font-semibold text-red-600 dark:text-red-400" : ""}>
+                            Vence {a.dueAt.toLocaleDateString("es-AR")}
+                            {overdue && " · VENCIDA"}
+                          </span>
+                        ) : (
+                          "Sin fecha límite"
+                        )}{" "}
+                        · {a.createdBy.name ?? a.createdBy.email}
+                      </p>
+                    </div>
+                    {canEdit && (
+                      <form action={deleteActivity}>
+                        <input type="hidden" name="id" value={a.id} />
+                        <button
+                          type="submit"
+                          title="Borrar"
+                          className="text-zinc-400 hover:text-red-600"
+                        >
+                          ✕
+                        </button>
+                      </form>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-5">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            Historial
+          </h3>
+          {history.length === 0 ? (
+            <p className="text-sm text-zinc-400">
+              Todavía no hay actividades registradas.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {history.map((a) => (
+                <li key={a.id} className="flex items-start gap-3 py-2.5 text-sm">
+                  <span className="mt-0.5" aria-hidden>
+                    {ACTIVITY_TYPE_ICONS[a.type]}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={a.doneAt ? "text-zinc-500 line-through" : ""}>
+                      <span className="mr-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800">
+                        {ACTIVITY_TYPE_LABELS[a.type]}
+                      </span>
+                      {a.title}
+                    </p>
+                    {a.notes && <p className="mt-0.5 text-zinc-500">{a.notes}</p>}
+                    <p className="mt-0.5 text-xs text-zinc-400">
+                      {a.createdAt.toLocaleDateString("es-AR")} ·{" "}
+                      {a.createdBy.name ?? a.createdBy.email}
+                      {a.doneAt && " · completada"}
+                    </p>
+                  </div>
+                  {a.type === ClientActivityType.TASK && a.doneAt && (
+                    <form action={toggleActivityDone}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <button
+                        type="submit"
+                        className="text-xs text-zinc-400 hover:underline"
+                      >
+                        Reabrir
+                      </button>
+                    </form>
+                  )}
+                  {canEdit && (
+                    <form action={deleteActivity}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <button
+                        type="submit"
+                        title="Borrar"
+                        className="text-zinc-400 hover:text-red-600"
+                      >
+                        ✕
+                      </button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
     </div>
   );

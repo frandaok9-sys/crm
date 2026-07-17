@@ -9,9 +9,10 @@ import {
   canCreateOpportunities,
 } from "@/lib/permissions";
 import { stageHex } from "@/lib/stage-colors";
-import { QuoteStatus } from "@/lib/generated/prisma/enums";
+import { QuoteStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/kpi-card";
+import { toggleActivityDone } from "../clientes/actions";
 
 type Alert = { color: string; title: string; subtitle: string };
 
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
     draftClients,
     stages,
     opps,
+    myTasks,
   ] = await Promise.all([
     prisma.client.count({ where: clientScope(user) }),
     prisma.opportunity.count({ where: opportunityScope(user) }),
@@ -62,6 +64,17 @@ export default async function DashboardPage() {
         client: { select: { legalName: true } },
       },
     }),
+    // Mis tareas abiertas (las creadas por mí), las con vencimiento primero.
+    prisma.clientActivity.findMany({
+      where: {
+        createdById: user.id,
+        type: ClientActivityType.TASK,
+        doneAt: null,
+      },
+      orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+      take: 6,
+      include: { client: { select: { id: true, legalName: true } } },
+    }),
   ]);
 
   // Pipeline por etapa
@@ -74,6 +87,16 @@ export default async function DashboardPage() {
   // Requiere atención (hasta 3)
   const alerts: Alert[] = [];
   const now = Date.now();
+  const overdueTasks = myTasks.filter(
+    (t) => t.dueAt && t.dueAt.getTime() < now
+  ).length;
+  if (overdueTasks > 0) {
+    alerts.push({
+      color: "#C43C2B",
+      title: `${overdueTasks} tarea(s) vencida(s)`,
+      subtitle: "Mirá el bloque Mis tareas: hay pendientes pasadas de fecha",
+    });
+  }
   if (draftClients > 0) {
     alerts.push({
       color: "#E0503A",
@@ -302,6 +325,62 @@ export default async function DashboardPage() {
           )}
         </section>
       </div>
+
+      {/* Mis tareas (actividades tipo TAREA sin completar) */}
+      <section className="rounded-[12px] border bg-card p-5">
+        <h2 className="mb-4 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
+          Mis tareas
+        </h2>
+        {myTasks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Sin tareas pendientes. Se crean desde la ficha de cada cliente
+            (Actividades y tareas).
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {myTasks.map((t) => {
+              const overdue = t.dueAt && t.dueAt.getTime() < now;
+              return (
+                <li
+                  key={t.id}
+                  className="flex items-center gap-3 rounded-[10px] border border-border2 bg-card2 px-3 py-2.5 text-sm"
+                >
+                  <form action={toggleActivityDone}>
+                    <input type="hidden" name="id" value={t.id} />
+                    <button
+                      type="submit"
+                      title="Marcar como completada"
+                      className="mt-0.5 block h-4 w-4 rounded border border-zinc-400 hover:bg-emerald-100 dark:border-zinc-500 dark:hover:bg-emerald-900"
+                    />
+                  </form>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{t.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      <Link
+                        href={`/clientes/${t.client.id}`}
+                        className="hover:underline"
+                      >
+                        {t.client.legalName}
+                      </Link>
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 text-xs tabular-nums ${
+                      overdue
+                        ? "font-semibold text-red-600 dark:text-red-400"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {t.dueAt
+                      ? `${overdue ? "Venció " : "Vence "}${t.dueAt.toLocaleDateString("es-AR")}`
+                      : "Sin fecha"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

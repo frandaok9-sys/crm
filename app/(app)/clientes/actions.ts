@@ -14,7 +14,12 @@ import {
 import { logAudit } from "@/lib/audit";
 import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { geocodeClient } from "@/lib/geocode";
-import { IvaCondition, ClientSegment, GeocodeStatus } from "@/lib/generated/prisma/enums";
+import {
+  IvaCondition,
+  ClientSegment,
+  GeocodeStatus,
+  ClientActivityType,
+} from "@/lib/generated/prisma/enums";
 import { Prisma } from "@/lib/generated/prisma/client";
 import ExcelJS from "exceljs";
 import {
@@ -215,6 +220,89 @@ export async function addContact(formData: FormData): Promise<void> {
     metadata: { clientId },
   });
   revalidatePath(`/clientes/${clientId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Actividades (llamada / visita / email / nota / tarea) — historial comercial
+// ---------------------------------------------------------------------------
+
+const ACTIVITY_TYPES = Object.values(ClientActivityType) as string[];
+
+/** Registra una actividad sobre un cliente (o crea una tarea con vencimiento). */
+export async function addActivity(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const clientId = String(formData.get("clientId") ?? "");
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!client) throw new Error("Cliente no encontrado.");
+  if (!canEditClient(user, client)) {
+    throw new Error("No tenés permisos para registrar actividades en este cliente.");
+  }
+
+  const type = String(formData.get("type") ?? "");
+  if (!ACTIVITY_TYPES.includes(type)) throw new Error("Tipo de actividad inválido.");
+  const title = opt(formData, "title");
+  if (!title) throw new Error("Contá brevemente qué pasó (o qué hay que hacer).");
+
+  // Vencimiento: solo tiene sentido para tareas.
+  let dueAt: Date | null = null;
+  if (type === ClientActivityType.TASK) {
+    const raw = opt(formData, "dueAt");
+    if (raw) {
+      const parsed = new Date(`${raw}T12:00:00-03:00`);
+      if (Number.isNaN(parsed.getTime())) throw new Error("La fecha límite no es válida.");
+      dueAt = parsed;
+    }
+  }
+
+  await prisma.clientActivity.create({
+    data: {
+      clientId,
+      type: type as ClientActivityType,
+      title: title.slice(0, 200),
+      notes: opt(formData, "notes"),
+      dueAt,
+      createdById: user.id,
+    },
+  });
+  revalidatePath(`/clientes/${clientId}`);
+  revalidatePath("/dashboard");
+}
+
+/** Marca una tarea como completada (o la reabre). */
+export async function toggleActivityDone(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const activity = await prisma.clientActivity.findUnique({
+    where: { id },
+    include: { client: true },
+  });
+  if (!activity) return;
+  if (activity.createdById !== user.id && !canEditClient(user, activity.client)) {
+    throw new Error("No tenés permisos sobre esta actividad.");
+  }
+  await prisma.clientActivity.update({
+    where: { id },
+    data: { doneAt: activity.doneAt ? null : new Date() },
+  });
+  revalidatePath(`/clientes/${activity.clientId}`);
+  revalidatePath("/dashboard");
+}
+
+/** Borra una actividad (su autor, o quien puede editar el cliente). */
+export async function deleteActivity(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const activity = await prisma.clientActivity.findUnique({
+    where: { id },
+    include: { client: true },
+  });
+  if (!activity) return;
+  if (activity.createdById !== user.id && !canEditClient(user, activity.client)) {
+    throw new Error("No tenés permisos sobre esta actividad.");
+  }
+  await prisma.clientActivity.delete({ where: { id } });
+  revalidatePath(`/clientes/${activity.clientId}`);
+  revalidatePath("/dashboard");
 }
 
 /** Extracts a trimmed string from an ExcelJS cell value of any shape. */

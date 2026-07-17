@@ -13,6 +13,7 @@ import {
 } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
 import { AppSidebar, type SidebarItem } from "@/components/app-sidebar";
+import { CommandPalette } from "@/components/command-palette";
 
 export default async function AppLayout({
   children,
@@ -71,6 +72,8 @@ export default async function AppLayout({
           {children}
         </div>
       </main>
+      {/* Búsqueda global: Ctrl+K / Cmd+K desde cualquier pantalla. */}
+      <CommandPalette />
     </div>
   );
 }
