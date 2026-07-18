@@ -8,7 +8,6 @@ import {
   canAccessAdminPanel,
   canManageLedger,
   canLogExpenses,
-  canManageExpenses,
   clientScope,
   opportunityScope,
   quoteScope,
@@ -46,12 +45,9 @@ export default async function AppLayout({
     { href: "/mapa", label: "Mapa" },
     { href: "/presupuestos", label: "Presupuestos", badge: quoteCount },
     { href: "/productos", label: "Productos" },
-    ...(canManageLedger(user)
-      ? [{ href: "/cobranzas", label: "Cobranzas" }]
-      : []),
-    ...(canLogExpenses(user) ? [{ href: "/gastos", label: "Gastos" }] : []),
-    ...(canManageExpenses(user)
-      ? [{ href: "/finanzas", label: "Finanzas" }]
+    // Contabilidad agrupa Cobranzas + Gastos + Finanzas (sub-pestañas adentro).
+    ...(canManageLedger(user) || canLogExpenses(user)
+      ? [{ href: "/contabilidad", label: "Contabilidad" }]
       : []),
     { href: "/metricas", label: "Métricas" },
     { href: "/asistente", label: "Asistente IA" },

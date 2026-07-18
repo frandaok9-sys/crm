@@ -117,8 +117,8 @@ export async function createExpense(formData: FormData): Promise<void> {
     targetId: expense.id,
     metadata: { amount, currency, category: category.name, fiscalKind },
   });
-  revalidatePath("/gastos");
-  revalidatePath("/finanzas");
+  revalidatePath("/contabilidad/gastos");
+  revalidatePath("/contabilidad/finanzas");
 }
 
 /** Borra un gasto: su autor, o quien gestiona gastos. */
@@ -141,8 +141,8 @@ export async function deleteExpense(formData: FormData): Promise<void> {
     targetId: id,
     metadata: { amount: expense.amount.toString(), currency: expense.currency },
   });
-  revalidatePath("/gastos");
-  revalidatePath("/finanzas");
+  revalidatePath("/contabilidad/gastos");
+  revalidatePath("/contabilidad/finanzas");
 }
 
 /**
@@ -206,8 +206,8 @@ export async function addLaborCost(formData: FormData): Promise<void> {
     metadata: { amount, currency, category: category.name, obra: opp.title, laborHours: hours },
   });
   revalidatePath(`/oportunidades/${opportunityId}`);
-  revalidatePath("/gastos");
-  revalidatePath("/finanzas");
+  revalidatePath("/contabilidad/gastos");
+  revalidatePath("/contabilidad/finanzas");
 }
 
 /** Alta de categoría de costo (solo gestión de gastos). */
@@ -235,7 +235,7 @@ export async function createExpenseCategory(formData: FormData): Promise<void> {
     targetType: "ExpenseCategory",
     metadata: { name, kind },
   });
-  revalidatePath("/gastos");
+  revalidatePath("/contabilidad/gastos");
 }
 
 /** Activa/desactiva una categoría (no se borran: los gastos viejos la referencian). */
@@ -251,5 +251,5 @@ export async function toggleExpenseCategory(formData: FormData): Promise<void> {
     where: { id },
     data: { isActive: !category.isActive },
   });
-  revalidatePath("/gastos");
+  revalidatePath("/contabilidad/gastos");
 }

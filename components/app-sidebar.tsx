@@ -22,11 +22,8 @@ const ICON_PATHS: Record<string, string> = {
   "/mapa": "M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11zM12 10a2 2 0 100-4 2 2 0 000 4",
   "/presupuestos": "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
   "/productos": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
-  "/cobranzas": "M3 6h18v12H3zM3 10h18M6 14h5",
-  // Gastos: billete con moneda.
-  "/gastos": "M3 7h14v10H3zM10 12a2.2 2.2 0 100-4.4A2.2 2.2 0 0010 12zM17 9h4v10H7v-2",
-  // Finanzas: balanza.
-  "/finanzas": "M12 4v16M8 20h8M12 6L6 8m6-2l6 2M4 13a2.5 2.5 0 005 0L6.5 8zM15 13a2.5 2.5 0 005 0L17.5 8z",
+  // Contabilidad (Cobranzas + Gastos + Finanzas): libro contable.
+  "/contabilidad": "M5 4h11a2 2 0 012 2v14H7a2 2 0 01-2-2zM18 8h1v12h-9M8 8h6M8 12h6",
   "/metricas": "M4 20h16M6 20v-6M11 20V8M16 20v-9",
   "/asistente":
     "M12 3l1.6 4.2L18 9l-4.4 1.8L12 15l-1.6-4.2L6 9l4.4-1.8zM18.5 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z",

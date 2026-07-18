@@ -17,7 +17,7 @@ import { UserStatus, Currency, FiscalKind } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { ClientCombobox } from "@/components/client-combobox";
 import { createReminder, deleteReminder, updateOpportunity } from "../actions";
-import { addLaborCost } from "../../gastos/actions";
+import { addLaborCost } from "../../contabilidad/gastos/actions";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -513,7 +513,7 @@ export default async function OpportunityDetailPage({
         ) : (
           <p className="mt-4 text-sm text-zinc-400">
             Sin costos cargados. Los gastos asociados a esta obra (desde{" "}
-            <Link href="/gastos" className="text-primary hover:underline">
+            <Link href="/contabilidad/gastos" className="text-primary hover:underline">
               Gastos
             </Link>{" "}
             o la mano de obra de acá arriba) aparecen en este panel.
