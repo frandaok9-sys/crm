@@ -14,12 +14,13 @@ import { logAudit } from "@/lib/audit";
 import { getMetrics } from "@/lib/metrics";
 import { getReceivables } from "@/lib/receivables";
 import { computeBalances } from "@/lib/ledger-calc";
+import { computeQuoteTotals, lineNet } from "@/lib/quotes-calc";
 import { geocodeAddress, geocodeClient } from "@/lib/geocode";
-import { defaultTenantId } from "@/lib/nexus/central";
+import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { planTrip, tripMapsUrl, type TripWaypoint } from "@/lib/trip";
 import { IVA_LABELS, SEGMENT_LABELS } from "@/lib/clients";
 import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
-import { QuoteStatus } from "@/lib/generated/prisma/enums";
+import { QuoteStatus, Currency, QuoteItemType } from "@/lib/generated/prisma/enums";
 
 /**
  * Caja de herramientas de SOLO LECTURA para el asistente de IA. El asistente
@@ -98,6 +99,48 @@ export const ASSISTANT_TOOLS = [
         hasta: { type: "string", description: "Emitidos hasta AAAA-MM-DD (opcional)." },
       },
     },
+  },
+  {
+    name: "detalle_presupuesto",
+    description:
+      "Trae UN presupuesto con TODO el detalle: ítems (descripción, cantidad, precio, IVA), subtotal, descuento, IVA discriminado, total, estado, validez y link de descarga del PDF. Buscá por 'codigo' (ej. PRE-0007) o por 'cliente' (con parte del nombre alcanza, no hace falta exacto). Si hay varias coincidencias, se devuelve la lista para que el usuario elija.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        codigo: { type: "string", description: "Código del presupuesto (ej. PRE-0007). Opcional." },
+        cliente: { type: "string", description: "Nombre o parte del nombre del cliente. Opcional." },
+      },
+    },
+  },
+  {
+    name: "crear_presupuesto",
+    description:
+      "Carga un presupuesto BORRADOR para un cliente de la cartera. Recibe el cliente (con parte del nombre alcanza) y los ítems (descripción, cantidad y precio unitario neto; IVA/unidad/tipo opcionales). Calcula IVA y total. Queda como BORRADOR para revisar y enviar desde el CRM. NUNCA inventes precios ni cantidades: usá SOLO los que da el usuario (si hace falta un precio de lista, buscalo con 'productos').",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cliente: { type: "string", description: "Nombre o parte del nombre del cliente de la cartera." },
+        moneda: { type: "string", description: "ARS o USD (opcional, por defecto ARS)." },
+        items: {
+          type: "array",
+          description: "Ítems del presupuesto.",
+          items: {
+            type: "object",
+            properties: {
+              descripcion: { type: "string", description: "Qué se cotiza (ej. 'Piso epoxi industrial')." },
+              cantidad: { type: "number", description: "Cantidad (ej. 500 para 500 m²)." },
+              precio_unitario: { type: "number", description: "Precio unitario NETO, sin IVA." },
+              iva: { type: "number", description: "Alícuota de IVA % (opcional, por defecto 21)." },
+              unidad: { type: "string", description: "Unidad (opcional, por defecto m²)." },
+              tipo: { type: "string", description: "producto | servicio | texto (opcional, por defecto servicio)." },
+            },
+            required: ["descripcion", "cantidad", "precio_unitario"],
+          },
+        },
+      },
+      required: ["cliente", "items"],
+    },
+    requires: "quotes.manage",
   },
   {
     name: "productos",
@@ -240,6 +283,14 @@ export async function runTool(
         str("cliente"),
         parseDateRange(str("desde"), str("hasta"))
       );
+    case "detalle_presupuesto":
+      return detallePresupuesto(user, str("codigo"), str("cliente"));
+    case "crear_presupuesto":
+      // CAPA 2: crear presupuestos es escritura (roles de consulta, no).
+      if (!hasPermission(user, "quotes.manage")) {
+        return { error: "Este usuario no puede crear presupuestos (rol de consulta)." };
+      }
+      return crearPresupuesto(user, str("cliente") ?? "", args["items"], str("moneda"));
     case "productos":
       return productosTool(str("texto"), str("marca"));
     case "metricas":
@@ -559,6 +610,294 @@ async function presupuestosTool(
     vendedor: q.owner ? q.owner.name ?? q.owner.email : "Sin asignar",
     pdf: `/presupuestos/${q.id}/pdf`, // link de descarga (no generar el PDF con IA)
   }));
+}
+
+/**
+ * Detalle de UN presupuesto, buscado por código o por nombre (parcial) del
+ * cliente — no hace falta el nombre exacto. Respeta el alcance del usuario.
+ * Recalcula el IVA discriminado a partir de los ítems (mismo motor que la web).
+ */
+async function detallePresupuesto(
+  user: Principal,
+  codigo?: string,
+  cliente?: string
+) {
+  if (!codigo && !cliente) {
+    return { error: "Indicá el código (ej. PRE-0007) o el nombre del cliente del presupuesto." };
+  }
+
+  const rows = await prisma.quote.findMany({
+    where: {
+      ...quoteScope(user),
+      OR: [
+        ...(codigo
+          ? [{ code: { contains: codigo, mode: "insensitive" as const } }]
+          : []),
+        ...(cliente
+          ? [{ client: { legalName: { contains: cliente, mode: "insensitive" as const } } }]
+          : []),
+      ],
+    },
+    select: {
+      id: true,
+      rootId: true,
+      version: true,
+      code: true,
+      status: true,
+      currency: true,
+      validUntil: true,
+      paymentTerms: true,
+      overallDiscount: true,
+      total: true,
+      createdAt: true,
+      client: { select: { legalName: true } },
+      owner: { select: { name: true, email: true } },
+      items: {
+        orderBy: { position: "asc" },
+        select: {
+          description: true,
+          quantity: true,
+          unit: true,
+          unitPrice: true,
+          discount: true,
+          ivaRate: true,
+          lineNet: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  });
+
+  const quotes = latestRevisions(rows);
+  if (quotes.length === 0) {
+    return { error: "No encontré un presupuesto con ese código o cliente." };
+  }
+  if (quotes.length > 1) {
+    return {
+      aviso: "Hay varios presupuestos que coinciden. Pedile al usuario que elija por código.",
+      coincidencias: quotes.slice(0, 10).map((q) => ({
+        codigo: q.version > 1 ? `${q.code} (Rev.${q.version})` : q.code,
+        cliente: q.client.legalName,
+        estado: QUOTE_STATUS_LABELS[q.status],
+        total: formatMoney(q.total.toString(), q.currency),
+      })),
+    };
+  }
+
+  const q = quotes[0];
+  const totals = computeQuoteTotals(
+    q.items.map((i) => ({
+      quantity: i.quantity.toString(),
+      unitPrice: i.unitPrice.toString(),
+      ivaRate: i.ivaRate.toString(),
+      discount: i.discount.toString(),
+    })),
+    q.overallDiscount.toString()
+  );
+
+  return {
+    codigo: q.version > 1 ? `${q.code} (Rev.${q.version})` : q.code,
+    cliente: q.client.legalName,
+    estado: QUOTE_STATUS_LABELS[q.status],
+    moneda: q.currency,
+    vendedor: q.owner ? q.owner.name ?? q.owner.email : "Sin asignar",
+    vence: q.validUntil ? q.validUntil.toISOString().slice(0, 10) : null,
+    condicion_pago: q.paymentTerms ?? undefined,
+    items: q.items.map((i) => ({
+      descripcion: i.description,
+      cantidad: Number(i.quantity),
+      unidad: i.unit,
+      precio_unitario: formatMoney(i.unitPrice.toString(), q.currency),
+      descuento: Number(i.discount) > 0 ? `${Number(i.discount)}%` : undefined,
+      iva: `${Number(i.ivaRate)}%`,
+      neto: formatMoney(i.lineNet.toString(), q.currency),
+    })),
+    subtotal: formatMoney(totals.subtotal, q.currency),
+    descuento_general:
+      Number(q.overallDiscount) > 0
+        ? `${Number(q.overallDiscount)}% (${formatMoney(totals.overallDiscountAmount, q.currency)})`
+        : undefined,
+    iva_discriminado: totals.ivaBreakdown.map((r) => ({
+      alicuota: `${Number(r.rate)}%`,
+      base: formatMoney(r.base, q.currency),
+      iva: formatMoney(r.amount, q.currency),
+    })),
+    iva_total: formatMoney(totals.ivaTotal, q.currency),
+    total: formatMoney(q.total.toString(), q.currency),
+    pdf: `/presupuestos/${q.id}/pdf`,
+  };
+}
+
+type QuoteItemInput = {
+  type: QuoteItemType;
+  description: string;
+  quantity: string;
+  unit: string;
+  unitPrice: string;
+  discount: string;
+  ivaRate: string;
+};
+
+/** Normaliza los ítems que arma el modelo a la forma que espera el motor de cálculo. */
+function parseAssistantItems(raw: unknown): QuoteItemInput[] {
+  if (!Array.isArray(raw)) return [];
+  const TIPO: Record<string, QuoteItemType> = {
+    producto: QuoteItemType.PRODUCT,
+    product: QuoteItemType.PRODUCT,
+    servicio: QuoteItemType.SERVICE,
+    service: QuoteItemType.SERVICE,
+    texto: QuoteItemType.TEXT,
+    text: QuoteItemType.TEXT,
+  };
+  const numStr = (v: unknown, fallback: string): string => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? String(n) : fallback;
+  };
+  const out: QuoteItemInput[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const r = entry as Record<string, unknown>;
+    const description = String(r.descripcion ?? r.description ?? "").trim();
+    if (!description) continue;
+    out.push({
+      type: TIPO[String(r.tipo ?? r.type ?? "").toLowerCase()] ?? QuoteItemType.SERVICE,
+      description: description.slice(0, 300),
+      quantity: numStr(r.cantidad ?? r.quantity, "1"),
+      unit: (String(r.unidad ?? r.unit ?? "").trim() || "m²").slice(0, 12),
+      unitPrice: numStr(r.precio_unitario ?? r.unitPrice, "0"),
+      discount: "0",
+      ivaRate: numStr(r.iva ?? r.ivaRate, "21"),
+    });
+  }
+  return out;
+}
+
+/**
+ * Crea un presupuesto BORRADOR desde el chat. Resuelve el cliente por nombre
+ * parcial (respetando el alcance), calcula IVA/total con el motor de cálculo
+ * (Decimal, mismo que la web) y lo deja en estado Borrador para revisar y
+ * enviar desde el CRM. Nunca inventa precios: usa solo los ítems dados.
+ */
+async function crearPresupuesto(
+  user: Principal,
+  clienteNombre: string,
+  itemsRaw: unknown,
+  moneda?: string
+) {
+  const nombre = clienteNombre.trim();
+  if (nombre.length < 2) return { error: "Indicá el cliente del presupuesto." };
+
+  const items = parseAssistantItems(itemsRaw);
+  if (items.length === 0) {
+    return { error: "Indicá al menos un ítem con descripción, cantidad y precio unitario." };
+  }
+
+  // Resolver el cliente por nombre parcial, dentro del alcance del usuario.
+  const clients = await prisma.client.findMany({
+    where: {
+      ...clientScope(user),
+      OR: [
+        { legalName: { contains: nombre, mode: "insensitive" } },
+        { tradeName: { contains: nombre, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, legalName: true, ownerId: true },
+    take: 5,
+  });
+  if (clients.length === 0) {
+    return { error: `No encontré un cliente que coincida con "${nombre}". Si es nuevo, dalo de alta con crear_cliente_rapido y volvé a intentar.` };
+  }
+  if (clients.length > 1) {
+    return {
+      aviso: "Hay más de un cliente que coincide. Pedile al usuario que aclare cuál.",
+      coincidencias: clients.map((c) => c.legalName),
+    };
+  }
+  const client = clients[0];
+
+  const currency = moneda?.toUpperCase() === "USD" ? Currency.USD : Currency.ARS;
+  const totals = computeQuoteTotals(items, 0);
+
+  // Código correlativo (mismo esquema que la creación desde la web).
+  const count = await prisma.quote.count({ where: { version: 1 } });
+  const code = `PRE-${String(count + 1).padStart(4, "0")}`;
+
+  let tenantId: string | null = null;
+  try {
+    tenantId = await defaultTenantId();
+  } catch {
+    /* sin tenant por defecto */
+  }
+
+  const quote = await prisma.quote.create({
+    data: {
+      code,
+      clientId: client.id,
+      ownerId: client.ownerId ?? user.id,
+      currency,
+      overallDiscount: "0",
+      net: totals.net,
+      ivaTotal: totals.ivaTotal,
+      total: totals.total,
+      tenantId,
+      items: {
+        create: items.map((it, index) => ({
+          type: it.type,
+          description: it.description,
+          quantity: it.quantity,
+          unit: it.unit,
+          unitPrice: it.unitPrice,
+          discount: it.discount,
+          ivaRate: it.ivaRate,
+          lineNet: lineNet(it.quantity, it.unitPrice, it.discount),
+          position: index,
+        })),
+      },
+    },
+  });
+
+  await logAudit({
+    action: "quote.created",
+    actorId: user.id,
+    targetType: "Quote",
+    targetId: quote.id,
+    metadata: { code, total: totals.total, currency, via: "assistant", draft: true },
+  });
+  if (tenantId) {
+    try {
+      await recordCanonicalEvent({
+        tenantId,
+        entity: "quote",
+        action: "created",
+        nexusId: quote.id,
+        userId: user.id,
+        detail: `${code} · ${currency} ${totals.total}`,
+      });
+    } catch {
+      /* sync no bloqueante */
+    }
+  }
+
+  return {
+    creado: code,
+    cliente: client.legalName,
+    moneda: currency,
+    estado: "Borrador",
+    items: items.map((it) => ({
+      descripcion: it.description,
+      cantidad: Number(it.quantity),
+      unidad: it.unit,
+      precio_unitario: formatMoney(it.unitPrice, currency),
+      iva: `${Number(it.ivaRate)}%`,
+    })),
+    subtotal: formatMoney(totals.subtotal, currency),
+    iva_total: formatMoney(totals.ivaTotal, currency),
+    total: formatMoney(totals.total, currency),
+    editar: `/presupuestos/${quote.id}/editar`,
+    pdf: `/presupuestos/${quote.id}/pdf`,
+    nota: "Presupuesto creado como BORRADOR. Revisá los precios y ajustá lo que falte, y luego ENVIALO desde el CRM (Presupuestos → editar). No se envía solo.",
+  };
 }
 
 /** Catálogo de productos: visible para todos los usuarios (no se filtra por cartera). */
