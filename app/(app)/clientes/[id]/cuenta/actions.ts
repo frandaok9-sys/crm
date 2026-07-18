@@ -11,6 +11,7 @@ import { allocateFifo } from "@/lib/ledger-calc";
 import {
   Currency,
   LedgerMovementType,
+  FiscalKind,
 } from "@/lib/generated/prisma/enums";
 import { Prisma } from "@/lib/generated/prisma/client";
 
@@ -64,6 +65,12 @@ export async function addMovement(formData: FormData): Promise<void> {
     type === LedgerMovementType.CREDIT_NOTE;
   const autoAllocate = isCredit && formData.get("autoAllocate") === "on";
 
+  // M3: facturado (comprobante fiscal) o "sin factura" (control interno).
+  const fiscalKind =
+    formData.get("fiscalKind") === FiscalKind.INTERNAL
+      ? FiscalKind.INTERNAL
+      : FiscalKind.INVOICED;
+
   // Movement + FIFO allocation happen in ONE transaction: the balance and
   // the imputations can never be left inconsistent.
   //
@@ -78,6 +85,7 @@ export async function addMovement(formData: FormData): Promise<void> {
         currency,
         amount,
         date,
+        fiscalKind,
         description: opt(formData, "description"),
         reference: opt(formData, "reference"),
         createdById: user.id,
@@ -142,7 +150,7 @@ export async function addMovement(formData: FormData): Promise<void> {
     actorId: user.id,
     targetType: "LedgerMovement",
     targetId: movement.id,
-    metadata: { clientId, type, currency, amount },
+    metadata: { clientId, type, currency, amount, fiscalKind },
   });
   revalidatePath(`/clientes/${clientId}/cuenta`);
 }

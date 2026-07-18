@@ -8,7 +8,12 @@ import { canViewRecord, canManageLedger } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { computeBalances, isDebit } from "@/lib/ledger-calc";
 import { LEDGER_TYPE_LABELS } from "@/lib/ledger";
-import { Currency, LedgerMovementType } from "@/lib/generated/prisma/enums";
+import { FISCAL_KIND_LABELS } from "@/lib/expenses";
+import {
+  Currency,
+  LedgerMovementType,
+  FiscalKind,
+} from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { addMovement, deleteMovement } from "./actions";
@@ -71,6 +76,21 @@ export default async function LedgerPage({
     }))
   );
 
+  // M3: saldos separados fiscal / interno (solo si hay movimientos internos).
+  const hasInternal = movements.some((m) => m.fiscalKind === FiscalKind.INTERNAL);
+  const balancesBy = (kind: FiscalKind) =>
+    computeBalances(
+      movements
+        .filter((m) => m.fiscalKind === kind)
+        .map((m) => ({
+          type: m.type,
+          currency: m.currency,
+          amount: m.amount.toString(),
+        }))
+    );
+  const fiscalBalances = hasInternal ? balancesBy(FiscalKind.INVOICED) : [];
+  const internalBalances = hasInternal ? balancesBy(FiscalKind.INTERNAL) : [];
+
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -117,6 +137,55 @@ export default async function LedgerPage({
           })
         )}
       </div>
+
+      {/* M3: desglose fiscal / interno (los saldos de arriba son el consolidado) */}
+      {hasInternal && (
+        <div className="rounded-xl border bg-white p-4 text-sm dark:bg-zinc-900">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Desglose fiscal / interno (consolidado arriba)
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <p className="text-xs text-zinc-500">Facturado</p>
+              {fiscalBalances.length === 0 ? (
+                <p className="text-zinc-400">—</p>
+              ) : (
+                fiscalBalances.map((b) => (
+                  <p key={b.currency} className="tabular-nums">
+                    {b.currency}{" "}
+                    {formatMoney(
+                      Math.abs(Number(b.balance)).toFixed(2),
+                      b.currency === Currency.USD ? Currency.USD : Currency.ARS
+                    )}{" "}
+                    <span className="text-xs text-zinc-500">
+                      {Number(b.balance) >= 0 ? "deudor" : "a favor"}
+                    </span>
+                  </p>
+                ))
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Sin factura (interno)</p>
+              {internalBalances.length === 0 ? (
+                <p className="text-zinc-400">—</p>
+              ) : (
+                internalBalances.map((b) => (
+                  <p key={b.currency} className="tabular-nums">
+                    {b.currency}{" "}
+                    {formatMoney(
+                      Math.abs(Number(b.balance)).toFixed(2),
+                      b.currency === Currency.USD ? Currency.USD : Currency.ARS
+                    )}{" "}
+                    <span className="text-xs text-zinc-500">
+                      {Number(b.balance) >= 0 ? "deudor" : "a favor"}
+                    </span>
+                  </p>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alta de movimiento */}
       {canManage && (
@@ -184,6 +253,15 @@ export default async function LedgerPage({
                 Descripción
               </span>
               <input name="description" className={inputClass} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                Comprobante fiscal
+              </span>
+              <select name="fiscalKind" defaultValue={FiscalKind.INVOICED} className={inputClass}>
+                <option value={FiscalKind.INVOICED}>Facturado</option>
+                <option value={FiscalKind.INTERNAL}>Sin factura (interno)</option>
+              </select>
             </label>
             <label className="sm:col-span-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
               <input type="checkbox" name="autoAllocate" defaultChecked />
@@ -273,6 +351,11 @@ export default async function LedgerPage({
                         <span className="font-medium">{m.reference} </span>
                       )}
                       <span className="text-zinc-500">{m.description}</span>
+                      {m.fiscalKind === FiscalKind.INTERNAL && (
+                        <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          {FISCAL_KIND_LABELS[m.fiscalKind]}
+                        </span>
+                      )}
                       {chip && (
                         <span
                           className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${chip.className}`}

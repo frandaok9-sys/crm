@@ -58,6 +58,12 @@ export const PERMISSIONS = [
     help: "Registrar facturas y pagos, facturar presupuestos, panel de cobranzas.",
   },
   {
+    key: "expenses.manage",
+    group: "Financiero",
+    label: "Gastos, costos y balance",
+    help: "Ver todos los gastos, administrar categorías de costo y el balance mensual.",
+  },
+  {
     key: "products.manage",
     group: "Catálogo",
     label: "Gestionar productos y precios",
@@ -93,12 +99,14 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
     "opportunities.manage",
     "quotes.manage",
     "ledger.manage",
+    "expenses.manage",
     "products.manage",
   ],
   [Role.SALES]: ["clients.manage", "opportunities.manage", "quotes.manage"],
   [Role.ADMINISTRATION]: [
     "records.view_all",
     "ledger.manage",
+    "expenses.manage",
     "products.manage",
   ],
   [Role.READ_ONLY]: ["records.view_all"],
@@ -268,6 +276,30 @@ export function canManageLedger(
   principal: Principal | null | undefined
 ): boolean {
   return hasPermission(principal, "ledger.manage");
+}
+
+/**
+ * Cargar gastos propios (combustible en obra, viáticos…): cualquier rol
+ * operativo — quien gestiona finanzas o quien trabaja el pipeline (vendedores
+ * en el campo). Los roles de solo consulta no cargan.
+ */
+export function canLogExpenses(
+  principal: Principal | null | undefined
+): boolean {
+  return (
+    hasPermission(principal, "expenses.manage") ||
+    hasPermission(principal, "opportunities.manage")
+  );
+}
+
+/**
+ * Gestión completa de gastos: ver TODOS los gastos (no solo los propios),
+ * administrar categorías de costo y el balance mensual.
+ */
+export function canManageExpenses(
+  principal: Principal | null | undefined
+): boolean {
+  return hasPermission(principal, "expenses.manage");
 }
 
 export function canManageProducts(

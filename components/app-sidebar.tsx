@@ -23,6 +23,10 @@ const ICON_PATHS: Record<string, string> = {
   "/presupuestos": "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
   "/productos": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
   "/cobranzas": "M3 6h18v12H3zM3 10h18M6 14h5",
+  // Gastos: billete con moneda.
+  "/gastos": "M3 7h14v10H3zM10 12a2.2 2.2 0 100-4.4A2.2 2.2 0 0010 12zM17 9h4v10H7v-2",
+  // Finanzas: balanza.
+  "/finanzas": "M12 4v16M8 20h8M12 6L6 8m6-2l6 2M4 13a2.5 2.5 0 005 0L6.5 8zM15 13a2.5 2.5 0 005 0L17.5 8z",
   "/metricas": "M4 20h16M6 20v-6M11 20V8M16 20v-9",
   "/asistente":
     "M12 3l1.6 4.2L18 9l-4.4 1.8L12 15l-1.6-4.2L6 9l4.4-1.8zM18.5 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z",
@@ -104,6 +108,7 @@ export function AppSidebar({
   userName,
   roleLabel,
   initialTheme,
+  notifCount = 0,
   signOutAction,
 }: {
   items: SidebarItem[];
@@ -112,6 +117,7 @@ export function AppSidebar({
   userName: string;
   roleLabel: string;
   initialTheme: "dark" | "light";
+  notifCount?: number;
   signOutAction: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -230,6 +236,48 @@ export function AppSidebar({
             );
           })}
         </nav>
+
+        {/* Notificaciones (lleva al Inicio, donde vive "Requiere atención") */}
+        <Link
+          href="/dashboard"
+          title={
+            notifCount > 0
+              ? `${notifCount} cosa(s) requieren atención`
+              : "Sin novedades"
+          }
+          className={cn(
+            "mx-2.5 flex items-center rounded-[10px] py-[7px] transition-colors hover:bg-hoverbg",
+            expanded ? "gap-3 px-2.5" : "justify-center px-0"
+          )}
+        >
+          <span className="relative flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] border border-border2 bg-chip">
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--muted)"
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 4a5 5 0 015 5v3l2 3H5l2-3V9a5 5 0 015-5zM10 20a2 2 0 004 0" />
+            </svg>
+            {notifCount > 0 && (
+              <span
+                className="absolute -right-[5px] -top-[5px] flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold tabular-nums text-white"
+                style={{ border: "2px solid var(--side)" }}
+              >
+                {notifCount > 9 ? "9+" : notifCount}
+              </span>
+            )}
+          </span>
+          {expanded && (
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-muted-foreground">
+              Notificaciones
+            </span>
+          )}
+        </Link>
 
         {/* Toggle de tema */}
         <button

@@ -53,6 +53,7 @@ model User {
   opportunities Opportunity[]    @relation("OpportunityOwner")
   quotes        Quote[]          @relation("QuoteOwner")
   activities    ClientActivity[] @relation("ActivityAuthor")
+  expenses      Expense[]        @relation("ExpenseAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -274,6 +275,7 @@ model Opportunity {
 
   reminders  Reminder[]
   activities ClientActivity[]
+  expenses   Expense[]
 
   @@index([stageId])
   // Tablero kanban: ordena por posición dentro de cada columna.
@@ -472,6 +474,14 @@ enum LedgerMovementType {
   CREDIT_NOTE // Nota de crédito
 }
 
+/// Marca fiscal de una transacción (M3): con comprobante fiscal (AFIP) o
+/// movimiento interno "sin factura" (solo control interno de caja). Los
+/// reportes distinguen fiscal / interno / consolidado, nunca los mezclan.
+enum FiscalKind {
+  INVOICED // Facturado (comprobante fiscal)
+  INTERNAL // Sin factura (control interno)
+}
+
 /// Movimiento de cuenta corriente de un cliente. El saldo se DERIVA de los
 /// movimientos (lib/ledger-calc) y se mantiene separado por moneda. Las altas
 /// se hacen dentro de una transacción para no dejar el saldo inconsistente.
@@ -482,6 +492,9 @@ model LedgerMovement {
   type     LedgerMovementType
   currency Currency
   amount   Decimal            @db.Decimal(14, 2)
+
+  /// Facturado (fiscal) o sin factura (interno). Default: facturado.
+  fiscalKind FiscalKind @default(INVOICED)
 
   date        DateTime @default(now())
   description String?
@@ -523,6 +536,73 @@ model PaymentAllocation {
 
   @@index([paymentId])
   @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Fase 3.2 — Financiero: gastos operativos y costos (M1 + M2)
+// ---------------------------------------------------------------------------
+
+/// Naturaleza de un costo (M1): fijo (alquiler, sueldos, seguros) o variable
+/// (materiales, combustible, mano de obra eventual). Alimenta el punto de
+/// equilibrio del balance mensual.
+enum CostKind {
+  FIXED // Costo fijo
+  VARIABLE // Costo variable
+}
+
+/// Categoría de gasto/costo, configurable por finanzas (M1+M2).
+model ExpenseCategory {
+  id       String   @id @default(cuid())
+  name     String   @unique
+  kind     CostKind
+  isActive Boolean  @default(true)
+  position Int      @default(0)
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+
+  @@index([isActive, position])
+}
+
+/// Gasto operativo (M2): oficina, combustible, viáticos, gasto de obra,
+/// herramientas… Todo gasto queda registrado acá para producir el balance
+/// mensual. Monto SIEMPRE Decimal y por moneda (nunca se mezclan ARS y USD).
+model Expense {
+  id       String   @id @default(cuid())
+  date     DateTime
+  amount   Decimal  @db.Decimal(14, 2)
+  currency Currency @default(ARS)
+
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  paymentMethod String? // efectivo, transferencia, tarjeta…
+  description   String?
+
+  /// Con comprobante fiscal o gasto interno (M3).
+  fiscalKind FiscalKind @default(INVOICED)
+
+  /// Obra asociada (opcional). Null = gasto general de la empresa.
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  /// Comprobante adjunto (foto/PDF como data URL, ≤ 800KB). Se sirve por una
+  /// ruta protegida; las listas NUNCA lo seleccionan (pesa).
+  receipt     String?
+  receiptType String? // MIME del adjunto
+
+  createdById String
+  createdBy   User   @relation("ExpenseAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Balance mensual y filtros.
+  @@index([date])
+  @@index([categoryId, date])
+  @@index([opportunityId])
+  @@index([createdById, date])
 }
 
 /// Configuración de la empresa: datos fiscales y branding (logo, colores, pie
