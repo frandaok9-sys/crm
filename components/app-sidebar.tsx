@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { InitialsAvatar } from "@/components/initials-avatar";
+import { NotificationBell } from "@/components/notification-bell";
 
 export type SidebarItem = {
   href: string;
@@ -234,47 +235,8 @@ export function AppSidebar({
           })}
         </nav>
 
-        {/* Notificaciones (lleva al Inicio, donde vive "Requiere atención") */}
-        <Link
-          href="/dashboard"
-          title={
-            notifCount > 0
-              ? `${notifCount} cosa(s) requieren atención`
-              : "Sin novedades"
-          }
-          className={cn(
-            "mx-2.5 flex items-center rounded-[10px] py-[7px] transition-colors hover:bg-hoverbg",
-            expanded ? "gap-3 px-2.5" : "justify-center px-0"
-          )}
-        >
-          <span className="relative flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] border border-border2 bg-chip">
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--muted)"
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 4a5 5 0 015 5v3l2 3H5l2-3V9a5 5 0 015-5zM10 20a2 2 0 004 0" />
-            </svg>
-            {notifCount > 0 && (
-              <span
-                className="absolute -right-[5px] -top-[5px] flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold tabular-nums text-white"
-                style={{ border: "2px solid var(--side)" }}
-              >
-                {notifCount > 9 ? "9+" : notifCount}
-              </span>
-            )}
-          </span>
-          {expanded && (
-            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-muted-foreground">
-              Notificaciones
-            </span>
-          )}
-        </Link>
+        {/* Notificaciones: panel desplegable con las novedades reales. */}
+        <NotificationBell count={notifCount} expanded={expanded} />
 
         {/* Toggle de tema */}
         <button
