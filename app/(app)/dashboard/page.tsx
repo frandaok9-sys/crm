@@ -9,12 +9,32 @@ import {
   canCreateOpportunities,
 } from "@/lib/permissions";
 import { stageHex } from "@/lib/stage-colors";
+import { IOS, monthlyBuckets, lighten, soft } from "@/lib/design";
+import { getNotifications } from "@/lib/alerts";
 import { QuoteStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
-import { KpiCard } from "@/components/kpi-card";
+import { MetricCard, type MetricTrend } from "@/components/metric-card";
+import { DashboardNotifications } from "@/components/dashboard-notifications";
 import { toggleActivityDone } from "../clientes/actions";
 
 type Alert = { color: string; title: string; subtitle: string };
+
+const METRIC_ICONS = {
+  clientes:
+    "M9 10a3 3 0 100-6 3 3 0 000 6M3.5 20a5.5 5.5 0 0111 0M16 4.5a3 3 0 010 6M18 14.5a5.5 5.5 0 013 4.5",
+  pipeline: "M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z",
+  doc: "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
+  check: "M4 12l5 5 11-11",
+} as const;
+
+const BAR_QUOTED = "#5B82D6";
+const BAR_APPROVED = "#E0503A";
+
+/** Tendencia "+N este mes" a partir de la última cubeta mensual. */
+function thisMonthTrend(series: number[]): MetricTrend | undefined {
+  const cur = series[series.length - 1] ?? 0;
+  return cur > 0 ? { text: `+${cur}`, dir: "up" } : undefined;
+}
 
 function todayKicker(): string {
   return new Date()
@@ -29,6 +49,12 @@ function todayKicker(): string {
 export default async function DashboardPage() {
   const user = await requireActiveUser();
   const firstName = (user.name ?? user.email ?? "").split(" ")[0];
+  const notifications = await getNotifications(user);
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  sixMonthsAgo.setDate(1);
+  sixMonthsAgo.setHours(0, 0, 0, 0);
 
   const [
     clients,
@@ -40,6 +66,9 @@ export default async function DashboardPage() {
     stages,
     opps,
     myTasks,
+    clientDates,
+    oppDates,
+    quoteRows,
   ] = await Promise.all([
     prisma.client.count({ where: clientScope(user) }),
     prisma.opportunity.count({ where: opportunityScope(user) }),
@@ -75,14 +104,54 @@ export default async function DashboardPage() {
       take: 6,
       include: { client: { select: { id: true, legalName: true } } },
     }),
+    // Series de los últimos 6 meses (para sparklines y barras) — acotadas por fecha.
+    prisma.client.findMany({
+      where: { ...clientScope(user), createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true },
+    }),
+    prisma.opportunity.findMany({
+      where: { ...opportunityScope(user), createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true },
+    }),
+    prisma.quote.findMany({
+      where: {
+        ...quoteScope(user),
+        version: 1,
+        createdAt: { gte: sixMonthsAgo },
+      },
+      select: { createdAt: true, status: true },
+    }),
   ]);
+
+  // Series mensuales reales (más viejo → más nuevo).
+  const clientSeries = monthlyBuckets(clientDates.map((c) => c.createdAt)).map(
+    (b) => b.count
+  );
+  const oppSeries = monthlyBuckets(oppDates.map((o) => o.createdAt)).map(
+    (b) => b.count
+  );
+  const sentSeries = monthlyBuckets(
+    quoteRows
+      .filter((q) => q.status === QuoteStatus.SENT)
+      .map((q) => q.createdAt)
+  ).map((b) => b.count);
+  const approvedSeries = monthlyBuckets(
+    quoteRows
+      .filter((q) => q.status === QuoteStatus.APPROVED)
+      .map((q) => q.createdAt)
+  ).map((b) => b.count);
+
+  // Barras "Presupuestos por mes": cotizados (todos) vs aprobados.
+  const quoteBuckets = monthlyBuckets(quoteRows.map((q) => q.createdAt));
+  const cotizadoSeries = quoteBuckets.map((b) => b.count);
+  const monthLabels = quoteBuckets.map((b) => b.label);
+  const maxBar = Math.max(...cotizadoSeries, 1);
 
   // Pipeline por etapa
   const countByStage = new Map<string, number>();
   for (const o of opps) {
     countByStage.set(o.stageId, (countByStage.get(o.stageId) ?? 0) + 1);
   }
-  const maxStageCount = Math.max(...[...countByStage.values()], 1);
 
   // Requiere atención (hasta 3)
   const alerts: Alert[] = [];
@@ -170,9 +239,12 @@ export default async function DashboardPage() {
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
             {todayKicker()}
           </p>
-          <h1 className="mt-1 text-[30px] font-semibold leading-tight">
-            Hola, {firstName}
-          </h1>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-[30px] font-semibold leading-tight">
+              Hola, {firstName}
+            </h1>
+            <DashboardNotifications items={notifications} />
+          </div>
         </div>
         {canCreateOpportunities(user) && (
           <Link href="/oportunidades/nueva">
@@ -181,21 +253,42 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* KPIs */}
+      {/* Métricas (franja accent + ícono + tendencia + sparkline) */}
       <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-4">
-        <KpiCard label="Clientes" value={String(clients)} />
-        <KpiCard label="Oportunidades" value={String(opportunities)} />
-        <KpiCard
+        <MetricCard
+          label="Clientes"
+          value={String(clients)}
+          iconPath={METRIC_ICONS.clientes}
+          series={clientSeries}
+          sparkColor={IOS.teal}
+          trend={thisMonthTrend(clientSeries)}
+          note="este mes"
+        />
+        <MetricCard
+          label="Oportunidades"
+          value={String(opportunities)}
+          iconPath={METRIC_ICONS.pipeline}
+          series={oppSeries}
+          sparkColor={IOS.orange}
+          trend={thisMonthTrend(oppSeries)}
+          note="nuevas"
+        />
+        <MetricCard
           label="Presupuestos enviados"
           value={String(quotesSent)}
+          iconPath={METRIC_ICONS.doc}
+          series={sentSeries}
+          sparkColor={IOS.blue}
           note={quotesSent > 0 ? "esperando respuesta" : undefined}
-          noteClassName="text-[#A5721E] dark:text-[#E0B45E]"
         />
-        <KpiCard
+        <MetricCard
           label="Presupuestos aprobados"
           value={String(quotesApproved)}
-          note={quotesApproved > 0 ? "listos para facturar" : undefined}
-          noteClassName="text-[#2E7D54] dark:text-[#7CC8A2]"
+          iconPath={METRIC_ICONS.check}
+          series={approvedSeries}
+          sparkColor={IOS.green}
+          trend={thisMonthTrend(approvedSeries)}
+          note="listos para facturar"
         />
       </div>
 
@@ -245,49 +338,56 @@ export default async function DashboardPage() {
 
       {/* Fila 2 */}
       <div className="grid gap-[14px] lg:grid-cols-[1.5fr_1fr]">
-        {/* Pipeline por etapa */}
+        {/* Presupuestos por mes (cotizados vs aprobados) */}
         <section className="rounded-[12px] border bg-card p-5">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
-              Pipeline por etapa
+              Presupuestos por mes
             </h2>
-            <Link
-              href="/oportunidades"
-              className="text-xs font-semibold text-primary hover:underline"
-            >
-              Ver pipeline →
-            </Link>
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-[2px]" style={{ background: BAR_QUOTED }} />
+                Cotizados
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-[2px]" style={{ background: BAR_APPROVED }} />
+                Aprobados
+              </span>
+            </div>
           </div>
-          <div className="space-y-3">
-            {stages
-              .filter((s) => s.name !== "Perdida")
-              .map((stage) => {
-                const count = countByStage.get(stage.id) ?? 0;
-                const hex = stageHex(stage.color);
-                return (
-                  <div key={stage.id} className="flex items-center gap-3">
-                    <span
-                      className="h-[6px] w-[6px] shrink-0 rounded-[2px]"
-                      style={{ background: hex }}
-                    />
-                    <span className="w-40 shrink-0 truncate text-[13px] text-text2">
-                      {stage.name}
-                    </span>
-                    <div className="h-2 flex-1 rounded-[4px] bg-chip">
-                      <div
-                        className="h-2 rounded-[4px]"
-                        style={{
-                          background: hex,
-                          width: `${Math.max((count / maxStageCount) * 100, count > 0 ? 4 : 0)}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="w-6 shrink-0 text-right text-[13px] font-semibold tabular-nums">
-                      {count}
-                    </span>
-                  </div>
-                );
-              })}
+          <div className="flex h-40 items-end gap-3 border-b border-border pb-px">
+            {monthLabels.map((label, i) => (
+              <div
+                key={label + i}
+                className="flex h-full flex-1 items-end justify-center gap-[3px]"
+              >
+                <div
+                  className="w-4 rounded-t-[4px]"
+                  style={{
+                    background: BAR_QUOTED,
+                    height: `${(cotizadoSeries[i] / maxBar) * 100}%`,
+                    minHeight: cotizadoSeries[i] > 0 ? 3 : 0,
+                  }}
+                  title={`${cotizadoSeries[i]} cotizado(s)`}
+                />
+                <div
+                  className="w-4 rounded-t-[4px]"
+                  style={{
+                    background: BAR_APPROVED,
+                    height: `${(approvedSeries[i] / maxBar) * 100}%`,
+                    minHeight: approvedSeries[i] > 0 ? 3 : 0,
+                  }}
+                  title={`${approvedSeries[i]} aprobado(s)`}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1.5 flex gap-3">
+            {monthLabels.map((label, i) => (
+              <div key={label + i} className="flex-1 text-center text-[11.5px] text-muted2">
+                {label}
+              </div>
+            ))}
           </div>
         </section>
 
@@ -394,12 +494,13 @@ function PipelineDonut({
   total: number;
 }) {
   let acc = 0;
+  // Degradé sutil por segmento: aclara el arranque y cierra en el color pleno.
   const stops = segments
     .map((s) => {
-      const start = (acc / total) * 360;
+      const start = (acc / total) * 100;
       acc += s.count;
-      const end = (acc / total) * 360;
-      return `${s.hex} ${start.toFixed(1)}deg ${end.toFixed(1)}deg`;
+      const end = (acc / total) * 100;
+      return `${lighten(s.hex, 26)} ${start.toFixed(1)}%, ${s.hex} ${end.toFixed(1)}%`;
     })
     .join(", ");
   const bg = total > 0 ? `conic-gradient(from -90deg, ${stops})` : "var(--chip)";
@@ -408,6 +509,11 @@ function PipelineDonut({
       className="relative shrink-0"
       style={{ width: 156, height: 156, borderRadius: "50%", background: bg, boxShadow: "var(--shadow-sm)" }}
     >
+      {/* Sombra interior muy leve (sin glow) */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{ boxShadow: "inset 0 -6px 12px rgba(0,0,0,0.08)" }}
+      />
       <div
         className="absolute left-1/2 top-1/2 flex flex-col items-center justify-center"
         style={{
@@ -418,6 +524,8 @@ function PipelineDonut({
           background: "var(--glass-hole)",
           border: "1px solid var(--glass-border)",
           boxShadow: "0 3px 10px rgba(0,0,0,0.12)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
         }}
       >
         <span className="text-[26px] font-bold leading-none tabular-nums">{total}</span>
@@ -431,7 +539,8 @@ function PipelineDonut({
 
 /** Anillo de progreso (Activity Ring) con centro glass y % real. */
 function ProgressRing({ pct, color, label }: { pct: number; color: string; label: string }) {
-  const bg = `conic-gradient(from -90deg, ${color} 0% ${pct}%, var(--chip) ${pct}% 100%)`;
+  const c = soft(color);
+  const bg = `conic-gradient(from -90deg, ${lighten(color, 30)} 0%, ${c} ${pct}%, var(--chip) ${pct}%, var(--chip) 100%)`;
   return (
     <div className="flex flex-col items-center gap-2">
       <div
@@ -448,6 +557,8 @@ function ProgressRing({ pct, color, label }: { pct: number; color: string; label
             background: "var(--glass-hole)",
             border: "1px solid var(--glass-border)",
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
           }}
         >
           <span className="text-[16px] font-bold tabular-nums">{pct}%</span>
