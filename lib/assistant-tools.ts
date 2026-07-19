@@ -840,6 +840,9 @@ async function crearPresupuesto(
       net: totals.net,
       ivaTotal: totals.ivaTotal,
       total: totals.total,
+      // Creado por el asistente/WhatsApp: queda "por completar" hasta que se
+      // revise o envíe desde el CRM (aparece en notificaciones).
+      needsReview: true,
       tenantId,
       items: {
         create: items.map((it, index) => ({
@@ -896,7 +899,7 @@ async function crearPresupuesto(
     total: formatMoney(totals.total, currency),
     editar: `/presupuestos/${quote.id}/editar`,
     pdf: `/presupuestos/${quote.id}/pdf`,
-    nota: "Presupuesto creado como BORRADOR. Revisá los precios y ajustá lo que falte, y luego ENVIALO desde el CRM (Presupuestos → editar). No se envía solo.",
+    nota: "Presupuesto creado como BORRADOR y marcado 'por completar'. Aparece en las notificaciones (la campana) hasta que lo revises y lo envíes desde el CRM (Presupuestos → editar). No se envía solo.",
   };
 }
 

@@ -416,6 +416,11 @@ model Quote {
   notes        String?
   paymentTerms String? // Condición de pago: Contado, 15/30/45/60 días…
 
+  /// Presupuesto creado por el asistente de IA / WhatsApp (carga rápida):
+  /// falta revisarlo (precios, ítems) y enviarlo. Aparece en notificaciones
+  /// como "por completar" hasta que se edita o se envía desde el CRM.
+  needsReview Boolean @default(false)
+
   // Descuento general del presupuesto (% sobre el subtotal, además del
   // descuento por ítem). Se aplica antes del IVA.
   overallDiscount Decimal @default(0) @db.Decimal(5, 2)
@@ -440,6 +445,8 @@ model Quote {
   @@index([status])
   @@index([rootId])
   @@index([tenantId])
+  // Notificación "presupuestos por completar" (creados por IA/WhatsApp).
+  @@index([needsReview])
 }
 
 /// Ítem de un presupuesto: producto, servicio o texto libre.

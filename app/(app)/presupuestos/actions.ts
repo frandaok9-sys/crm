@@ -222,6 +222,8 @@ export async function updateQuote(formData: FormData): Promise<void> {
         net: totals.net,
         ivaTotal: totals.ivaTotal,
         total: totals.total,
+        // Editarlo desde el CRM completa el alta rápida: sale de "por completar".
+        needsReview: false,
         items: { create: itemCreateData(items) },
       },
     });
@@ -274,7 +276,8 @@ export async function setQuoteStatus(formData: FormData): Promise<void> {
 
   await prisma.quote.update({
     where: { id },
-    data: { status: next },
+    // Enviarlo (o cualquier cambio de estado) también lo saca de "por completar".
+    data: { status: next, needsReview: false },
   });
   await logAudit({
     action: "quote.status_changed",

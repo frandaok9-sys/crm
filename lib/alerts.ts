@@ -20,13 +20,16 @@ const WEEK_MS = 7 * 86_400_000;
  */
 export async function getAlertCount(user: ActiveUser): Promise<number> {
   const staleBefore = new Date(Date.now() - WEEK_MS);
-  const [draftClients, quotesSent, staleOpps, overdueTasks] = await Promise.all(
-    [
+  const [draftClients, quotesSent, quotesToReview, staleOpps, overdueTasks] =
+    await Promise.all([
       prisma.client.count({
         where: { ...clientScope(user), isDraft: true },
       }),
       prisma.quote.count({
         where: { ...quoteScope(user), status: QuoteStatus.SENT },
+      }),
+      prisma.quote.count({
+        where: { ...quoteScope(user), needsReview: true },
       }),
       prisma.opportunity.count({
         where: {
@@ -46,7 +49,7 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
     ]
   );
 
-  return draftClients + quotesSent + staleOpps + overdueTasks;
+  return draftClients + quotesSent + quotesToReview + staleOpps + overdueTasks;
 }
 
 export type NotificationTone = "red" | "amber" | "blue";
@@ -70,7 +73,19 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
   const now = new Date();
   const staleBefore = new Date(now.getTime() - WEEK_MS);
 
-  const [overdueTasks, staleOpps, sentQuotes, draftClients] = await Promise.all([
+  const [reviewQuotes, overdueTasks, staleOpps, sentQuotes, draftClients] =
+    await Promise.all([
+    prisma.quote.findMany({
+      where: { ...quoteScope(user), needsReview: true },
+      select: {
+        id: true,
+        code: true,
+        version: true,
+        client: { select: { legalName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: PER_KIND,
+    }),
     prisma.clientActivity.findMany({
       where: {
         createdById: user.id,
@@ -126,6 +141,16 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
 
   const out: AppNotification[] = [];
 
+  for (const q of reviewQuotes) {
+    const code = q.version > 1 ? `${q.code} (Rev.${q.version})` : q.code;
+    out.push({
+      id: `review-${q.id}`,
+      tone: "red",
+      title: `Presupuesto por completar: ${code}`,
+      subtitle: `${q.client.legalName} · creado por el asistente, revisá precios y envialo`,
+      href: `/presupuestos/${q.id}/editar`,
+    });
+  }
   for (const t of overdueTasks) {
     const d = t.dueAt ? days(t.dueAt) : 0;
     out.push({

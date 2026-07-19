@@ -109,10 +109,19 @@ export default async function QuotesPage() {
                 <span className="truncate pr-3 text-text2">
                   {quote.client.legalName}
                 </span>
-                <span>
+                <span className="flex flex-wrap items-center gap-1.5">
                   <TintBadge variant={STATUS_VARIANT[quote.status]}>
                     {QUOTE_STATUS_LABELS[quote.status]}
                   </TintBadge>
+                  {quote.needsReview && (
+                    <Link
+                      href={`/presupuestos/${quote.id}/editar`}
+                      title="Creado por el asistente — revisá precios y envialo"
+                      className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-px text-[10px] font-semibold text-primary hover:bg-primary/20"
+                    >
+                      Por completar
+                    </Link>
+                  )}
                 </span>
                 <span className="text-right font-bold tabular-nums">
                   {formatMoney(quote.total.toString(), quote.currency)}
