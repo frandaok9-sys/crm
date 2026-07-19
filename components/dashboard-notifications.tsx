@@ -86,17 +86,17 @@ export function DashboardNotifications({ items }: { items: AppNotification[] }) 
           strokeLinejoin="round"
           className={cn("transition-transform", open && "rotate-180")}
         >
-          <path d="M6 9l6 6 6-6" />
+          <path d="M9 6l6 6-6 6" />
         </svg>
       </button>
 
-      {/* Panel: desplegable animado, no empuja el layout (absolute). */}
+      {/* Panel: se despliega hacia el COSTADO (derecha), no empuja el layout. */}
       <div
         className={cn(
-          "absolute left-0 top-[calc(100%+8px)] z-30 w-[340px] max-w-[86vw] origin-top overflow-hidden rounded-[14px] border bg-card shadow-2xl transition-all duration-200",
+          "absolute left-[calc(100%+10px)] top-0 z-30 w-[340px] max-w-[70vw] origin-left overflow-hidden rounded-[14px] border bg-card shadow-2xl transition-all duration-200",
           open
-            ? "visible translate-y-0 opacity-100"
-            : "pointer-events-none invisible -translate-y-1 opacity-0"
+            ? "visible translate-x-0 opacity-100"
+            : "pointer-events-none invisible -translate-x-2 opacity-0"
         )}
       >
         <div className="border-b border-border2 px-4 py-2.5 text-[13px] font-semibold">
