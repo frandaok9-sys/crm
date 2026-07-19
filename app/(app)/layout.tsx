@@ -13,7 +13,6 @@ import {
   quoteScope,
 } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
-import { getAlertCount } from "@/lib/alerts";
 import { AppSidebar, type SidebarItem } from "@/components/app-sidebar";
 import { CommandPalette } from "@/components/command-palette";
 
@@ -29,14 +28,12 @@ export default async function AppLayout({
   const theme =
     cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
 
-  // Badges del nav (mismo alcance que cada módulo) + contador de la campana.
-  const [clientCount, opportunityCount, quoteCount, alertCount] =
-    await Promise.all([
-      prisma.client.count({ where: clientScope(user) }),
-      prisma.opportunity.count({ where: opportunityScope(user) }),
-      prisma.quote.count({ where: { ...quoteScope(user), version: 1 } }),
-      getAlertCount(user),
-    ]);
+  // Badges del nav (mismo alcance que cada módulo).
+  const [clientCount, opportunityCount, quoteCount] = await Promise.all([
+    prisma.client.count({ where: clientScope(user) }),
+    prisma.opportunity.count({ where: opportunityScope(user) }),
+    prisma.quote.count({ where: { ...quoteScope(user), version: 1 } }),
+  ]);
 
   const items: SidebarItem[] = [
     { href: "/dashboard", label: "Inicio" },
@@ -70,7 +67,6 @@ export default async function AppLayout({
         userName={user.name ?? user.email ?? "Usuario"}
         roleLabel={roleLabel}
         initialTheme={theme}
-        notifCount={alertCount}
         signOutAction={signOutAction}
       />
       <main className="flex-1 overflow-y-auto">

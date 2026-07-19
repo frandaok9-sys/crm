@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { InitialsAvatar } from "@/components/initials-avatar";
-import { NotificationBell } from "@/components/notification-bell";
 
 export type SidebarItem = {
   href: string;
@@ -106,7 +105,6 @@ export function AppSidebar({
   userName,
   roleLabel,
   initialTheme,
-  notifCount = 0,
   signOutAction,
 }: {
   items: SidebarItem[];
@@ -115,7 +113,6 @@ export function AppSidebar({
   userName: string;
   roleLabel: string;
   initialTheme: "dark" | "light";
-  notifCount?: number;
   signOutAction: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -234,9 +231,6 @@ export function AppSidebar({
             );
           })}
         </nav>
-
-        {/* Notificaciones: panel desplegable con las novedades reales. */}
-        <NotificationBell count={notifCount} expanded={expanded} />
 
         {/* Toggle de tema */}
         <button
