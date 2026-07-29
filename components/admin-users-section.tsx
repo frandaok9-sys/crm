@@ -10,7 +10,11 @@ import {
   activateUser,
   changeUserRole,
   setUserStatus,
+  createPasswordUser,
 } from "@/app/(app)/admin/users/actions";
+
+const inputClass =
+  "w-full rounded-[8px] border border-border bg-field px-3 py-2 text-sm";
 
 const GRID = "grid grid-cols-[2.4fr_1.2fr_1fr_1.8fr] items-center";
 
@@ -178,6 +182,60 @@ export async function AdminUsersSection({ adminId }: { adminId: string }) {
             </div>
           );
         })}
+      </section>
+
+      {/* Alta manual: para gente SIN cuenta de Google (email de la empresa).
+          Entra por el login con email + contraseña; puede cambiarla en Mi cuenta. */}
+      <section className="rounded-[12px] border bg-card p-5">
+        <h2 className="mb-1 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
+          Nuevo usuario con contraseña
+        </h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Para quienes no usan cuenta de Google. Queda ACTIVO con el rol
+          elegido; después puede cambiar su contraseña desde «Mi cuenta».
+        </p>
+        <form action={createPasswordUser} className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Nombre y apellido *
+            </span>
+            <input name="name" required placeholder="Ej: Rodolfo Nievas" className={inputClass} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Email *
+            </span>
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="nombre@rcpisosindustriales.com.ar"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Contraseña inicial * (mín. 8, letras y números)
+            </span>
+            <input
+              type="password"
+              name="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Rol *
+            </span>
+            <RoleSelect />
+          </label>
+          <div className="flex justify-end sm:col-span-2">
+            <SubmitButton pendingText="Creando…">Crear usuario</SubmitButton>
+          </div>
+        </form>
       </section>
     </div>
   );

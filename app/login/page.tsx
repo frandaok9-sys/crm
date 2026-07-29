@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ demo?: string }>;
+  searchParams: Promise<{ demo?: string; pw?: string }>;
 }) {
   const session = await auth();
   if (session?.user) redirect("/dashboard");
   const settings = await getCompanySettings();
+  const params = await searchParams;
   const demoEnabled = Boolean(process.env.DEMO_PASSWORD);
-  const demoError = (await searchParams).demo === "error";
+  const demoError = params.demo === "error";
+  const pwError = params.pw === "error";
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-950 p-6">
@@ -66,6 +68,43 @@ export default async function LoginPage({
             Iniciar sesión con Google
           </Button>
         </form>
+
+        {/* Login con email + contraseña (usuarios creados por un administrador) */}
+        <div className="mt-6 border-t border-zinc-800 pt-6">
+          <p className="mb-3 text-center text-[11px] uppercase tracking-widest text-zinc-500">
+            O con email y contraseña
+          </p>
+          <form action="/api/password-login" method="post" className="space-y-2">
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="Email"
+              autoComplete="username"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+            />
+            <input
+              type="password"
+              name="password"
+              required
+              placeholder="Contraseña"
+              autoComplete="current-password"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              className="h-9 w-full border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            >
+              Entrar
+            </Button>
+          </form>
+          {pwError && (
+            <p className="mt-2 text-center text-xs text-red-400">
+              Email o contraseña incorrectos.
+            </p>
+          )}
+        </div>
 
         <p className="mt-6 text-center text-xs text-zinc-500">
           Acceso restringido a usuarios autorizados.

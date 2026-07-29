@@ -45,6 +45,10 @@ model User {
   /// con los del rol; el Admin puede ajustarlos individualmente después.
   permissions   String[]   @default([])
 
+  /// Login con contraseña (opcional, para usuarios sin cuenta de Google).
+  /// SIEMPRE hash bcrypt, nunca texto plano. Null = solo entra con Google.
+  passwordHash String?
+
   accounts  Account[]
   sessions  Session[]
   auditLogs AuditLog[] @relation("AuditLogActor")

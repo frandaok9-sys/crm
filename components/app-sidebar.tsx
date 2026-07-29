@@ -278,24 +278,26 @@ export function AppSidebar({
           )}
         </button>
 
-        {/* Footer usuario */}
+        {/* Footer usuario (clic en el nombre → Mi cuenta) */}
         <div
           className={cn(
             "flex items-center gap-2.5 border-t border-border px-[17px] py-3",
             !expanded && "justify-center px-0"
           )}
         >
-          <InitialsAvatar name={userName} size={32} />
+          <Link href="/cuenta" title="Mi cuenta" className="shrink-0">
+            <InitialsAvatar name={userName} size={32} />
+          </Link>
           {expanded && (
             <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12.5px] font-semibold text-foreground">
+              <Link href="/cuenta" className="min-w-0 flex-1" title="Mi cuenta">
+                <span className="block truncate text-[12.5px] font-semibold text-foreground hover:underline">
                   {userName}
                 </span>
                 <span className="block truncate text-[10.5px] uppercase tracking-wide text-muted-foreground">
                   {roleLabel}
                 </span>
-              </span>
+              </Link>
               <form action={signOutAction}>
                 <button
                   type="submit"

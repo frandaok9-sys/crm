@@ -10,7 +10,7 @@ import {
 } from "@/lib/permissions";
 import { Role } from "@/lib/generated/prisma/enums";
 import { SubmitButton } from "@/components/submit-button";
-import { updateUserPermissions } from "../actions";
+import { updateUserPermissions, setUserPassword } from "../actions";
 
 export default async function UserPermissionsPage({
   params,
@@ -102,6 +102,40 @@ export default async function UserPermissionsPage({
           </div>
         </form>
       )}
+
+      {/* Contraseña: crear o restablecer el acceso con email + contraseña. */}
+      <section className="mt-6 rounded-xl border bg-white p-5 dark:bg-zinc-900">
+        <h2 className="mb-1 text-sm font-medium text-zinc-500">
+          {user.passwordHash ? "Restablecer contraseña" : "Crear contraseña"}
+        </h2>
+        <p className="mb-4 text-xs text-zinc-500">
+          {user.passwordHash
+            ? "Definí una contraseña nueva para esta persona (p. ej. si la olvidó). Podrá cambiarla después desde «Mi cuenta»."
+            : "Esta persona hoy no tiene contraseña (entra con Google). Podés crearle una como acceso alternativo."}
+        </p>
+        <form
+          action={setUserPassword}
+          className="flex flex-wrap items-end gap-3"
+        >
+          <input type="hidden" name="userId" value={user.id} />
+          <label className="block min-w-[240px] flex-1">
+            <span className="mb-1 block text-xs font-medium text-zinc-500">
+              Contraseña nueva (mín. 8, letras y números)
+            </span>
+            <input
+              type="password"
+              name="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+            />
+          </label>
+          <SubmitButton pendingText="Guardando…" variant="outline">
+            {user.passwordHash ? "Restablecer" : "Crear contraseña"}
+          </SubmitButton>
+        </form>
+      </section>
     </div>
   );
 }

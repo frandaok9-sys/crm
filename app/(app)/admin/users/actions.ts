@@ -13,6 +13,7 @@ import {
   type PermissionKey,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { hashPassword, passwordPolicyError } from "@/lib/password";
 import { Role, UserStatus } from "@/lib/generated/prisma/enums";
 
 const VALID_ROLES = Object.values(Role) as string[];
@@ -110,6 +111,73 @@ export async function setUserStatus(formData: FormData): Promise<void> {
     metadata: { email: user.email },
   });
   revalidatePath("/admin/users");
+}
+
+/**
+ * Alta manual de un usuario con contraseña (para gente SIN cuenta de Google,
+ * p. ej. emails @rcpisosindustriales.com.ar). Nace ACTIVO con su rol y el
+ * paquete de permisos correspondiente. La contraseña se guarda hasheada.
+ */
+export async function createPasswordUser(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const role = parseRole(formData.get("role"));
+
+  if (!name) throw new Error("El nombre es obligatorio.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("El email no es válido.");
+  }
+  const policy = passwordPolicyError(password);
+  if (policy) throw new Error(policy);
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) throw new Error("Ya existe un usuario con ese email.");
+
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      role,
+      status: UserStatus.ACTIVE,
+      permissions: ROLE_DEFAULT_PERMISSIONS[role],
+      passwordHash: hashPassword(password),
+    },
+  });
+
+  await logAudit({
+    action: "user.created",
+    actorId: admin.id,
+    targetType: "User",
+    targetId: user.id,
+    metadata: { email, role, method: "password" },
+  });
+  revalidatePath("/admin");
+}
+
+/** Restablece (o crea) la contraseña de un usuario. Solo administradores. */
+export async function setUserPassword(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+  const password = String(formData.get("password") ?? "");
+
+  const policy = passwordPolicyError(password);
+  if (policy) throw new Error(policy);
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: hashPassword(password) },
+  });
+
+  await logAudit({
+    action: "user.password_reset",
+    actorId: admin.id,
+    targetType: "User",
+    targetId: userId,
+    metadata: { email: user.email },
+  });
+  revalidatePath(`/admin/users/${userId}`);
 }
 
 /** Save a user's individual permission set (checkboxes from the editor). */
