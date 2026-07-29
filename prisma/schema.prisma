@@ -58,6 +58,7 @@ model User {
   quotes        Quote[]          @relation("QuoteOwner")
   activities    ClientActivity[] @relation("ActivityAuthor")
   expenses      Expense[]        @relation("ExpenseAuthor")
+  assistantLogs AssistantLog[]   @relation("AssistantLogUser")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -644,6 +645,28 @@ model CompanySettings {
   afipEnv        String  @default("homologacion") // "homologacion" (prueba) | "produccion"
 
   updatedAt DateTime @updatedAt
+}
+
+/// Registro de interacciones con la IA (chat del asistente, estrategia de
+/// gira, prospección web): pregunta, respuesta, herramientas y errores.
+/// Para auditar el uso real (preguntas habituales, fallas) y mejorar.
+model AssistantLog {
+  id      String  @id @default(cuid())
+  userId  String?
+  user    User?   @relation("AssistantLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  channel String // "asistente" | "mapa.estrategia" | "mapa.prospectos"
+
+  question   String? // lo que pidió el usuario (recortado)
+  reply      String? // lo que respondió la IA (recortado)
+  tools      String[] @default([]) // herramientas internas que usó
+  error      String? // si falló: el mensaje (o "rate_limit")
+  durationMs Int? // cuánto tardó la respuesta
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([channel, createdAt])
 }
 
 /// Registro de auditoría de acciones sensibles (logins, cambios de permisos,

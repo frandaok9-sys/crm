@@ -9,6 +9,7 @@ import {
   clientScope,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { logAiInteraction } from "@/lib/ai-log";
 import { geocodeAddress, suggestPlaces, type PlaceSuggestion } from "@/lib/geocode";
 import { findWebProspects, type CityProspects } from "@/lib/prospects";
 import {
@@ -212,6 +213,7 @@ export async function findProspectsAction(
   if (!(await withinActionLimit(user.id, "prospects.searched", 10, 60 * 60_000))) {
     return { ok: false, error: "Alcanzaste el tope de búsquedas de prospectos por hora. Probá más tarde." };
   }
+  const startedAt = Date.now();
   try {
     const { cities: found, error } = await findWebProspects(list);
     await logAudit({
@@ -219,8 +221,25 @@ export async function findProspectsAction(
       actorId: user.id,
       metadata: { cities: list.slice(0, 5) },
     });
+    await logAiInteraction({
+      userId: user.id,
+      channel: "mapa.prospectos",
+      question: `Prospección en: ${list.join(", ")}`,
+      reply: found
+        .map((c) => `${c.city}: ${c.prospects.length} prospecto(s)`)
+        .join(" · "),
+      error: error ?? null,
+      durationMs: Date.now() - startedAt,
+    });
     return { ok: true, cities: found, error };
   } catch (error) {
+    await logAiInteraction({
+      userId: user.id,
+      channel: "mapa.prospectos",
+      question: `Prospección en: ${list.join(", ")}`,
+      error: (error as Error).message || "error desconocido",
+      durationMs: Date.now() - startedAt,
+    });
     return { ok: false, error: (error as Error).message || "No se pudo buscar prospectos." };
   }
 }
@@ -234,11 +253,27 @@ export async function narrateTripAction(
   if (!(await withinActionLimit(user.id, "trip.narrated", 15, 60 * 60_000))) {
     return { ok: false, error: "Alcanzaste el tope de análisis con IA por hora. Probá más tarde." };
   }
+  const startedAt = Date.now();
+  const resumen = `Estrategia de gira desde ${input.origin}: ${input.stops?.length ?? 0} visita(s), ${Math.round(input.totalKm ?? 0)} km`;
   try {
     const narrative = await narrateTrip(input);
     await logAudit({ action: "trip.narrated", actorId: user.id });
+    await logAiInteraction({
+      userId: user.id,
+      channel: "mapa.estrategia",
+      question: resumen,
+      reply: narrative,
+      durationMs: Date.now() - startedAt,
+    });
     return { ok: true, narrative };
   } catch (error) {
+    await logAiInteraction({
+      userId: user.id,
+      channel: "mapa.estrategia",
+      question: resumen,
+      error: (error as Error).message || "error desconocido",
+      durationMs: Date.now() - startedAt,
+    });
     return { ok: false, error: (error as Error).message || "No se pudo redactar la hoja de ruta." };
   }
 }
