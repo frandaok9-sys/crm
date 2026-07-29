@@ -13,6 +13,7 @@ import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS } from "@/lib/activities";
 import { UserStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
 import { ClientForm } from "@/components/client-form";
 import { ActivityForm } from "@/components/activity-form";
+import { DeleteClientButton } from "@/components/delete-client-button";
 import { Button } from "@/components/ui/button";
 import {
   updateClient,
@@ -42,6 +43,9 @@ export default async function ClientDetailPage({
         orderBy: { createdAt: "desc" },
         take: 30,
         include: { createdBy: { select: { name: true, email: true } } },
+      },
+      _count: {
+        select: { ledgerMovements: true, opportunities: true, quotes: true },
       },
     },
   });
@@ -351,6 +355,28 @@ export default async function ClientDetailPage({
           )}
         </div>
       </section>
+
+      {/* Zona de riesgo: eliminar el cliente (abajo de todo, como pidió el usuario) */}
+      {canEdit && (
+        <section className="rounded-xl border border-red-200 bg-white p-6 dark:border-red-950 dark:bg-zinc-900">
+          <h2 className="mb-1 text-sm font-medium text-red-600 dark:text-red-400">
+            Eliminar cliente
+          </h2>
+          <p className="mb-4 text-xs text-zinc-500">
+            {client._count.ledgerMovements > 0
+              ? "Este cliente tiene movimientos de cuenta corriente: no se puede eliminar (los registros contables se conservan)."
+              : "Borra el cliente definitivamente, junto con sus contactos, oportunidades, presupuestos y actividades. No se puede deshacer."}
+          </p>
+          {client._count.ledgerMovements === 0 && (
+            <DeleteClientButton
+              clientId={client.id}
+              clientName={client.legalName}
+              opportunityCount={client._count.opportunities}
+              quoteCount={client._count.quotes}
+            />
+          )}
+        </section>
+      )}
     </div>
   );
 }

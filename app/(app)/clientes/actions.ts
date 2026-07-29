@@ -171,6 +171,49 @@ export async function updateClient(formData: FormData): Promise<void> {
   revalidatePath("/clientes");
 }
 
+/**
+ * Elimina un cliente (dueño de la cartera, o quien edita todo). IRREVERSIBLE:
+ * arrastra contactos, oportunidades, presupuestos y actividades (cascade).
+ * FRENO contable: si tiene movimientos de cuenta corriente NO se borra — los
+ * registros financieros no desaparecen (regla del proyecto).
+ */
+export async function deleteClient(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const client = await prisma.client.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: { ledgerMovements: true, opportunities: true, quotes: true },
+      },
+    },
+  });
+  if (!client) throw new Error("Cliente no encontrado.");
+  if (!canEditClient(user, client)) {
+    throw new Error("No tenés permisos para eliminar este cliente.");
+  }
+  if (client._count.ledgerMovements > 0) {
+    throw new Error(
+      "Este cliente tiene movimientos de cuenta corriente y no se puede eliminar (los registros contables se conservan). Reasignalo o dejalo sin uso."
+    );
+  }
+
+  await prisma.client.delete({ where: { id } });
+  await logAudit({
+    action: "client.deleted",
+    actorId: user.id,
+    targetType: "Client",
+    targetId: id,
+    metadata: {
+      legalName: client.legalName,
+      opportunities: client._count.opportunities,
+      quotes: client._count.quotes,
+    },
+  });
+  revalidatePath("/clientes");
+  redirect("/clientes");
+}
+
 export async function assignClient(formData: FormData): Promise<void> {
   const user = await requireActiveUser();
   if (!canAssignClients(user)) {
