@@ -27,11 +27,14 @@ const ITEM_TYPES = Object.values(QuoteItemType) as string[];
 const QUOTE_STATUSES = Object.values(QuoteStatus) as string[];
 
 function num(value: unknown): string {
-  let s = String(value ?? "").trim().replace(/\s/g, "");
+  let s = String(value ?? "").trim().replace(/[$\s]/g, "");
   if (s.includes(",") && s.includes(".")) {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (s.includes(",")) {
     s = s.replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    // Solo puntos en grupos de miles ("1.500" = mil quinientos, no 1,50).
+    s = s.replace(/\./g, "");
   }
   return /^\d+(\.\d+)?$/.test(s) ? s : "0";
 }

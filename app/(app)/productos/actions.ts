@@ -32,6 +32,9 @@ function num(value: unknown): string | null {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (s.includes(",")) {
     s = s.replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    // Solo puntos en grupos de miles ("1.500" = mil quinientos, no 1,50).
+    s = s.replace(/\./g, "");
   }
   // Decimal (no Number): es dinero que alimenta presupuestos; el redondeo
   // flotante de Number("1.005").toFixed(2) daba "1.00" en vez de "1.01".

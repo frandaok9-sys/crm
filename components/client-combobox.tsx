@@ -32,6 +32,17 @@ export function ClientCombobox({
   const [loading, setLoading] = useState(false);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSeq = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // El formulario NO se puede enviar sin elegir un cliente DE LA LISTA:
+  // escribir el nombre sin seleccionarlo dejaba el id vacío y el servidor
+  // rechazaba el alta con una pantalla de error. Validación nativa del
+  // navegador: muestra el aviso en el campo y bloquea el envío.
+  useEffect(() => {
+    inputRef.current?.setCustomValidity(
+      selectedId ? "" : "Elegí una empresa de la lista de sugerencias."
+    );
+  }, [selectedId]);
 
   // Búsqueda con debounce; descarta respuestas viejas que lleguen tarde.
   useEffect(() => {
@@ -60,6 +71,7 @@ export function ClientCombobox({
   return (
     <div className="relative">
       <input
+        ref={inputRef}
         type="text"
         value={query}
         required

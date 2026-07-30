@@ -26,11 +26,15 @@ function opt(formData: FormData, key: string): string | null {
 
 function parseAmount(raw: string | null): string {
   if (!raw) throw new Error("El importe es obligatorio.");
-  let s = raw.trim().replace(/\s/g, "");
+  // Tolerar formatos reales: "$ 1.500", "1.500,50", "1500.50".
+  let s = raw.trim().replace(/[$\s]/g, "");
   if (s.includes(",") && s.includes(".")) {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (s.includes(",")) {
     s = s.replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    // Solo puntos en grupos de miles ("1.500" = mil quinientos, no 1,50).
+    s = s.replace(/\./g, "");
   }
   if (!/^\d+(\.\d{1,2})?$/.test(s) || Number(s) <= 0) {
     throw new Error("El importe debe ser un número mayor a cero.");

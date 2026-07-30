@@ -32,6 +32,9 @@ function parseAmount(raw: string | null): string {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (s.includes(",")) {
     s = s.replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    // Solo puntos en grupos de miles ("1.500" = mil quinientos, no 1,50).
+    s = s.replace(/\./g, "");
   }
   if (!/^\d+(\.\d+)?$/.test(s)) {
     throw new Error("El importe debe ser un número mayor a cero.");

@@ -28,11 +28,16 @@ function opt(formData: FormData, key: string): string | null {
 /** Parses a user-entered amount (es-AR or plain) into a decimal string. */
 function parseAmount(raw: string | null): string | null {
   if (!raw) return null;
-  let s = raw.trim().replace(/\s/g, "");
+  // Tolerar cómo se escribe plata en la vida real: "$ 1.500", "1.500,50", "1500.50".
+  let s = raw.trim().replace(/[$\s]/g, "");
+  if (!s) return null;
   if (s.includes(",") && s.includes(".")) {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (s.includes(",")) {
     s = s.replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    // Solo puntos en grupos de miles ("1.500" = mil quinientos).
+    s = s.replace(/\./g, "");
   }
   if (!/^\d+(\.\d{1,2})?$/.test(s)) {
     throw new Error("El monto no es válido. Usá solo números, por ejemplo 1500.50");
@@ -252,6 +257,54 @@ export async function moveOpportunity(
     metadata: { toStageId },
   });
   revalidatePath("/oportunidades");
+}
+
+/**
+ * Elimina una oportunidad (quien puede editarla). IRREVERSIBLE: borra sus
+ * alertas; los GASTOS asociados a la obra NO se borran (quedan como gastos
+ * generales — los registros de plata se conservan siempre).
+ */
+export async function deleteOpportunity(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const opportunity = await prisma.opportunity.findUnique({
+    where: { id },
+    include: {
+      reminders: { select: { id: true, googleTaskId: true } },
+      client: { select: { legalName: true } },
+    },
+  });
+  if (!opportunity) throw new Error("Oportunidad no encontrada.");
+  if (!canEditOpportunity(user, opportunity)) {
+    throw new Error("No tenés permisos para eliminar esta oportunidad.");
+  }
+
+  // Best-effort: sacar de Google Tasks las alertas sincronizadas.
+  for (const reminder of opportunity.reminders) {
+    if (reminder.googleTaskId) {
+      try {
+        await deleteGoogleTask(user.id, reminder.googleTaskId);
+      } catch {
+        /* la limpieza de Google nunca frena el borrado */
+      }
+    }
+  }
+
+  await prisma.opportunity.delete({ where: { id } });
+  await logAudit({
+    action: "opportunity.deleted",
+    actorId: user.id,
+    targetType: "Opportunity",
+    targetId: id,
+    metadata: {
+      title: opportunity.title,
+      client: opportunity.client.legalName,
+      reminders: opportunity.reminders.length,
+    },
+  });
+  revalidatePath("/oportunidades");
+  revalidatePath("/mapa");
+  redirect("/oportunidades");
 }
 
 export async function togglePin(id: string): Promise<void> {
