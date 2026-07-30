@@ -16,6 +16,7 @@ import { hasGoogleTasksAccess } from "@/lib/google-tasks";
 import { UserStatus, Currency, FiscalKind } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { ClientCombobox } from "@/components/client-combobox";
+import { DeleteOpportunityButton } from "@/components/delete-opportunity-button";
 import { createReminder, deleteReminder, updateOpportunity } from "../actions";
 import { addLaborCost } from "../../contabilidad/gastos/actions";
 
@@ -520,6 +521,26 @@ export default async function OpportunityDetailPage({
           </p>
         )}
       </section>
+
+      {/* Zona de riesgo: eliminar la oportunidad */}
+      {canEdit && (
+        <section className="rounded-xl border border-red-200 bg-white p-6 dark:border-red-950 dark:bg-zinc-900">
+          <h2 className="mb-1 text-sm font-medium text-red-600 dark:text-red-400">
+            Eliminar oportunidad
+          </h2>
+          <p className="mb-4 text-xs text-zinc-500">
+            Borra la oportunidad definitivamente (con sus alertas). Los gastos
+            cargados a esta obra se conservan como gastos generales. No se
+            puede deshacer.
+          </p>
+          <DeleteOpportunityButton
+            opportunityId={opportunity.id}
+            title={opportunity.title}
+            reminderCount={opportunity.reminders.length}
+            expenseCount={obraExpenses.length}
+          />
+        </section>
+      )}
     </div>
   );
 }
