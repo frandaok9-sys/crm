@@ -3,36 +3,41 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-export type SellerOption = { id: string; label: string; count: number };
+export type SellerOption = { id: string; label: string; count?: number };
 
 /**
- * Filtro por vendedor del pipeline (solo admins/gerentes): desplegable que
- * navega con ?v=<id> — el filtrado real ocurre en el servidor.
+ * Filtro por vendedor/usuario (solo admins/gerentes): desplegable que navega
+ * con ?v=<id> — el filtrado real ocurre en el servidor. Reutilizable: el
+ * pipeline lo usa con conteos y Métricas sin conteos.
  */
 export function SellerFilter({
   sellers,
-  unassignedCount,
+  unassignedCount = 0,
   total,
   current,
+  basePath = "/oportunidades",
+  label = "Vendedor",
 }: {
   sellers: SellerOption[];
-  unassignedCount: number;
-  total: number;
+  unassignedCount?: number;
+  total?: number;
   current: string | null;
+  basePath?: string;
+  label?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function onChange(value: string) {
     startTransition(() => {
-      router.push(value ? `/oportunidades?v=${value}` : "/oportunidades");
+      router.push(value ? `${basePath}?v=${value}` : basePath);
     });
   }
 
   return (
     <label className="flex items-center gap-2 text-sm">
       <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-        Vendedor
+        {label}
       </span>
       <select
         value={current ?? ""}
@@ -40,10 +45,13 @@ export function SellerFilter({
         disabled={pending}
         className="rounded-[8px] border border-border bg-field px-3 py-1.5 text-[13px] disabled:opacity-60"
       >
-        <option value="">Todos · {total}</option>
+        <option value="">
+          Todos{total !== undefined ? ` · ${total}` : ""}
+        </option>
         {sellers.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.label} · {s.count}
+            {s.label}
+            {s.count !== undefined ? ` · ${s.count}` : ""}
           </option>
         ))}
         {unassignedCount > 0 && (

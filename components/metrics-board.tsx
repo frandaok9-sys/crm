@@ -346,10 +346,10 @@ export function MetricsBoard({ monthly, bySegment, funnel }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Control segmentado Líneas / Barras (iOS) */}
+      {/* Control segmentado Curva / Barras (iOS) */}
       <div className="flex items-center justify-between gap-3">
         <div className="inline-flex rounded-[10px] bg-chip p-0.5 text-[13px]">
-          {(["barras", "lineas"] as const).map((m) => (
+          {(["lineas", "barras"] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -361,7 +361,7 @@ export function MetricsBoard({ monthly, bySegment, funnel }: Props) {
                   : { color: "var(--muted)" }
               }
             >
-              {m === "barras" ? "Barras" : "Líneas"}
+              {m === "lineas" ? "Curva" : "Barras"}
             </button>
           ))}
         </div>

@@ -1,14 +1,37 @@
+import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { canViewAllRecords } from "@/lib/permissions";
 import { getMetrics } from "@/lib/metrics";
 import { formatMoney } from "@/lib/opportunities";
-import { Currency } from "@/lib/generated/prisma/enums";
-import { KpiCard } from "@/components/kpi-card";
+import { Currency, UserStatus } from "@/lib/generated/prisma/enums";
+import { TrendCard } from "@/components/trend-card";
 import { InitialsAvatar, sellerColor } from "@/components/initials-avatar";
 import { MetricsBoard } from "@/components/metrics-board";
+import { SellerFilter } from "@/components/seller-filter";
 
 function toCurrency(code: string): Currency {
   return code === "USD" ? Currency.USD : Currency.ARS;
+}
+
+/** Serie mensual de "aprobado" (números) para el mini-gráfico de una moneda. */
+function approvedSeries(
+  monthly: { currency: string; months: { approved: string }[] }[],
+  currency: string
+): number[] | undefined {
+  const s = monthly.find((m) => m.currency === currency);
+  return s ? s.months.map((m) => Number(m.approved)) : undefined;
+}
+
+/** Texto de tendencia (▲/▼ %) del primer al último mes de una serie. */
+function pctTrend(series?: number[]): string | undefined {
+  if (!series || series.length < 2) return undefined;
+  const first = series[0];
+  const last = series[series.length - 1];
+  if (first === 0 && last === 0) return undefined;
+  if (first === 0) return "▲ nuevo";
+  const pct = Math.round(((last - first) / first) * 100);
+  if (pct === 0) return undefined;
+  return `${pct > 0 ? "▲" : "▼"} ${Math.abs(pct)}%`;
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -22,14 +45,35 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 const SELLER_GRID =
   "grid grid-cols-[1.8fr_1.2fr_1.2fr_1fr_1fr] items-center";
 
-export default async function MetricsPage() {
+export default async function MetricsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ v?: string }>;
+}) {
+  const { v } = await searchParams;
   const user = await requireActiveUser();
   const companyWide = canViewAllRecords(user);
-  const data = await getMetrics(user);
+
+  // Filtro por usuario (solo admin/gerente): mide a una persona en particular
+  // — incluidos ellos mismos — con ?v=<id>. Validado contra usuarios activos.
+  const users = companyWide
+    ? await prisma.user.findMany({
+        where: { status: UserStatus.ACTIVE },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+  const filter =
+    companyWide && v && users.some((u) => u.id === v) ? v : null;
+  const filteredUser = filter ? users.find((u) => u.id === filter) : null;
+
+  const data = await getMetrics(user, filter);
 
   const hasQuotes = data.totals.length > 0;
   const arsTotals = data.totals.find((t) => t.currency === "ARS");
   const usdTotals = data.totals.find((t) => t.currency === "USD");
+  const arsSeries = approvedSeries(data.monthly, "ARS");
+  const usdSeries = approvedSeries(data.monthly, "USD");
 
   return (
     <div className="space-y-6">
@@ -37,11 +81,24 @@ export default async function MetricsPage() {
         <div>
           <h1 className="text-[26px] font-semibold leading-tight">Métricas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {companyWide
+            {filteredUser
+              ? `Actividad de ${filteredUser.name ?? filteredUser.email}.`
+              : companyWide
               ? "Visión general de toda la empresa."
               : "Tu actividad comercial."}
           </p>
         </div>
+        {companyWide && users.length > 0 && (
+          <SellerFilter
+            basePath="/metricas"
+            label="Usuario"
+            sellers={users.map((u) => ({
+              id: u.id,
+              label: u.name ?? u.email,
+            }))}
+            current={filter}
+          />
+        )}
         {hasQuotes && (
           <a
             href="/admin/export?type=metricas"
@@ -55,27 +112,29 @@ export default async function MetricsPage() {
       <div>
         <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-4">
           {arsTotals && (
-            <KpiCard
-              size="md"
+            <TrendCard
               label="Aprobado ARS"
               value={formatMoney(arsTotals.approved, Currency.ARS) ?? "—"}
+              series={arsSeries}
+              trendText={pctTrend(arsSeries)}
+              note="últimos 6 meses"
             />
           )}
           {usdTotals && (
-            <KpiCard
-              size="md"
+            <TrendCard
               label="Aprobado USD"
               value={formatMoney(usdTotals.approved, Currency.USD) ?? "—"}
+              series={usdSeries}
+              trendText={pctTrend(usdSeries)}
+              note="últimos 6 meses"
             />
           )}
-          <KpiCard
-            size="md"
+          <TrendCard
             label="Conversión"
             value={`${data.conversion.ratePct}%`}
             note={`${data.conversion.approved} aprobado(s) de ${data.conversion.issued} emitido(s)`}
           />
-          <KpiCard
-            size="md"
+          <TrendCard
             label="m² en pipeline"
             value={`${Number(data.pipelineM2).toLocaleString("es-AR")} m²`}
           />

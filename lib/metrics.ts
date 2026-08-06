@@ -71,11 +71,19 @@ function monthLabel(date: Date): string {
     .replace(".", "");
 }
 
-export async function getMetrics(user: Principal): Promise<MetricsData> {
+/**
+ * `ownerId` (opcional): mide SOLO lo de ese usuario. Únicamente lo puede usar
+ * quien ve toda la cartera (admin/gerente); para el resto se ignora.
+ */
+export async function getMetrics(
+  user: Principal,
+  ownerId?: string | null
+): Promise<MetricsData> {
   const companyWide = canViewAllRecords(user);
+  const ownerFilter = companyWide && ownerId ? { ownerId } : {};
   const [allQuotes, opportunities] = await Promise.all([
     prisma.quote.findMany({
-      where: quoteScope(user),
+      where: { ...quoteScope(user), ...ownerFilter },
       select: {
         id: true,
         rootId: true,
@@ -89,7 +97,7 @@ export async function getMetrics(user: Principal): Promise<MetricsData> {
       },
     }),
     prisma.opportunity.findMany({
-      where: opportunityScope(user),
+      where: { ...opportunityScope(user), ...ownerFilter },
       select: {
         amount: true,
         currency: true,
