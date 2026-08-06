@@ -333,6 +333,12 @@ model ClientActivity {
   reply     String?
   repliedAt DateTime?
 
+  /// Chat de tareas de un presupuesto: la tarea queda pineada en el
+  /// presupuesto, ordenada por prioridad (0=Alta, 1=Media, 2=Baja).
+  quoteId  String?
+  quote    Quote?  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  priority Int     @default(1)
+
   createdAt DateTime @default(now())
 
   // Timeline del cliente (más nuevo primero).
@@ -341,6 +347,8 @@ model ClientActivity {
   @@index([createdById, doneAt, dueAt])
   // Tareas delegadas a mí (bandeja del asignado).
   @@index([assignedToId, doneAt, dueAt])
+  // Chat de tareas del presupuesto (abiertas primero, por prioridad).
+  @@index([quoteId, doneAt, priority])
   @@index([opportunityId])
 }
 
@@ -414,7 +422,8 @@ model TaxRate {
 /// Presupuesto. Soporta versionado (revisiones), estados e ítems. Los totales
 /// se guardan como snapshot (Decimal) calculados por lib/quotes-calc.
 model Quote {
-  id         String  @id @default(cuid())
+  id         String           @id @default(cuid())
+  tasks      ClientActivity[] // Chat de tareas del presupuesto
   externalId String? // Nexus: id en el sistema de origen (el `id` es el nexus_id)
   tenantId   String?
   tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)

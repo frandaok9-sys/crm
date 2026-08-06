@@ -15,9 +15,14 @@ import {
   QUOTE_STATUS_STYLES,
   ITEM_TYPE_LABELS,
 } from "@/lib/quotes";
-import { QuoteStatus, LedgerMovementType } from "@/lib/generated/prisma/enums";
+import {
+  QuoteStatus,
+  LedgerMovementType,
+  UserStatus,
+} from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
+import { QuoteTasks } from "@/components/quote-tasks";
 import { setQuoteStatus, reviseQuote, invoiceQuote } from "../actions";
 
 function StatusButton({
@@ -58,6 +63,35 @@ export default async function QuoteDetailPage({
   });
   if (!quote) notFound();
   if (!canViewRecord(user, quote)) redirect("/presupuestos");
+
+  // Chat de tareas del presupuesto + compañeros para delegar.
+  const [tasks, activeUsers] = await Promise.all([
+    prisma.clientActivity.findMany({
+      where: { quoteId: id },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        doneAt: true,
+        reply: true,
+        createdAt: true,
+        createdById: true,
+        assignedToId: true,
+        createdBy: { select: { name: true, email: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 100,
+    }),
+    prisma.user.findMany({
+      where: { status: UserStatus.ACTIVE },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+  const teammates = activeUsers
+    .filter((u) => u.id !== user.id)
+    .map((u) => ({ id: u.id, label: u.name ?? u.email }));
 
   const canEdit = canEditQuote(user, quote);
   const canInvoice = canManageLedger(user);
@@ -300,6 +334,13 @@ export default async function QuoteDetailPage({
           </p>
         </section>
       )}
+
+      <QuoteTasks
+        quoteId={quote.id}
+        tasks={tasks}
+        teammates={teammates}
+        currentUserId={user.id}
+      />
     </div>
   );
 }

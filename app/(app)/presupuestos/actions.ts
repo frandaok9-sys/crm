@@ -418,3 +418,68 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
   revalidatePath(`/presupuestos/${id}`);
   revalidatePath(`/clientes/${quote.clientId}/cuenta`);
 }
+
+// ---------------------------------------------------------------------------
+// Chat de tareas del presupuesto (delegación con prioridad)
+// ---------------------------------------------------------------------------
+
+/**
+ * Agrega una tarea al chat de un presupuesto. Puede delegarse a un @usuario y
+ * lleva prioridad (0=Alta, 1=Media, 2=Baja); queda pineada arriba hasta que se
+ * complete (las delegadas, solo cuando el asignado responde y confirma).
+ */
+export async function addQuoteTask(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const quoteId = String(formData.get("quoteId") ?? "");
+  const quote = await prisma.quote.findUnique({
+    where: { id: quoteId },
+    select: { id: true, clientId: true, ownerId: true },
+  });
+  if (!quote) throw new Error("Presupuesto no encontrado.");
+  if (!canViewRecord(user, quote)) {
+    throw new Error("No tenés acceso a este presupuesto.");
+  }
+
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) throw new Error("Escribí qué hay que hacer.");
+
+  const rawPriority = Number(formData.get("priority"));
+  const priority = [0, 1, 2].includes(rawPriority) ? rawPriority : 1;
+
+  let assignedToId: string | null = null;
+  const rawAssignee = String(formData.get("assignedToId") ?? "").trim();
+  if (rawAssignee && rawAssignee !== user.id) {
+    const assignee = await prisma.user.findUnique({
+      where: { id: rawAssignee },
+      select: { id: true, status: true },
+    });
+    if (!assignee || assignee.status !== "ACTIVE") {
+      throw new Error("El usuario asignado no existe o no está activo.");
+    }
+    assignedToId = assignee.id;
+  }
+
+  const task = await prisma.clientActivity.create({
+    data: {
+      clientId: quote.clientId,
+      quoteId: quote.id,
+      type: "TASK",
+      title: title.slice(0, 200),
+      priority,
+      assignedToId,
+      createdById: user.id,
+    },
+  });
+  if (assignedToId) {
+    await logAudit({
+      action: "task.delegated",
+      actorId: user.id,
+      targetType: "ClientActivity",
+      targetId: task.id,
+      metadata: { quoteId: quote.id, clientId: quote.clientId, assignedToId },
+    });
+  }
+  revalidatePath(`/presupuestos/${quote.id}`);
+  revalidatePath(`/clientes/${quote.clientId}`);
+  revalidatePath("/dashboard");
+}

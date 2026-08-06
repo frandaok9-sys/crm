@@ -126,6 +126,8 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
         id: true,
         title: true,
         dueAt: true,
+        quoteId: true,
+        quote: { select: { code: true } },
         createdBy: { select: { name: true, email: true } },
         client: { select: { id: true, legalName: true } },
       },
@@ -144,6 +146,7 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
         id: true,
         title: true,
         reply: true,
+        quoteId: true,
         assignedTo: { select: { name: true, email: true } },
         client: { select: { id: true, legalName: true } },
       },
@@ -223,8 +226,12 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       id: `delegated-${t.id}`,
       tone: overdue ? "red" : "blue",
       title: `Tarea delegada por ${who}: ${t.title}`,
-      subtitle: `${t.client.legalName} · respondé y confirmá desde la ficha del cliente`,
-      href: `/clientes/${t.client.id}`,
+      subtitle: t.quote
+        ? `Presupuesto ${t.quote.code} (${t.client.legalName}) · respondé y confirmá`
+        : `${t.client.legalName} · respondé y confirmá desde la ficha del cliente`,
+      href: t.quoteId
+        ? `/presupuestos/${t.quoteId}`
+        : `/clientes/${t.client.id}`,
     });
   }
   for (const t of confirmedTasks) {
@@ -236,7 +243,9 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       subtitle: t.reply
         ? `${t.client.legalName} · "${t.reply.slice(0, 120)}"`
         : t.client.legalName,
-      href: `/clientes/${t.client.id}`,
+      href: t.quoteId
+        ? `/presupuestos/${t.quoteId}`
+        : `/clientes/${t.client.id}`,
     });
   }
   for (const t of overdueTasks) {

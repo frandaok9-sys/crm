@@ -357,6 +357,7 @@ export async function toggleActivityDone(formData: FormData): Promise<void> {
     data: { doneAt: activity.doneAt ? null : new Date() },
   });
   revalidatePath(`/clientes/${activity.clientId}`);
+  if (activity.quoteId) revalidatePath(`/presupuestos/${activity.quoteId}`);
   revalidatePath("/dashboard");
 }
 
@@ -390,6 +391,7 @@ export async function replyAndConfirmTask(formData: FormData): Promise<void> {
     metadata: { clientId: activity.clientId, createdById: activity.createdById },
   });
   revalidatePath(`/clientes/${activity.clientId}`);
+  if (activity.quoteId) revalidatePath(`/presupuestos/${activity.quoteId}`);
   revalidatePath("/dashboard");
 }
 
@@ -407,6 +409,7 @@ export async function deleteActivity(formData: FormData): Promise<void> {
   }
   await prisma.clientActivity.delete({ where: { id } });
   revalidatePath(`/clientes/${activity.clientId}`);
+  if (activity.quoteId) revalidatePath(`/presupuestos/${activity.quoteId}`);
   revalidatePath("/dashboard");
 }
 
