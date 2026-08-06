@@ -17,6 +17,7 @@ export function SellerFilter({
   current,
   basePath = "/oportunidades",
   label = "Vendedor",
+  allValue = "",
 }: {
   sellers: SellerOption[];
   unassignedCount?: number;
@@ -24,6 +25,12 @@ export function SellerFilter({
   current: string | null;
   basePath?: string;
   label?: string;
+  /**
+   * Valor explícito para "Todos". Con "" (default) elegir Todos navega sin
+   * parámetro; con p. ej. "all" navega a ?v=all — necesario cuando la vista
+   * SIN parámetro no es la general (Inicio/Métricas arrancan en "lo mío").
+   */
+  allValue?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -40,12 +47,12 @@ export function SellerFilter({
         {label}
       </span>
       <select
-        value={current ?? ""}
+        value={current ?? allValue}
         onChange={(e) => onChange(e.target.value)}
         disabled={pending}
         className="rounded-[8px] border border-border bg-field px-3 py-1.5 text-[13px] disabled:opacity-60"
       >
-        <option value="">
+        <option value={allValue}>
           Todos{total !== undefined ? ` · ${total}` : ""}
         </option>
         {sellers.map((s) => (

@@ -74,8 +74,20 @@ export default async function DashboardPage({
         orderBy: { name: "asc" },
       })
     : [];
-  const filter =
-    companyWide && v && activeUsers.some((u) => u.id === v) ? v : null;
+  // Por defecto cada uno arranca viendo LO SUYO; "Todos" es una elección
+  // explícita (?v=all). Excepción: Reinaldo (dueño) arranca con el general.
+  const defaultsToGeneral =
+    user.email === "reinaldo@rcpisosindustriales.com.ar";
+  let filter: string | null;
+  if (!companyWide) {
+    filter = null; // un vendedor ya ve solo lo suyo
+  } else if (v === "all") {
+    filter = null;
+  } else if (v && activeUsers.some((u) => u.id === v)) {
+    filter = v;
+  } else {
+    filter = defaultsToGeneral ? null : user.id;
+  }
   const filteredUser = filter
     ? activeUsers.find((u) => u.id === filter)
     : null;
@@ -309,7 +321,7 @@ export default async function DashboardPage({
             </h1>
             <DashboardNotifications items={notifications} />
           </div>
-          {filteredUser && (
+          {filteredUser && filter !== user.id && (
             <p className="mt-1 text-sm text-muted-foreground">
               Viendo la actividad de{" "}
               <span className="font-medium">
@@ -318,12 +330,18 @@ export default async function DashboardPage({
               .
             </p>
           )}
+          {companyWide && !filter && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Viendo la actividad de toda la empresa.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {companyWide && activeUsers.length > 0 && (
             <SellerFilter
               basePath="/dashboard"
               label="Usuario"
+              allValue="all"
               sellers={activeUsers.map((u) => ({
                 id: u.id,
                 label: u.name ?? u.email,

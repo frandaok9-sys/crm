@@ -63,8 +63,20 @@ export default async function MetricsPage({
         orderBy: { name: "asc" },
       })
     : [];
-  const filter =
-    companyWide && v && users.some((u) => u.id === v) ? v : null;
+  // Por defecto cada uno arranca viendo LO SUYO; "Todos" es una elección
+  // explícita (?v=all). Excepción: Reinaldo (dueño) arranca con el general.
+  const defaultsToGeneral =
+    user.email === "reinaldo@rcpisosindustriales.com.ar";
+  let filter: string | null;
+  if (!companyWide) {
+    filter = null; // un vendedor ya ve solo lo suyo
+  } else if (v === "all") {
+    filter = null;
+  } else if (v && users.some((u) => u.id === v)) {
+    filter = v;
+  } else {
+    filter = defaultsToGeneral ? null : user.id;
+  }
   const filteredUser = filter ? users.find((u) => u.id === filter) : null;
 
   const data = await getMetrics(user, filter);
@@ -81,7 +93,9 @@ export default async function MetricsPage({
         <div>
           <h1 className="text-[26px] font-semibold leading-tight">Métricas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {filteredUser
+            {filter === user.id
+              ? "Tu actividad comercial."
+              : filteredUser
               ? `Actividad de ${filteredUser.name ?? filteredUser.email}.`
               : companyWide
               ? "Visión general de toda la empresa."
@@ -92,6 +106,7 @@ export default async function MetricsPage({
           <SellerFilter
             basePath="/metricas"
             label="Usuario"
+            allValue="all"
             sellers={users.map((u) => ({
               id: u.id,
               label: u.name ?? u.email,
