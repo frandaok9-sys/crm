@@ -7,12 +7,18 @@ import {
   opportunityScope,
   quoteScope,
   canCreateOpportunities,
+  canViewAllRecords,
 } from "@/lib/permissions";
 import { stageHex } from "@/lib/stage-colors";
 import { IOS, monthlyBuckets, lighten, soft } from "@/lib/design";
 import { getNotifications } from "@/lib/alerts";
 import { latestRevisions } from "@/lib/quotes";
-import { QuoteStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
+import {
+  QuoteStatus,
+  ClientActivityType,
+  UserStatus,
+} from "@/lib/generated/prisma/enums";
+import { SellerFilter } from "@/components/seller-filter";
 import { Button } from "@/components/ui/button";
 import { MetricCard, type MetricTrend } from "@/components/metric-card";
 import { DashboardNotifications } from "@/components/dashboard-notifications";
@@ -47,10 +53,33 @@ function todayKicker(): string {
     .toUpperCase();
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ v?: string }>;
+}) {
+  const { v } = await searchParams;
   const user = await requireActiveUser();
   const firstName = (user.name ?? user.email ?? "").split(" ")[0];
   const notifications = await getNotifications(user);
+
+  // Filtro por usuario (solo admin/gerente): el Inicio mide a una persona en
+  // particular — incluidos ellos mismos. Notificaciones y Mis tareas siguen
+  // siendo SIEMPRE las propias de quien mira.
+  const companyWide = canViewAllRecords(user);
+  const activeUsers = companyWide
+    ? await prisma.user.findMany({
+        where: { status: UserStatus.ACTIVE },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+  const filter =
+    companyWide && v && activeUsers.some((u) => u.id === v) ? v : null;
+  const filteredUser = filter
+    ? activeUsers.find((u) => u.id === filter)
+    : null;
+  const ownerFilter = filter ? { ownerId: filter } : {};
 
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
@@ -68,13 +97,15 @@ export default async function DashboardPage() {
     clientDates,
     oppDates,
   ] = await Promise.all([
-    prisma.client.count({ where: clientScope(user) }),
-    prisma.opportunity.count({ where: opportunityScope(user) }),
+    prisma.client.count({ where: { ...clientScope(user), ...ownerFilter } }),
+    prisma.opportunity.count({
+      where: { ...opportunityScope(user), ...ownerFilter },
+    }),
     // Todas las revisiones: el estado real de un presupuesto es el de su
     // ÚLTIMA revisión (una Rev.1 aprobada con una Rev.2 enviada cuenta
     // como enviada, no como aprobada).
     prisma.quote.findMany({
-      where: quoteScope(user),
+      where: { ...quoteScope(user), ...ownerFilter },
       select: {
         id: true,
         rootId: true,
@@ -83,10 +114,12 @@ export default async function DashboardPage() {
         createdAt: true,
       },
     }),
-    prisma.client.count({ where: { ...clientScope(user), isDraft: true } }),
+    prisma.client.count({
+      where: { ...clientScope(user), ...ownerFilter, isDraft: true },
+    }),
     prisma.stage.findMany({ orderBy: { position: "asc" } }),
     prisma.opportunity.findMany({
-      where: opportunityScope(user),
+      where: { ...opportunityScope(user), ...ownerFilter },
       select: {
         title: true,
         updatedAt: true,
@@ -113,11 +146,19 @@ export default async function DashboardPage() {
     }),
     // Series de los últimos 6 meses (para sparklines y barras) — acotadas por fecha.
     prisma.client.findMany({
-      where: { ...clientScope(user), createdAt: { gte: sixMonthsAgo } },
+      where: {
+        ...clientScope(user),
+        ...ownerFilter,
+        createdAt: { gte: sixMonthsAgo },
+      },
       select: { createdAt: true },
     }),
     prisma.opportunity.findMany({
-      where: { ...opportunityScope(user), createdAt: { gte: sixMonthsAgo } },
+      where: {
+        ...opportunityScope(user),
+        ...ownerFilter,
+        createdAt: { gte: sixMonthsAgo },
+      },
       select: { createdAt: true },
     }),
   ]);
@@ -268,12 +309,34 @@ export default async function DashboardPage() {
             </h1>
             <DashboardNotifications items={notifications} />
           </div>
+          {filteredUser && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Viendo la actividad de{" "}
+              <span className="font-medium">
+                {filteredUser.name ?? filteredUser.email}
+              </span>
+              .
+            </p>
+          )}
         </div>
-        {canCreateOpportunities(user) && (
-          <Link href="/oportunidades/nueva">
-            <Button size="cta">+ Nueva oportunidad</Button>
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {companyWide && activeUsers.length > 0 && (
+            <SellerFilter
+              basePath="/dashboard"
+              label="Usuario"
+              sellers={activeUsers.map((u) => ({
+                id: u.id,
+                label: u.name ?? u.email,
+              }))}
+              current={filter}
+            />
+          )}
+          {canCreateOpportunities(user) && (
+            <Link href="/oportunidades/nueva">
+              <Button size="cta">+ Nueva oportunidad</Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Métricas (franja accent + ícono + tendencia + sparkline) */}
