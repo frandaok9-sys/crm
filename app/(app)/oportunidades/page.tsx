@@ -3,7 +3,11 @@ import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { opportunityScope, canCreateOpportunities } from "@/lib/permissions";
+import {
+  opportunityScope,
+  canCreateOpportunities,
+  canViewAllRecords,
+} from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { stageHex } from "@/lib/stage-colors";
 import { sellerColor } from "@/components/initials-avatar";
@@ -21,14 +25,52 @@ function compactTotals(byCurrency: Map<string, Decimal>): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
-export default async function OpportunitiesPage() {
+export default async function OpportunitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ v?: string }>;
+}) {
+  const { v } = await searchParams;
   const user = await requireActiveUser();
   const canEdit = canCreateOpportunities(user);
+  // Filtro por vendedor: SOLO para quien ve toda la cartera (admin/gerente).
+  // Un vendedor común ya ve únicamente lo suyo, no necesita filtro.
+  const canFilter = canViewAllRecords(user);
+
+  // Vendedores con oportunidades (para armar los chips con su conteo).
+  const sellerGroups = canFilter
+    ? await prisma.opportunity.groupBy({
+        by: ["ownerId"],
+        where: opportunityScope(user),
+        _count: { _all: true },
+      })
+    : [];
+  const sellerIds = sellerGroups
+    .map((g) => g.ownerId)
+    .filter((x): x is string => !!x);
+  const sellers = sellerIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: sellerIds } },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+  const unassignedCount =
+    sellerGroups.find((g) => g.ownerId === null)?._count._all ?? 0;
+
+  // Solo se aplica un filtro válido (un vendedor real o "sin asignar").
+  const filter =
+    canFilter && v && (v === "none" || sellers.some((s) => s.id === v))
+      ? v
+      : null;
 
   const [stages, opportunities] = await Promise.all([
     prisma.stage.findMany({ orderBy: { position: "asc" } }),
     prisma.opportunity.findMany({
-      where: opportunityScope(user),
+      where: {
+        ...opportunityScope(user),
+        ...(filter ? { ownerId: filter === "none" ? null : filter } : {}),
+      },
       include: {
         client: { select: { legalName: true } },
         owner: { select: { name: true, email: true } },
@@ -89,6 +131,55 @@ export default async function OpportunitiesPage() {
           </Link>
         )}
       </div>
+
+      {/* Filtro por vendedor (solo para quien ve toda la cartera) */}
+      {canFilter && (sellers.length > 0 || unassignedCount > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            Vendedor
+          </span>
+          <Link
+            href="/oportunidades"
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              !filter
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:bg-hoverbg"
+            }`}
+          >
+            Todos
+          </Link>
+          {sellers.map((s) => {
+            const count =
+              sellerGroups.find((g) => g.ownerId === s.id)?._count._all ?? 0;
+            const name = s.name ?? s.email;
+            return (
+              <Link
+                key={s.id}
+                href={`/oportunidades?v=${s.id}`}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  filter === s.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:bg-hoverbg"
+                }`}
+              >
+                {name} · {count}
+              </Link>
+            );
+          })}
+          {unassignedCount > 0 && (
+            <Link
+              href="/oportunidades?v=none"
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                filter === "none"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-hoverbg"
+              }`}
+            >
+              Sin asignar · {unassignedCount}
+            </Link>
+          )}
+        </div>
+      )}
 
       <PipelineBoard columns={columns} canEdit={canEdit} />
     </div>
