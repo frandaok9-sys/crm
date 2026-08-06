@@ -20,8 +20,14 @@ const WEEK_MS = 7 * 86_400_000;
  */
 export async function getAlertCount(user: ActiveUser): Promise<number> {
   const staleBefore = new Date(Date.now() - WEEK_MS);
-  const [draftClients, quotesSent, quotesToReview, staleOpps, overdueTasks] =
-    await Promise.all([
+  const [
+    draftClients,
+    quotesSent,
+    quotesToReview,
+    staleOpps,
+    overdueTasks,
+    assignedTasks,
+  ] = await Promise.all([
       prisma.client.count({
         where: { ...clientScope(user), isDraft: true },
       }),
@@ -41,15 +47,31 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
       prisma.clientActivity.count({
         where: {
           createdById: user.id,
+          assignedToId: null,
           type: ClientActivityType.TASK,
           doneAt: null,
           dueAt: { lt: new Date() },
         },
       }),
+      // Tareas que me delegaron y todavía no respondí: siempre cuentan.
+      prisma.clientActivity.count({
+        where: {
+          assignedToId: user.id,
+          type: ClientActivityType.TASK,
+          doneAt: null,
+        },
+      }),
     ]
   );
 
-  return draftClients + quotesSent + quotesToReview + staleOpps + overdueTasks;
+  return (
+    draftClients +
+    quotesSent +
+    quotesToReview +
+    staleOpps +
+    overdueTasks +
+    assignedTasks
+  );
 }
 
 export type NotificationTone = "red" | "amber" | "blue";
@@ -73,8 +95,15 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
   const now = new Date();
   const staleBefore = new Date(now.getTime() - WEEK_MS);
 
-  const [reviewQuotes, overdueTasks, staleOpps, sentQuotes, draftClients] =
-    await Promise.all([
+  const [
+    reviewQuotes,
+    assignedTasks,
+    confirmedTasks,
+    overdueTasks,
+    staleOpps,
+    sentQuotes,
+    draftClients,
+  ] = await Promise.all([
     prisma.quote.findMany({
       where: { ...quoteScope(user), needsReview: true },
       select: {
@@ -86,9 +115,45 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       orderBy: { createdAt: "desc" },
       take: PER_KIND,
     }),
+    // Tareas que OTRO usuario me delegó y espero responder/confirmar.
+    prisma.clientActivity.findMany({
+      where: {
+        assignedToId: user.id,
+        type: ClientActivityType.TASK,
+        doneAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        dueAt: true,
+        createdBy: { select: { name: true, email: true } },
+        client: { select: { id: true, legalName: true } },
+      },
+      orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+      take: PER_KIND,
+    }),
+    // Tareas que YO delegué y el asignado confirmó hace poco (con su respuesta).
     prisma.clientActivity.findMany({
       where: {
         createdById: user.id,
+        assignedToId: { not: null },
+        type: ClientActivityType.TASK,
+        doneAt: { gte: new Date(now.getTime() - WEEK_MS) },
+      },
+      select: {
+        id: true,
+        title: true,
+        reply: true,
+        assignedTo: { select: { name: true, email: true } },
+        client: { select: { id: true, legalName: true } },
+      },
+      orderBy: { doneAt: "desc" },
+      take: PER_KIND,
+    }),
+    prisma.clientActivity.findMany({
+      where: {
+        createdById: user.id,
+        assignedToId: null,
         type: ClientActivityType.TASK,
         doneAt: null,
         dueAt: { lt: now },
@@ -149,6 +214,29 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       title: `Presupuesto por completar: ${code}`,
       subtitle: `${q.client.legalName} · creado por el asistente, revisá precios y envialo`,
       href: `/presupuestos/${q.id}/editar`,
+    });
+  }
+  for (const t of assignedTasks) {
+    const overdue = t.dueAt && t.dueAt < now;
+    const who = t.createdBy.name ?? t.createdBy.email;
+    out.push({
+      id: `delegated-${t.id}`,
+      tone: overdue ? "red" : "blue",
+      title: `Tarea delegada por ${who}: ${t.title}`,
+      subtitle: `${t.client.legalName} · respondé y confirmá desde la ficha del cliente`,
+      href: `/clientes/${t.client.id}`,
+    });
+  }
+  for (const t of confirmedTasks) {
+    const who = t.assignedTo ? t.assignedTo.name ?? t.assignedTo.email : "el asignado";
+    out.push({
+      id: `confirmed-${t.id}`,
+      tone: "blue",
+      title: `Tarea confirmada por ${who}: ${t.title}`,
+      subtitle: t.reply
+        ? `${t.client.legalName} · "${t.reply.slice(0, 120)}"`
+        : t.client.legalName,
+      href: `/clientes/${t.client.id}`,
     });
   }
   for (const t of overdueTasks) {

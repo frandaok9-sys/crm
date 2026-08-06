@@ -56,7 +56,8 @@ model User {
 
   opportunities Opportunity[]    @relation("OpportunityOwner")
   quotes        Quote[]          @relation("QuoteOwner")
-  activities    ClientActivity[] @relation("ActivityAuthor")
+  activities         ClientActivity[] @relation("ActivityAuthor")
+  assignedActivities ClientActivity[] @relation("ActivityAssignee")
   expenses      Expense[]        @relation("ExpenseAuthor")
   assistantLogs AssistantLog[]   @relation("AssistantLogUser")
 
@@ -322,12 +323,24 @@ model ClientActivity {
   dueAt  DateTime?
   doneAt DateTime?
 
+  /// Delegación (comunicación interna): tarea asignada a OTRO usuario.
+  /// Null = tarea propia del autor. Una tarea delegada solo se completa
+  /// cuando el asignado RESPONDE y confirma (reply + doneAt).
+  assignedToId String?
+  assignedTo   User?   @relation("ActivityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  /// Respuesta del asignado al confirmar la tarea (cierra el circuito).
+  reply     String?
+  repliedAt DateTime?
+
   createdAt DateTime @default(now())
 
   // Timeline del cliente (más nuevo primero).
   @@index([clientId, createdAt])
   // "Mis tareas pendientes" (por autor, abiertas, por vencimiento).
   @@index([createdById, doneAt, dueAt])
+  // Tareas delegadas a mí (bandeja del asignado).
+  @@index([assignedToId, doneAt, dueAt])
   @@index([opportunityId])
 }
 

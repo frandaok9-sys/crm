@@ -18,13 +18,24 @@ const TYPES = [
   ClientActivityType.TASK,
 ] as const;
 
+export type Teammate = { id: string; label: string };
+
 /**
  * Alta rápida de una actividad del cliente. El selector de tipo es un grupo de
- * botones; al elegir "Tarea" aparece el campo de fecha límite.
+ * botones; al elegir "Tarea" aparecen la fecha límite y el "Asignar a @usuario"
+ * (delegación: al asignado le llega en notificaciones y en Mis tareas).
  */
-export function ActivityForm({ clientId }: { clientId: string }) {
+export function ActivityForm({
+  clientId,
+  teammates = [],
+}: {
+  clientId: string;
+  teammates?: Teammate[];
+}) {
   const [type, setType] = useState<ClientActivityType>(ClientActivityType.CALL);
+  const [assignee, setAssignee] = useState("");
   const isTask = type === ClientActivityType.TASK;
+  const delegating = isTask && assignee !== "";
 
   return (
     <form action={addActivity} className="space-y-3">
@@ -72,6 +83,33 @@ export function ActivityForm({ clientId }: { clientId: string }) {
         )}
       </div>
 
+      {isTask && teammates.length > 0 && (
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-zinc-500">
+            Asignar a
+          </span>
+          <select
+            name="assignedToId"
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">Para mí</option>
+            {teammates.map((t) => (
+              <option key={t.id} value={t.id}>
+                @{t.label}
+              </option>
+            ))}
+          </select>
+          {delegating && (
+            <span className="mt-1 block text-xs text-zinc-500">
+              Le va a llegar en sus notificaciones. La tarea se completa cuando
+              esa persona responde y la confirma.
+            </span>
+          )}
+        </label>
+      )}
+
       <textarea
         name="notes"
         rows={2}
@@ -81,7 +119,11 @@ export function ActivityForm({ clientId }: { clientId: string }) {
 
       <div className="flex justify-end">
         <Button type="submit" variant="outline">
-          {isTask ? "Crear tarea" : "Registrar actividad"}
+          {delegating
+            ? "Delegar tarea"
+            : isTask
+            ? "Crear tarea"
+            : "Registrar actividad"}
         </Button>
       </div>
     </form>

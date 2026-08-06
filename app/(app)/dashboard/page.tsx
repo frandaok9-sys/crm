@@ -93,16 +93,21 @@ export default async function DashboardPage() {
         client: { select: { legalName: true } },
       },
     }),
-    // Mis tareas abiertas (las creadas por mí), las con vencimiento primero.
+    // Mis tareas abiertas: las que me delegaron + las mías propias, y también
+    // las que YO delegué (para seguirles el rastro hasta que las confirmen).
     prisma.clientActivity.findMany({
       where: {
-        createdById: user.id,
         type: ClientActivityType.TASK,
         doneAt: null,
+        OR: [{ assignedToId: user.id }, { createdById: user.id }],
       },
       orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       take: 6,
-      include: { client: { select: { id: true, legalName: true } } },
+      include: {
+        client: { select: { id: true, legalName: true } },
+        createdBy: { select: { name: true, email: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+      },
     }),
     // Series de los últimos 6 meses (para sparklines y barras) — acotadas por fecha.
     prisma.client.findMany({
@@ -440,19 +445,34 @@ export default async function DashboardPage() {
           <ul className="space-y-2">
             {myTasks.map((t) => {
               const overdue = t.dueAt && t.dueAt.getTime() < now;
+              const delegatedToMe = t.assignedToId === user.id;
+              const delegatedByMe = !!t.assignedToId && !delegatedToMe;
               return (
                 <li
                   key={t.id}
                   className="flex items-center gap-3 rounded-[10px] border border-border2 bg-card2 px-3 py-2.5 text-sm"
                 >
-                  <form action={toggleActivityDone}>
-                    <input type="hidden" name="id" value={t.id} />
-                    <button
-                      type="submit"
-                      title="Marcar como completada"
-                      className="mt-0.5 block h-4 w-4 rounded border border-zinc-400 hover:bg-emerald-100 dark:border-zinc-500 dark:hover:bg-emerald-900"
+                  {/* Delegadas: se resuelven en la ficha del cliente (respuesta
+                      + confirmación), no con el tilde rápido. */}
+                  {t.assignedToId ? (
+                    <span
+                      title={
+                        delegatedToMe
+                          ? "Te la delegaron: respondé desde la ficha"
+                          : "Esperando la respuesta del asignado"
+                      }
+                      className="mt-0.5 block h-4 w-4 shrink-0 rounded-full border-2 border-primary/60"
                     />
-                  </form>
+                  ) : (
+                    <form action={toggleActivityDone}>
+                      <input type="hidden" name="id" value={t.id} />
+                      <button
+                        type="submit"
+                        title="Marcar como completada"
+                        className="mt-0.5 block h-4 w-4 rounded border border-zinc-400 hover:bg-emerald-100 dark:border-zinc-500 dark:hover:bg-emerald-900"
+                      />
+                    </form>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{t.title}</p>
                     <p className="truncate text-xs text-muted-foreground">
@@ -462,6 +482,19 @@ export default async function DashboardPage() {
                       >
                         {t.client.legalName}
                       </Link>
+                      {delegatedToMe && (
+                        <span className="font-medium text-primary">
+                          {" "}
+                          · de {t.createdBy.name ?? t.createdBy.email} —
+                          respondé y confirmá →
+                        </span>
+                      )}
+                      {delegatedByMe && t.assignedTo && (
+                        <span>
+                          {" "}
+                          · delegada a @{t.assignedTo.name ?? t.assignedTo.email}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <span

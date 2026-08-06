@@ -20,6 +20,7 @@ import {
   assignClient,
   addContact,
   toggleActivityDone,
+  replyAndConfirmTask,
   deleteActivity,
 } from "../actions";
 
@@ -42,7 +43,10 @@ export default async function ClientDetailPage({
       activities: {
         orderBy: { createdAt: "desc" },
         take: 30,
-        include: { createdBy: { select: { name: true, email: true } } },
+        include: {
+          createdBy: { select: { name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+        },
       },
       _count: {
         select: { ledgerMovements: true, opportunities: true, quotes: true },
@@ -64,12 +68,20 @@ export default async function ClientDetailPage({
   );
   const now = Date.now();
 
-  const owners = canAssign
-    ? await prisma.user.findMany({
-        where: { status: UserStatus.ACTIVE },
-        select: { id: true, name: true, email: true },
-        orderBy: { name: "asc" },
-      })
+  const activeUsers =
+    canAssign || canEdit
+      ? await prisma.user.findMany({
+          where: { status: UserStatus.ACTIVE },
+          select: { id: true, name: true, email: true },
+          orderBy: { name: "asc" },
+        })
+      : [];
+  const owners = canAssign ? activeUsers : [];
+  // Compañeros a los que se puede delegar una tarea (todos menos uno mismo).
+  const teammates = canEdit
+    ? activeUsers
+        .filter((u) => u.id !== user.id)
+        .map((u) => ({ id: u.id, label: u.name ?? u.email }))
     : [];
 
   return (
@@ -236,7 +248,7 @@ export default async function ClientDetailPage({
           Actividades y tareas
         </h2>
 
-        {canEdit && <ActivityForm clientId={client.id} />}
+        {canEdit && <ActivityForm clientId={client.id} teammates={teammates} />}
 
         {pendingTasks.length > 0 && (
           <div className="mt-5 space-y-2">
@@ -246,6 +258,11 @@ export default async function ClientDetailPage({
             <ul className="space-y-2">
               {pendingTasks.map((a) => {
                 const overdue = a.dueAt && a.dueAt.getTime() < now;
+                const delegated = !!a.assignedToId;
+                const iAmAssignee = a.assignedToId === user.id;
+                const assigneeName = a.assignedTo
+                  ? a.assignedTo.name ?? a.assignedTo.email
+                  : null;
                 return (
                   <li
                     key={a.id}
@@ -255,14 +272,18 @@ export default async function ClientDetailPage({
                         : "border-zinc-200 dark:border-zinc-700"
                     }`}
                   >
-                    <form action={toggleActivityDone}>
-                      <input type="hidden" name="id" value={a.id} />
-                      <button
-                        type="submit"
-                        title="Marcar como completada"
-                        className="mt-0.5 h-4 w-4 rounded border border-zinc-400 hover:bg-emerald-100 dark:border-zinc-500 dark:hover:bg-emerald-900"
-                      />
-                    </form>
+                    {/* Una tarea delegada no se cierra con el tilde: la
+                        confirma el asignado con su respuesta (abajo). */}
+                    {!delegated && (
+                      <form action={toggleActivityDone}>
+                        <input type="hidden" name="id" value={a.id} />
+                        <button
+                          type="submit"
+                          title="Marcar como completada"
+                          className="mt-0.5 h-4 w-4 rounded border border-zinc-400 hover:bg-emerald-100 dark:border-zinc-500 dark:hover:bg-emerald-900"
+                        />
+                      </form>
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{a.title}</p>
                       {a.notes && <p className="text-zinc-500">{a.notes}</p>}
@@ -276,7 +297,41 @@ export default async function ClientDetailPage({
                           "Sin fecha límite"
                         )}{" "}
                         · {a.createdBy.name ?? a.createdBy.email}
+                        {delegated && assigneeName && (
+                          <span className="font-medium text-primary">
+                            {" "}
+                            → @{assigneeName}
+                          </span>
+                        )}
                       </p>
+                      {delegated && iAmAssignee && (
+                        <form
+                          action={replyAndConfirmTask}
+                          className="mt-2 flex items-start gap-2"
+                        >
+                          <input type="hidden" name="id" value={a.id} />
+                          <textarea
+                            name="reply"
+                            required
+                            rows={1}
+                            maxLength={1000}
+                            placeholder="Contá cómo resolviste la tarea…"
+                            className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                          />
+                          <button
+                            type="submit"
+                            className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                          >
+                            Responder y confirmar
+                          </button>
+                        </form>
+                      )}
+                      {delegated && !iAmAssignee && (
+                        <p className="mt-1 text-xs italic text-zinc-400">
+                          Esperando la respuesta de @{assigneeName} para darse
+                          por cumplida.
+                        </p>
+                      )}
                     </div>
                     {canEdit && (
                       <form action={deleteActivity}>
@@ -320,10 +375,22 @@ export default async function ClientDetailPage({
                       {a.title}
                     </p>
                     {a.notes && <p className="mt-0.5 text-zinc-500">{a.notes}</p>}
+                    {a.reply && (
+                      <p className="mt-0.5 text-zinc-500">
+                        <span className="font-medium">
+                          Respuesta de @
+                          {a.assignedTo
+                            ? a.assignedTo.name ?? a.assignedTo.email
+                            : "asignado"}
+                          :
+                        </span>{" "}
+                        {a.reply}
+                      </p>
+                    )}
                     <p className="mt-0.5 text-xs text-zinc-400">
                       {a.createdAt.toLocaleDateString("es-AR")} ·{" "}
                       {a.createdBy.name ?? a.createdBy.email}
-                      {a.doneAt && " · completada"}
+                      {a.doneAt && (a.reply ? " · confirmada" : " · completada")}
                     </p>
                   </div>
                   {a.type === ClientActivityType.TASK && a.doneAt && (

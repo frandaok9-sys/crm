@@ -286,8 +286,9 @@ export async function addActivity(formData: FormData): Promise<void> {
   const title = opt(formData, "title");
   if (!title) throw new Error("Contá brevemente qué pasó (o qué hay que hacer).");
 
-  // Vencimiento: solo tiene sentido para tareas.
+  // Vencimiento y delegación: solo tienen sentido para tareas.
   let dueAt: Date | null = null;
+  let assignedToId: string | null = null;
   if (type === ClientActivityType.TASK) {
     const raw = opt(formData, "dueAt");
     if (raw) {
@@ -295,18 +296,39 @@ export async function addActivity(formData: FormData): Promise<void> {
       if (Number.isNaN(parsed.getTime())) throw new Error("La fecha límite no es válida.");
       dueAt = parsed;
     }
+    const rawAssignee = opt(formData, "assignedToId");
+    if (rawAssignee && rawAssignee !== user.id) {
+      const assignee = await prisma.user.findUnique({
+        where: { id: rawAssignee },
+        select: { id: true, status: true },
+      });
+      if (!assignee || assignee.status !== "ACTIVE") {
+        throw new Error("El usuario asignado no existe o no está activo.");
+      }
+      assignedToId = assignee.id;
+    }
   }
 
-  await prisma.clientActivity.create({
+  const activity = await prisma.clientActivity.create({
     data: {
       clientId,
       type: type as ClientActivityType,
       title: title.slice(0, 200),
       notes: opt(formData, "notes"),
       dueAt,
+      assignedToId,
       createdById: user.id,
     },
   });
+  if (assignedToId) {
+    await logAudit({
+      action: "task.delegated",
+      actorId: user.id,
+      targetType: "ClientActivity",
+      targetId: activity.id,
+      metadata: { clientId, assignedToId },
+    });
+  }
   revalidatePath(`/clientes/${clientId}`);
   revalidatePath("/dashboard");
 }
@@ -323,9 +345,49 @@ export async function toggleActivityDone(formData: FormData): Promise<void> {
   if (activity.createdById !== user.id && !canEditClient(user, activity.client)) {
     throw new Error("No tenés permisos sobre esta actividad.");
   }
+  // Una tarea DELEGADA no se cierra con el tilde: la completa el asignado
+  // respondiendo y confirmando (replyAndConfirmTask). Reabrirla sí se permite.
+  if (activity.assignedToId && !activity.doneAt) {
+    throw new Error(
+      "Esta tarea está delegada: la confirma el usuario asignado con su respuesta."
+    );
+  }
   await prisma.clientActivity.update({
     where: { id },
     data: { doneAt: activity.doneAt ? null : new Date() },
+  });
+  revalidatePath(`/clientes/${activity.clientId}`);
+  revalidatePath("/dashboard");
+}
+
+/**
+ * El usuario ASIGNADO responde y confirma una tarea delegada.
+ * Recién ahí la tarea se considera cumplida (cierra el circuito de delegación).
+ */
+export async function replyAndConfirmTask(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const reply = opt(formData, "reply");
+  if (!reply) throw new Error("Escribí una respuesta para confirmar la tarea.");
+
+  const activity = await prisma.clientActivity.findUnique({ where: { id } });
+  if (!activity) return;
+  if (activity.assignedToId !== user.id) {
+    throw new Error("Solo el usuario asignado puede confirmar esta tarea.");
+  }
+  if (activity.doneAt) throw new Error("Esta tarea ya fue confirmada.");
+
+  const now = new Date();
+  await prisma.clientActivity.update({
+    where: { id },
+    data: { reply: reply.slice(0, 1000), repliedAt: now, doneAt: now },
+  });
+  await logAudit({
+    action: "task.confirmed",
+    actorId: user.id,
+    targetType: "ClientActivity",
+    targetId: id,
+    metadata: { clientId: activity.clientId, createdById: activity.createdById },
   });
   revalidatePath(`/clientes/${activity.clientId}`);
   revalidatePath("/dashboard");
