@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 18,
   },
-  logo: { height: 42, objectFit: "contain" },
+  logo: { height: 58, objectFit: "contain" },
   brandFallback: {
     fontFamily: "Helvetica-Bold",
     fontSize: 20,
