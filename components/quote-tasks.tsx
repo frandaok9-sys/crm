@@ -6,18 +6,13 @@ import {
 } from "@/app/(app)/clientes/actions";
 
 const inputClass =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+  "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
-export const TASK_PRIORITY_LABELS: Record<number, string> = {
-  0: "Alta",
-  1: "Media",
-  2: "Baja",
-};
-
-const PRIORITY_BADGE: Record<number, string> = {
-  0: "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300",
-  1: "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
-  2: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+// Prioridad: 0=Alta (rojo), 1=Media (ámbar), 2=Baja (gris).
+const PRIORITY_DOT: Record<number, string> = {
+  0: "bg-red-500",
+  1: "bg-amber-400",
+  2: "bg-zinc-300 dark:bg-zinc-600",
 };
 
 export type QuoteTask = {
@@ -36,10 +31,9 @@ export type QuoteTask = {
 export type QuoteTaskUser = { id: string; label: string };
 
 /**
- * Chat de tareas de un presupuesto: cada usuario escribe una tarea, puede
- * delegarla a un @usuario y ponerle prioridad. Las abiertas quedan pineadas
- * arriba en orden de prioridad; las delegadas se cierran solo cuando el
- * asignado responde y confirma. Las resueltas quedan abajo como historial.
+ * Chat de tareas de un presupuesto: se escribe una línea, se elige a quién y
+ * la prioridad. Las abiertas quedan pineadas por prioridad; una delegada se
+ * cierra cuando el asignado responde y confirma.
  */
 export function QuoteTasks({
   quoteId,
@@ -67,16 +61,11 @@ export function QuoteTasks({
 
   return (
     <section className="rounded-xl border bg-white p-6 dark:bg-zinc-900">
-      <h2 className="mb-1 text-sm font-medium text-zinc-500">Tareas</h2>
-      <p className="mb-4 text-xs text-zinc-400">
-        Chat del presupuesto: escribí una tarea, asignala a un compañero y
-        ponele prioridad. Queda pineada acá hasta que se resuelva.
-      </p>
+      <h2 className="mb-4 text-sm font-medium text-zinc-500">Tareas</h2>
 
       {open.length > 0 && (
         <ul className="mb-4 space-y-2">
           {open.map((t) => {
-            const delegated = !!t.assignedToId;
             const iAmAssignee = t.assignedToId === currentUserId;
             return (
               <li
@@ -84,51 +73,44 @@ export function QuoteTasks({
                 className="flex items-start gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 text-sm dark:border-zinc-700"
               >
                 <span
-                  className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${PRIORITY_BADGE[t.priority] ?? PRIORITY_BADGE[1]}`}
-                >
-                  {TASK_PRIORITY_LABELS[t.priority] ?? "Media"}
-                </span>
+                  title={["Prioridad alta", "Prioridad media", "Prioridad baja"][t.priority] ?? "Prioridad media"}
+                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${PRIORITY_DOT[t.priority] ?? PRIORITY_DOT[1]}`}
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{t.title}</p>
                   <p className="mt-0.5 text-xs text-zinc-400">
-                    {userName(t.createdBy)} ·{" "}
-                    {t.createdAt.toLocaleDateString("es-AR")}
-                    {delegated && t.assignedTo && (
+                    {userName(t.createdBy)}
+                    {t.assignedTo && (
                       <span className="font-medium text-primary">
                         {" "}
                         → @{userName(t.assignedTo)}
                       </span>
                     )}
                   </p>
-                  {delegated && iAmAssignee && (
+                  {iAmAssignee && (
                     <form
                       action={replyAndConfirmTask}
-                      className="mt-2 flex items-start gap-2"
+                      className="mt-2 flex items-center gap-2"
                     >
                       <input type="hidden" name="id" value={t.id} />
-                      <textarea
+                      <input
                         name="reply"
                         required
-                        rows={1}
                         maxLength={1000}
-                        placeholder="Contá cómo la resolviste…"
-                        className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                        placeholder="Respondé para confirmarla…"
+                        className={`${inputClass} min-w-0 flex-1 py-1.5`}
                       />
                       <button
                         type="submit"
+                        title="Responder y confirmar"
                         className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                       >
-                        Responder y confirmar
+                        Confirmar
                       </button>
                     </form>
                   )}
-                  {delegated && !iAmAssignee && t.assignedTo && (
-                    <p className="mt-1 text-xs italic text-zinc-400">
-                      Esperando la respuesta de @{userName(t.assignedTo)}.
-                    </p>
-                  )}
                 </div>
-                {!delegated && (
+                {!t.assignedToId && (
                   <form action={toggleActivityDone}>
                     <input type="hidden" name="id" value={t.id} />
                     <button
@@ -157,58 +139,55 @@ export function QuoteTasks({
       )}
 
       {done.length > 0 && (
-        <ul className="mb-4 space-y-1 border-t pt-3">
-          {done.map((t) => (
-            <li key={t.id} className="py-1 text-sm text-zinc-400">
-              <span className="line-through">{t.title}</span>
-              <span className="text-xs">
-                {" "}
-                · {userName(t.createdBy)}
-                {t.assignedTo && <> → @{userName(t.assignedTo)}</>}
-                {t.doneAt && <> · {t.doneAt.toLocaleDateString("es-AR")}</>}
-              </span>
-              {t.reply && (
-                <p className="ml-4 text-xs text-zinc-500">
-                  Respuesta: {t.reply}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
+        <details className="mb-4">
+          <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-600">
+            Resueltas ({done.length})
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {done.map((t) => (
+              <li key={t.id} className="text-sm text-zinc-400">
+                <span className="line-through">{t.title}</span>
+                {t.assignedTo && (
+                  <span className="text-xs"> · @{userName(t.assignedTo)}</span>
+                )}
+                {t.reply && (
+                  <p className="ml-4 text-xs text-zinc-500">“{t.reply}”</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
-      {/* Escribir una tarea nueva (estilo chat, abajo del hilo) */}
-      <form action={addQuoteTask} className="space-y-2">
+      {/* Escribir una tarea: una sola línea, estilo chat */}
+      <form action={addQuoteTask} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="quoteId" value={quoteId} />
-        <textarea
+        <input
           name="title"
           required
-          rows={2}
           maxLength={200}
-          placeholder="Escribí la tarea… (ej: pasar precio actualizado del epoxi)"
-          className={inputClass}
+          placeholder="Escribí una tarea…"
+          className={`${inputClass} min-w-[180px] flex-1`}
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <select name="assignedToId" defaultValue="" className={`${inputClass} w-auto`}>
-            <option value="">Para mí</option>
-            {teammates.map((t) => (
-              <option key={t.id} value={t.id}>
-                @{t.label}
-              </option>
-            ))}
-          </select>
-          <select name="priority" defaultValue="1" className={`${inputClass} w-auto`}>
-            <option value="0">Prioridad alta</option>
-            <option value="1">Prioridad media</option>
-            <option value="2">Prioridad baja</option>
-          </select>
-          <button
-            type="submit"
-            className="ml-auto rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            Agregar tarea
-          </button>
-        </div>
+        <select name="assignedToId" defaultValue="" className={inputClass}>
+          <option value="">Para mí</option>
+          {teammates.map((t) => (
+            <option key={t.id} value={t.id}>
+              @{t.label}
+            </option>
+          ))}
+        </select>
+        <select name="priority" defaultValue="1" className={inputClass}>
+          <option value="0">🔴 Alta</option>
+          <option value="1">🟡 Media</option>
+          <option value="2">⚪ Baja</option>
+        </select>
+        <button
+          type="submit"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
+          Agregar
+        </button>
       </form>
     </section>
   );
