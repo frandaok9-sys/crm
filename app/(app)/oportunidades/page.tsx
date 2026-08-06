@@ -13,6 +13,7 @@ import { stageHex } from "@/lib/stage-colors";
 import { sellerColor } from "@/components/initials-avatar";
 import { Button } from "@/components/ui/button";
 import { PipelineBoard, type BoardColumn } from "@/components/pipeline-board";
+import { SellerFilter } from "@/components/seller-filter";
 
 function compactTotals(byCurrency: Map<string, Decimal>): string | null {
   const parts = [...byCurrency.entries()].map(([currency, total]) => {
@@ -134,54 +135,22 @@ export default async function OpportunitiesPage({
 
       {/* Filtro por vendedor (solo para quien ve toda la cartera) */}
       {canFilter && (sellers.length > 0 || unassignedCount > 0) && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            Vendedor
-          </span>
-          <Link
-            href="/oportunidades"
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              !filter
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:bg-hoverbg"
-            }`}
-          >
-            Todos
-          </Link>
-          {sellers.map((s) => {
-            const count =
-              sellerGroups.find((g) => g.ownerId === s.id)?._count._all ?? 0;
-            const name = s.name ?? s.email;
-            return (
-              <Link
-                key={s.id}
-                href={`/oportunidades?v=${s.id}`}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  filter === s.id
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:bg-hoverbg"
-                }`}
-              >
-                {name} · {count}
-              </Link>
-            );
-          })}
-          {unassignedCount > 0 && (
-            <Link
-              href="/oportunidades?v=none"
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                filter === "none"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:bg-hoverbg"
-              }`}
-            >
-              Sin asignar · {unassignedCount}
-            </Link>
-          )}
-        </div>
+        <SellerFilter
+          sellers={sellers.map((s) => ({
+            id: s.id,
+            label: s.name ?? s.email,
+            count:
+              sellerGroups.find((g) => g.ownerId === s.id)?._count._all ?? 0,
+          }))}
+          unassignedCount={unassignedCount}
+          total={sellerGroups.reduce((sum, g) => sum + g._count._all, 0)}
+          current={filter}
+        />
       )}
 
-      <PipelineBoard columns={columns} canEdit={canEdit} />
+      {/* key: el tablero copia los datos a su estado interno (drag & drop);
+          al cambiar el filtro se remonta para mostrar los datos filtrados. */}
+      <PipelineBoard key={filter ?? "all"} columns={columns} canEdit={canEdit} />
     </div>
   );
 }
