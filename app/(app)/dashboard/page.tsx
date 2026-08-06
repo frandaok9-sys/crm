@@ -11,6 +11,7 @@ import {
 import { stageHex } from "@/lib/stage-colors";
 import { IOS, monthlyBuckets, lighten, soft } from "@/lib/design";
 import { getNotifications } from "@/lib/alerts";
+import { latestRevisions } from "@/lib/quotes";
 import { QuoteStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { MetricCard, type MetricTrend } from "@/components/metric-card";
@@ -59,27 +60,28 @@ export default async function DashboardPage() {
   const [
     clients,
     opportunities,
-    quotesSent,
-    quotesApproved,
-    quotesRejected,
+    allQuoteRows,
     draftClients,
     stages,
     opps,
     myTasks,
     clientDates,
     oppDates,
-    quoteRows,
   ] = await Promise.all([
     prisma.client.count({ where: clientScope(user) }),
     prisma.opportunity.count({ where: opportunityScope(user) }),
-    prisma.quote.count({
-      where: { ...quoteScope(user), status: QuoteStatus.SENT },
-    }),
-    prisma.quote.count({
-      where: { ...quoteScope(user), status: QuoteStatus.APPROVED },
-    }),
-    prisma.quote.count({
-      where: { ...quoteScope(user), status: QuoteStatus.REJECTED },
+    // Todas las revisiones: el estado real de un presupuesto es el de su
+    // ÚLTIMA revisión (una Rev.1 aprobada con una Rev.2 enviada cuenta
+    // como enviada, no como aprobada).
+    prisma.quote.findMany({
+      where: quoteScope(user),
+      select: {
+        id: true,
+        rootId: true,
+        version: true,
+        status: true,
+        createdAt: true,
+      },
     }),
     prisma.client.count({ where: { ...clientScope(user), isDraft: true } }),
     prisma.stage.findMany({ orderBy: { position: "asc" } }),
@@ -118,15 +120,31 @@ export default async function DashboardPage() {
       where: { ...opportunityScope(user), createdAt: { gte: sixMonthsAgo } },
       select: { createdAt: true },
     }),
-    prisma.quote.findMany({
-      where: {
-        ...quoteScope(user),
-        version: 1,
-        createdAt: { gte: sixMonthsAgo },
-      },
-      select: { createdAt: true, status: true },
-    }),
   ]);
+
+  // Un presupuesto = su última revisión (los contadores y series reflejan el
+  // estado vigente; si se aprueba y luego se revisa y reenvía, cuenta como
+  // enviado). La fecha usada es la de la emisión original (Rev.1).
+  const latestQuotes = latestRevisions(allQuoteRows);
+  const quotesSent = latestQuotes.filter(
+    (q) => q.status === QuoteStatus.SENT
+  ).length;
+  const quotesApproved = latestQuotes.filter(
+    (q) => q.status === QuoteStatus.APPROVED
+  ).length;
+  const quotesRejected = latestQuotes.filter(
+    (q) => q.status === QuoteStatus.REJECTED
+  ).length;
+  const firstDateByGroup = new Map<string, Date>();
+  for (const q of allQuoteRows) {
+    if (q.version === 1) firstDateByGroup.set(q.id, q.createdAt);
+  }
+  const quoteRows = latestQuotes
+    .map((q) => ({
+      status: q.status,
+      createdAt: firstDateByGroup.get(q.rootId ?? q.id) ?? q.createdAt,
+    }))
+    .filter((q) => q.createdAt >= sixMonthsAgo);
 
   // Series mensuales reales (más viejo → más nuevo).
   const clientSeries = monthlyBuckets(clientDates.map((c) => c.createdAt)).map(

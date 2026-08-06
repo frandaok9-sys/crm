@@ -6,6 +6,7 @@ import {
   quoteScope,
 } from "@/lib/permissions";
 import { QuoteStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
+import { latestRevisions } from "@/lib/quotes";
 
 type ActiveUser = Awaited<ReturnType<typeof requireActiveUser>>;
 
@@ -22,7 +23,7 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
   const staleBefore = new Date(Date.now() - WEEK_MS);
   const [
     draftClients,
-    quotesSent,
+    allQuoteRows,
     quotesToReview,
     staleOpps,
     overdueTasks,
@@ -31,8 +32,11 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
       prisma.client.count({
         where: { ...clientScope(user), isDraft: true },
       }),
-      prisma.quote.count({
-        where: { ...quoteScope(user), status: QuoteStatus.SENT },
+      // Todas las revisiones: un presupuesto "sin respuesta" es el que quedó
+      // ENVIADO en su ÚLTIMA revisión (no una Rev.1 ya superada).
+      prisma.quote.findMany({
+        where: { ...quoteScope(user) },
+        select: { id: true, rootId: true, version: true, status: true },
       }),
       prisma.quote.count({
         where: { ...quoteScope(user), needsReview: true },
@@ -63,6 +67,10 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
       }),
     ]
   );
+
+  const quotesSent = latestRevisions(allQuoteRows).filter(
+    (q) => q.status === QuoteStatus.SENT
+  ).length;
 
   return (
     draftClients +
@@ -101,7 +109,8 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
     confirmedTasks,
     overdueTasks,
     staleOpps,
-    sentQuotes,
+    sentQuoteRows,
+    allQuoteVersions,
     draftClients,
   ] = await Promise.all([
     prisma.quote.findMany({
@@ -185,16 +194,23 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       orderBy: { updatedAt: "asc" },
       take: PER_KIND,
     }),
+    // ENVIADOS: se traen de más y después se descartan las revisiones ya
+    // superadas (una Rev.1 enviada con Rev.2 aprobada no es "sin respuesta").
     prisma.quote.findMany({
       where: { ...quoteScope(user), status: QuoteStatus.SENT },
       select: {
         id: true,
-        code: true,
+        rootId: true,
         version: true,
+        code: true,
         client: { select: { legalName: true } },
       },
       orderBy: { createdAt: "asc" },
-      take: PER_KIND,
+      take: 25,
+    }),
+    prisma.quote.findMany({
+      where: { ...quoteScope(user) },
+      select: { id: true, rootId: true, version: true },
     }),
     prisma.client.findMany({
       where: { ...clientScope(user), isDraft: true },
@@ -206,6 +222,19 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
 
   const days = (from: Date) =>
     Math.max(0, Math.floor((now.getTime() - from.getTime()) / 86_400_000));
+
+  // Solo los enviados cuya revisión sea la vigente (no superada por otra).
+  const maxVersionByGroup = new Map<string, number>();
+  for (const q of allQuoteVersions) {
+    const group = q.rootId ?? q.id;
+    maxVersionByGroup.set(
+      group,
+      Math.max(maxVersionByGroup.get(group) ?? 0, q.version)
+    );
+  }
+  const sentQuotes = sentQuoteRows
+    .filter((q) => q.version === maxVersionByGroup.get(q.rootId ?? q.id))
+    .slice(0, PER_KIND);
 
   const out: AppNotification[] = [];
 
