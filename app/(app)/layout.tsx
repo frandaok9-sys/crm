@@ -15,6 +15,7 @@ import {
 import { getCompanySettings } from "@/lib/company";
 import { AppSidebar, type SidebarItem } from "@/components/app-sidebar";
 import { CommandPalette } from "@/components/command-palette";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function AppLayout({
   children,
@@ -76,6 +77,9 @@ export default async function AppLayout({
       </main>
       {/* Búsqueda global: Ctrl+K / Cmd+K desde cualquier pantalla. */}
       <CommandPalette />
+      {/* Notificaciones y tareas al día: refresco de datos cada 60 s
+          sin recargar la página (se pausa si estás escribiendo). */}
+      <AutoRefresh seconds={60} />
     </div>
   );
 }
