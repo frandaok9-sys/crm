@@ -43,6 +43,7 @@ export function TaskThread({
   tasks,
   teammates,
   currentUserId,
+  canPost = true,
 }: {
   action: (formData: FormData) => Promise<void>;
   hiddenName: string;
@@ -50,6 +51,8 @@ export function TaskThread({
   tasks: ThreadTask[];
   teammates: ThreadUser[];
   currentUserId: string;
+  /** false = solo lectura del hilo (el servidor también lo valida). */
+  canPost?: boolean;
 }) {
   const open = [...tasks]
     .filter((t) => !t.doneAt)
@@ -115,7 +118,9 @@ export function TaskThread({
                     </form>
                   )}
                 </div>
-                {!t.assignedToId && (
+                {/* El tilde solo para el autor (el servidor exige ser autor
+                    o poder editar el cliente): si no, el clic fallaría. */}
+                {!t.assignedToId && t.createdById === currentUserId && (
                   <form action={toggleActivityDone}>
                     <input type="hidden" name="id" value={t.id} />
                     <button
@@ -164,7 +169,12 @@ export function TaskThread({
         </details>
       )}
 
+      {!canPost && open.length === 0 && done.length === 0 && (
+        <p className="text-sm text-muted-foreground">Sin tareas.</p>
+      )}
+
       {/* Escribir una tarea: una sola línea, estilo chat */}
+      {canPost && (
       <form action={action} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name={hiddenName} value={hiddenValue} />
         <input
@@ -194,6 +204,7 @@ export function TaskThread({
           Agregar
         </button>
       </form>
+      )}
     </section>
   );
 }

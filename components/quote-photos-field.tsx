@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 import { deleteCompanyImage } from "@/app/(app)/presupuestos/actions";
 
@@ -46,28 +46,30 @@ export function QuotePhotoBudget({
   initialCount: number;
   children: React.ReactNode;
 }) {
-  const state = useRef({ count: initialCount, chars: 0 });
-  const budget = useRef<Budget>({
-    tryReserve(chars: number) {
-      if (state.current.count + 1 > MAX_TOTAL_PHOTOS) {
-        return `Máximo ${MAX_TOTAL_PHOTOS} fotos por presupuesto (entre todas las secciones).`;
-      }
-      if (state.current.chars + chars > MAX_TOTAL_CHARS) {
-        return "Se alcanzó el peso máximo de fotos nuevas para un guardado. Guardá el presupuesto y agregá el resto editándolo.";
-      }
-      state.current.count += 1;
-      state.current.chars += chars;
-      return null;
-    },
-    release(chars: number) {
-      state.current.count = Math.max(0, state.current.count - 1);
-      state.current.chars = Math.max(0, state.current.chars - chars);
-    },
+  // useState con inicializador perezoso: el objeto se crea UNA vez y es
+  // estable entre renders (un ref no puede leerse durante el render).
+  const [budget] = useState<Budget>(() => {
+    const state = { count: initialCount, chars: 0 };
+    return {
+      tryReserve(chars: number) {
+        if (state.count + 1 > MAX_TOTAL_PHOTOS) {
+          return `Máximo ${MAX_TOTAL_PHOTOS} fotos por presupuesto (entre todas las secciones).`;
+        }
+        if (state.chars + chars > MAX_TOTAL_CHARS) {
+          return "Se alcanzó el peso máximo de fotos nuevas para un guardado. Guardá el presupuesto y agregá el resto editándolo.";
+        }
+        state.count += 1;
+        state.chars += chars;
+        return null;
+      },
+      release(chars: number) {
+        state.count = Math.max(0, state.count - 1);
+        state.chars = Math.max(0, state.chars - chars);
+      },
+    };
   });
   return (
-    <BudgetContext.Provider value={budget.current}>
-      {children}
-    </BudgetContext.Provider>
+    <BudgetContext.Provider value={budget}>{children}</BudgetContext.Provider>
   );
 }
 

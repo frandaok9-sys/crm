@@ -10,8 +10,15 @@ import {
   canViewAllRecords,
 } from "@/lib/permissions";
 import { stageHex } from "@/lib/stage-colors";
+import { formatMoney } from "@/lib/opportunities";
 import { IOS, monthlyBuckets, lighten, soft } from "@/lib/design";
 import { getNotifications } from "@/lib/alerts";
+import {
+  EXECUTION_STAGE,
+  FINISHED_STAGE,
+  LOST_STAGE,
+  CLOSED_STAGES,
+} from "@/lib/stages";
 import { latestRevisions } from "@/lib/quotes";
 import { getOverdueInvoices } from "@/lib/receivables";
 import {
@@ -32,7 +39,6 @@ const METRIC_ICONS = {
     "M9 10a3 3 0 100-6 3 3 0 000 6M3.5 20a5.5 5.5 0 0111 0M16 4.5a3 3 0 010 6M18 14.5a5.5 5.5 0 013 4.5",
   pipeline: "M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z",
   doc: "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
-  check: "M4 12l5 5 11-11",
 } as const;
 
 const BAR_QUOTED = "#5B82D6";
@@ -143,7 +149,7 @@ export default async function DashboardPage({
       where: {
         ...opportunityScope(user),
         ...ownerFilter,
-        stage: { name: "En ejecución" },
+        stage: { name: EXECUTION_STAGE },
       },
       select: {
         id: true,
@@ -163,7 +169,6 @@ export default async function DashboardPage({
       select: {
         title: true,
         updatedAt: true,
-        stageId: true,
         stage: { select: { name: true } },
         client: { select: { legalName: true } },
       },
@@ -246,22 +251,44 @@ export default async function DashboardPage({
   const monthLabels = quoteBuckets.map((b) => b.label);
   const maxBar = Math.max(...cotizadoSeries, 1);
 
-  // Pipeline por etapa
-  // Tareas abiertas por obra (avisos del panel "En obra").
-  const obraTaskGroups = obras.length
-    ? await prisma.clientActivity.groupBy({
-        by: ["opportunityId"],
-        where: {
-          opportunityId: { in: obras.map((o) => o.id) },
-          type: ClientActivityType.TASK,
-          doneAt: null,
-        },
-        _count: { _all: true },
-      })
-    : [];
+  // Avisos del panel "En obra": tareas abiertas y ÚLTIMA NOVEDAD real
+  // (la oportunidad no se toca al cargar un gasto o una tarea, así que
+  // mirar solo updatedAt diría "40 días sin novedades" con trabajo de hoy).
+  const obraIds = obras.map((o) => o.id);
+  const [obraTaskGroups, obraLastTask, obraLastExpense] = obraIds.length
+    ? await Promise.all([
+        prisma.clientActivity.groupBy({
+          by: ["opportunityId"],
+          where: {
+            opportunityId: { in: obraIds },
+            type: ClientActivityType.TASK,
+            doneAt: null,
+          },
+          _count: { _all: true },
+        }),
+        prisma.clientActivity.groupBy({
+          by: ["opportunityId"],
+          where: { opportunityId: { in: obraIds } },
+          _max: { createdAt: true },
+        }),
+        prisma.expense.groupBy({
+          by: ["opportunityId"],
+          where: { opportunityId: { in: obraIds } },
+          _max: { createdAt: true },
+        }),
+      ])
+    : [[], [], []];
   const openTasksByObra = new Map(
     obraTaskGroups.map((g) => [g.opportunityId, g._count._all])
   );
+  const lastNewsByObra = new Map<string, Date>();
+  for (const g of [...obraLastTask, ...obraLastExpense]) {
+    if (!g.opportunityId || !g._max.createdAt) continue;
+    const current = lastNewsByObra.get(g.opportunityId);
+    if (!current || g._max.createdAt > current) {
+      lastNewsByObra.set(g.opportunityId, g._max.createdAt);
+    }
+  }
 
   // Requiere atención (hasta 3)
   const alerts: Alert[] = [];
@@ -286,7 +313,7 @@ export default async function DashboardPage({
   const stale = opps
     .filter(
       (o) =>
-        !["En ejecución", "Finalizada", "Perdida"].includes(o.stage.name) &&
+        !(CLOSED_STAGES as readonly string[]).includes(o.stage.name) &&
         now - o.updatedAt.getTime() > 7 * 86_400_000
     )
     .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime());
@@ -322,9 +349,9 @@ export default async function DashboardPage({
 
   // Anillos de rendimiento (métricas reales, sin inventar):
   const totalOpps = opps.length;
-  const inExecution = opps.filter((o) => o.stage.name === "En ejecución").length;
-  const finished = opps.filter((o) => o.stage.name === "Finalizada").length;
-  const lost = opps.filter((o) => o.stage.name === "Perdida").length;
+  const inExecution = opps.filter((o) => o.stage.name === EXECUTION_STAGE).length;
+  const finished = opps.filter((o) => o.stage.name === FINISHED_STAGE).length;
+  const lost = opps.filter((o) => o.stage.name === LOST_STAGE).length;
   // Ganado = obras conseguidas (en marcha o ya terminadas).
   const won = inExecution + finished;
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
@@ -454,10 +481,14 @@ export default async function DashboardPage({
                         ? "#E0982C"
                         : "#4FB574";
                 const openTasks = openTasksByObra.get(o.id) ?? 0;
-                const idleDays = Math.floor(
-                  (now - o.updatedAt.getTime()) / 86_400_000
+                const lastNews = Math.max(
+                  o.updatedAt.getTime(),
+                  lastNewsByObra.get(o.id)?.getTime() ?? 0
                 );
-                const symbol = o.currency === "USD" ? "US$" : "$";
+                const idleDays = Math.floor((now - lastNews) / 86_400_000);
+                const otherCurrencyCosts = o.expenses.some(
+                  (e) => e.currency !== o.currency
+                );
                 return (
                   <li key={o.id}>
                     <Link
@@ -468,9 +499,9 @@ export default async function DashboardPage({
                         <p className="min-w-0 truncate text-sm font-semibold">
                           {o.title}
                         </p>
-                        {budget > 0 && (
+                        {o.amount && (
                           <span className="shrink-0 text-xs font-semibold tabular-nums">
-                            {symbol} {budget.toLocaleString("es-AR")}
+                            {formatMoney(o.amount.toString(), o.currency)}
                           </span>
                         )}
                       </div>
@@ -494,6 +525,7 @@ export default async function DashboardPage({
                             style={{ color: barColor }}
                           >
                             {costPct}% del presupuesto en costos
+                            {otherCurrencyCosts && " (+ otra moneda)"}
                           </span>
                         </div>
                       )}

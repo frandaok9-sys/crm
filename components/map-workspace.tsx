@@ -75,11 +75,16 @@ function fmtMoney(n: number, cur: string): string {
 function objetivoVisita(stageName: string | null, kind: string): string {
   if (kind === "custom") return "Prospectar: presentar RC y relevar la necesidad";
   const s = (stageName || "").toLowerCase();
-  if (s.includes("gan")) return "Coordinar arranque de obra";
+  if (s.includes("ejecu")) return "Seguimiento de obra en marcha";
+  if (s.includes("finaliz")) return "Post-obra: revisar terminación y pedir referidos";
   if (s.includes("negoci")) return "Cerrar: ajustar condiciones y firmar";
   if (s.includes("propuesta")) return "Empujar la decisión, evacuar dudas";
-  if (s.includes("contact")) return "Relevar la obra y agendar propuesta";
-  if (s.includes("prospect")) return "Calificar y presentar RC";
+  if (s.includes("contact") || s.includes("oportunidad")) {
+    return "Relevar la obra y agendar propuesta";
+  }
+  if (s.includes("prospect") || s.includes("lead")) {
+    return "Calificar y presentar RC";
+  }
   return "Visita comercial";
 }
 /** AAAA-MM-DD → DD/MM/AAAA (para mostrar). */

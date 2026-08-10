@@ -7,6 +7,7 @@ import {
   canViewRecord,
   canEditQuote,
   canManageLedger,
+  canPostTasks,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { computeQuoteTotals } from "@/lib/quotes-calc";
@@ -24,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { TaskThread } from "@/components/task-thread";
 import { DeleteQuoteButton } from "@/components/delete-quote-button";
+import { EXECUTION_STAGE } from "@/lib/stages";
 import {
   setQuoteStatus,
   reviseQuote,
@@ -66,6 +68,9 @@ export default async function QuoteDetailPage({
       client: { select: { id: true, legalName: true } },
       owner: { select: { name: true, email: true } },
       items: { orderBy: { position: "asc" } },
+      // La obra vinculada con su etapa real: el cartel no puede decir
+      // "en ejecución" cuando la obra ya está finalizada o perdida.
+      obra: { select: { id: true, stage: { select: { name: true } } } },
       photos: {
         orderBy: { position: "asc" },
         select: { id: true, data: true, caption: true, section: true },
@@ -232,13 +237,19 @@ export default async function QuoteDetailPage({
       {/* Obra: pasar a ejecución (aprobado → oportunidad "En ejecución") */}
       {quote.status === QuoteStatus.APPROVED && (
         <div className="flex flex-wrap items-center gap-3">
-          {quote.opportunityId ? (
+          {quote.obra ? (
             <>
-              <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-800 dark:bg-orange-950 dark:text-orange-300">
-                🏗️ Obra en ejecución
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+                  quote.obra.stage.name === EXECUTION_STAGE
+                    ? "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300"
+                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                }`}
+              >
+                🏗️ Obra: {quote.obra.stage.name}
               </span>
               <Link
-                href={`/oportunidades/${quote.opportunityId}`}
+                href={`/oportunidades/${quote.obra.id}`}
                 className="text-sm font-medium text-primary hover:underline"
               >
                 Ver obra →
@@ -486,6 +497,7 @@ export default async function QuoteDetailPage({
         tasks={tasks}
         teammates={teammates}
         currentUserId={user.id}
+        canPost={canPostTasks(user)}
       />
 
       {/* Zona de riesgo: eliminar el presupuesto (abajo de todo) */}

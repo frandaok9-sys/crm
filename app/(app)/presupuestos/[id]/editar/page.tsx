@@ -6,7 +6,6 @@ import { requireActiveUser } from "@/lib/auth";
 import {
   canEditQuote,
   canAssignClients,
-  clientScope,
 } from "@/lib/permissions";
 import { UserStatus, QuoteStatus } from "@/lib/generated/prisma/enums";
 import { getCatalogProducts } from "@/lib/products";

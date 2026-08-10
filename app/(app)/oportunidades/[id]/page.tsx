@@ -9,7 +9,7 @@ import {
   canEditOpportunity,
   canAssignClients,
   canLogExpenses,
-  clientScope,
+  canPostTasks,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { hasGoogleTasksAccess } from "@/lib/google-tasks";
@@ -565,6 +565,7 @@ export default async function OpportunityDetailPage({
         tasks={tasks}
         teammates={teammates}
         currentUserId={user.id}
+        canPost={canPostTasks(user)}
       />
 
       {/* Zona de riesgo: eliminar la oportunidad */}

@@ -11,6 +11,7 @@ import {
   canEditOpportunity,
   canAssignClients,
   canViewRecord,
+  canPostTasks,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
@@ -419,15 +420,17 @@ export async function addOpportunityTask(formData: FormData): Promise<void> {
     select: { id: true, clientId: true, ownerId: true },
   });
   if (!opportunity) throw new Error("Oportunidad no encontrada.");
-  if (!canViewRecord(user, opportunity)) {
-    throw new Error("No tenés acceso a esta oportunidad.");
+  if (!canViewRecord(user, opportunity) || !canPostTasks(user)) {
+    throw new Error("No tenés permisos para escribir tareas acá.");
   }
 
   const title = String(formData.get("title") ?? "").trim();
   if (!title) throw new Error("Escribí qué hay que hacer.");
 
-  const rawPriority = Number(formData.get("priority"));
-  const priority = [0, 1, 2].includes(rawPriority) ? rawPriority : 1;
+  // Sin campo (o vacío) = prioridad media, no alta: Number("") da 0.
+  const rawPriority = formData.get("priority");
+  const parsedPriority = rawPriority == null ? NaN : Number(rawPriority);
+  const priority = [0, 1, 2].includes(parsedPriority) ? parsedPriority : 1;
 
   let assignedToId: string | null = null;
   const rawAssignee = String(formData.get("assignedToId") ?? "").trim();

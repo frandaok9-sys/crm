@@ -326,3 +326,17 @@ export function canAccessAdminPanel(
 ): boolean {
   return canManageUsers(principal) || canManageCompany(principal);
 }
+
+/**
+ * Comunicación interna (chat de tareas de presupuestos y obras): puede
+ * escribir/delegar quien participa del trabajo comercial u operativo —
+ * NO alcanza con "ver todo" (un usuario de Solo lectura no debe generarle
+ * trabajo a otros). Ver el registro es suficiente para leer el hilo.
+ */
+export function canPostTasks(principal: Principal | null | undefined): boolean {
+  return (
+    hasPermission(principal, "quotes.manage") ||
+    hasPermission(principal, "opportunities.manage") ||
+    hasPermission(principal, "clients.manage")
+  );
+}

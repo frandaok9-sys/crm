@@ -14,11 +14,14 @@ import {
   canViewRecord,
   canManageLedger,
   canManageProducts,
+  canPostTasks,
+  canCreateOpportunities,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { computeQuoteTotals, lineNet } from "@/lib/quotes-calc";
 import { canTransitionQuote, QUOTE_STATUS_LABELS } from "@/lib/quotes";
+import { EXECUTION_STAGE } from "@/lib/stages";
 import {
   Currency,
   QuoteStatus,
@@ -270,6 +273,23 @@ function itemCreateData(items: ParsedItem[]) {
     lineNet: lineNet(it.quantity, it.unitPrice, it.discount),
     position: index,
   }));
+}
+
+/**
+ * Ids de TODAS las revisiones de un presupuesto (Rev.1, Rev.2…). Un
+ * presupuesto es UNA venta: facturarlo, pasarlo a ejecución o borrarlo son
+ * decisiones sobre el grupo entero, nunca sobre una revisión suelta.
+ */
+async function quoteGroupIds(quote: {
+  id: string;
+  rootId: string | null;
+}): Promise<string[]> {
+  const group = quote.rootId ?? quote.id;
+  const revisions = await prisma.quote.findMany({
+    where: { OR: [{ id: group }, { rootId: group }] },
+    select: { id: true },
+  });
+  return revisions.map((r) => r.id);
 }
 
 async function resolveClient(userId: string, clientId: string | null) {
@@ -633,12 +653,18 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
   const now = new Date();
   const dueDate = new Date(now.getTime() + paymentTermDays * 86_400_000);
 
+  // El freno mira TODAS las revisiones: facturar Rev.1 y después Rev.2
+  // duplicaría la deuda del cliente en la cuenta corriente.
+  const groupIds = await quoteGroupIds(quote);
+
   const movement = await prisma.$transaction(async (tx) => {
     const existing = await tx.ledgerMovement.findFirst({
-      where: { quoteId: id, type: LedgerMovementType.INVOICE },
+      where: { quoteId: { in: groupIds }, type: LedgerMovementType.INVOICE },
     });
     if (existing) {
-      throw new Error("Este presupuesto ya fue facturado.");
+      throw new Error(
+        "Este presupuesto ya fue facturado (en esta u otra de sus revisiones)."
+      );
     }
     return tx.ledgerMovement.create({
       data: {
@@ -688,15 +714,17 @@ export async function addQuoteTask(formData: FormData): Promise<void> {
     select: { id: true, clientId: true, ownerId: true },
   });
   if (!quote) throw new Error("Presupuesto no encontrado.");
-  if (!canViewRecord(user, quote)) {
-    throw new Error("No tenés acceso a este presupuesto.");
+  if (!canViewRecord(user, quote) || !canPostTasks(user)) {
+    throw new Error("No tenés permisos para escribir tareas acá.");
   }
 
   const title = String(formData.get("title") ?? "").trim();
   if (!title) throw new Error("Escribí qué hay que hacer.");
 
-  const rawPriority = Number(formData.get("priority"));
-  const priority = [0, 1, 2].includes(rawPriority) ? rawPriority : 1;
+  // Sin campo (o vacío) = prioridad media, no alta: Number("") da 0.
+  const rawPriority = formData.get("priority");
+  const parsedPriority = rawPriority == null ? NaN : Number(rawPriority);
+  const priority = [0, 1, 2].includes(parsedPriority) ? parsedPriority : 1;
 
   let assignedToId: string | null = null;
   const rawAssignee = String(formData.get("assignedToId") ?? "").trim();
@@ -751,12 +779,19 @@ export async function deleteQuote(formData: FormData): Promise<void> {
     throw new Error("No tenés permisos para eliminar este presupuesto.");
   }
 
-  const group = quote.rootId ?? quote.id;
+  const ids = await quoteGroupIds(quote);
+
+  // Se borra el GRUPO entero: hay que poder editar TODAS sus revisiones
+  // (una revisión puede estar a nombre de otro vendedor).
   const revisions = await prisma.quote.findMany({
-    where: { OR: [{ id: group }, { rootId: group }] },
-    select: { id: true },
+    where: { id: { in: ids } },
+    select: { id: true, ownerId: true, clientId: true, opportunityId: true },
   });
-  const ids = revisions.map((r) => r.id);
+  if (revisions.some((r) => !canEditQuote(user, r))) {
+    throw new Error(
+      "Alguna revisión de este presupuesto es de otro vendedor: pedile a un gerente que lo elimine."
+    );
+  }
 
   const invoiced = await prisma.ledgerMovement.count({
     where: { quoteId: { in: ids } },
@@ -767,6 +802,7 @@ export async function deleteQuote(formData: FormData): Promise<void> {
     );
   }
 
+  const linkedObra = revisions.find((r) => r.opportunityId)?.opportunityId;
   await prisma.quote.deleteMany({ where: { id: { in: ids } } });
   await logAudit({
     action: "quote.deleted",
@@ -780,6 +816,9 @@ export async function deleteQuote(formData: FormData): Promise<void> {
     },
   });
   revalidatePath("/presupuestos");
+  revalidatePath(`/clientes/${quote.clientId}`);
+  revalidatePath("/dashboard");
+  if (linkedObra) revalidatePath(`/oportunidades/${linkedObra}`);
   redirect("/presupuestos");
 }
 
@@ -799,20 +838,36 @@ export async function startQuoteExecution(formData: FormData): Promise<void> {
   if (!canEditQuote(user, quote)) {
     throw new Error("No tenés permisos sobre este presupuesto.");
   }
-  if (quote.opportunityId) {
-    redirect(`/oportunidades/${quote.opportunityId}`);
+  // Crear la obra es crear una oportunidad: hace falta ese permiso, si no
+  // el usuario quedaría con una obra que después no puede tocar.
+  if (!canCreateOpportunities(user)) {
+    throw new Error(
+      "No tenés permisos para crear obras (oportunidades). Pedíselo a un gerente."
+    );
+  }
+
+  // La obra es del PRESUPUESTO, no de una revisión: si cualquier revisión ya
+  // la creó, se va a esa (si no, Rev.1 y Rev.2 crearían dos obras iguales).
+  const groupIds = await quoteGroupIds(quote);
+  const withObra = await prisma.quote.findFirst({
+    where: { id: { in: groupIds }, opportunityId: { not: null } },
+    select: { opportunityId: true },
+  });
+  if (withObra?.opportunityId) {
+    redirect(`/oportunidades/${withObra.opportunityId}`);
   }
   if (quote.status !== QuoteStatus.APPROVED) {
     throw new Error("Solo un presupuesto aprobado puede pasar a ejecución.");
   }
 
   const stage = await prisma.stage.findFirst({
-    where: { name: "En ejecución" },
+    where: { name: EXECUTION_STAGE },
+    orderBy: { position: "asc" }, // determinista si hubiera nombres repetidos
     select: { id: true },
   });
   if (!stage) {
     throw new Error(
-      'No existe la etapa "En ejecución" en el pipeline (revisala en el Panel de control).'
+      `No existe la etapa "${EXECUTION_STAGE}" en el pipeline (revisala en el Panel de control).`
     );
   }
 
@@ -826,7 +881,9 @@ export async function startQuoteExecution(formData: FormData): Promise<void> {
       data: {
         title: title.slice(0, 200),
         clientId: quote.clientId,
-        ownerId: quote.ownerId ?? quote.client.ownerId,
+        // Nunca sin dueño: una obra sin owner sería invisible para todos
+        // los vendedores (solo la verían los que ven toda la cartera).
+        ownerId: quote.ownerId ?? quote.client.ownerId ?? user.id,
         stageId: stage.id,
         position,
         currency: quote.currency,
@@ -852,7 +909,10 @@ export async function startQuoteExecution(formData: FormData): Promise<void> {
   // Ubicar la obra en el mapa (no bloqueante).
   after(() => geocodeOpportunity(obra.id));
   revalidatePath("/oportunidades");
+  revalidatePath("/obras");
+  revalidatePath("/mapa");
   revalidatePath(`/presupuestos/${id}`);
+  revalidatePath(`/clientes/${quote.clientId}`);
   revalidatePath("/dashboard");
   redirect(`/oportunidades/${obra.id}`);
 }

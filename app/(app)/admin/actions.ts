@@ -12,6 +12,7 @@ import {
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { STAGE_HEX } from "@/lib/stage-colors";
+import { isLoadBearingStage } from "@/lib/stages";
 import { COMPANY_SETTINGS_ID, COMPANY_SETTINGS_TAG } from "@/lib/company";
 import { getAuditEntries } from "@/lib/audit-log";
 import type { AuditFilters, AuditPage } from "@/lib/audit-shared";
@@ -118,6 +119,11 @@ export async function createStage(name: string, color: string): Promise<void> {
   const clean = name.trim();
   if (!clean) throw new Error("Poné un nombre para la etapa.");
   const safeColor = VALID_COLORS.includes(color) ? color : "gray";
+  const duplicate = await prisma.stage.findFirst({
+    where: { name: clean },
+    select: { id: true },
+  });
+  if (duplicate) throw new Error("Ya existe una etapa con ese nombre.");
   const last = await prisma.stage.findFirst({ orderBy: { position: "desc" } });
   const stage = await prisma.stage.create({
     data: { name: clean, color: safeColor, position: (last?.position ?? -1) + 1 },
@@ -138,6 +144,27 @@ export async function updateStage(id: string, name: string, color: string): Prom
   const clean = name.trim();
   if (!clean) throw new Error("Poné un nombre para la etapa.");
   const safeColor = VALID_COLORS.includes(color) ? color : "gray";
+
+  // Etapas de las que depende el sistema (obras, alertas, "Pasar a
+  // ejecución"): se les puede cambiar color y orden, NO el nombre —
+  // renombrarlas vaciaría esas pantallas sin avisar.
+  const current = await prisma.stage.findUnique({
+    where: { id },
+    select: { name: true },
+  });
+  if (current && isLoadBearingStage(current.name) && current.name !== clean) {
+    throw new Error(
+      `La etapa "${current.name}" la usa el sistema (obras y alertas): podés cambiarle el color y el orden, pero no el nombre.`
+    );
+  }
+  // Tampoco dos etapas con el mismo nombre (las búsquedas por nombre
+  // elegirían una al azar).
+  const duplicate = await prisma.stage.findFirst({
+    where: { name: clean, id: { not: id } },
+    select: { id: true },
+  });
+  if (duplicate) throw new Error("Ya existe una etapa con ese nombre.");
+
   await prisma.stage.update({ where: { id }, data: { name: clean, color: safeColor } });
   await logAudit({
     action: "stage.updated",

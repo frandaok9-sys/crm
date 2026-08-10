@@ -8,6 +8,7 @@ import {
 import { QuoteStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
 import { latestRevisions } from "@/lib/quotes";
 import { getOverdueInvoices } from "@/lib/receivables";
+import { CLOSED_STAGES } from "@/lib/stages";
 
 type ActiveUser = Awaited<ReturnType<typeof requireActiveUser>>;
 
@@ -45,7 +46,7 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
       prisma.opportunity.count({
         where: {
           ...opportunityScope(user),
-          stage: { name: { notIn: ["En ejecución", "Finalizada", "Perdida"] } },
+          stage: { name: { notIn: [...CLOSED_STAGES] } },
           updatedAt: { lt: staleBefore },
         },
       }),
@@ -193,7 +194,7 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
     prisma.opportunity.findMany({
       where: {
         ...opportunityScope(user),
-        stage: { name: { notIn: ["En ejecución", "Finalizada", "Perdida"] } },
+        stage: { name: { notIn: [...CLOSED_STAGES] } },
         updatedAt: { lt: staleBefore },
       },
       select: {

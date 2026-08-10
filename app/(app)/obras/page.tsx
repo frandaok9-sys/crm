@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { opportunityScope } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
+import { EXECUTION_STAGE } from "@/lib/stages";
 
 /**
  * Obras EN EJECUCIÓN: las oportunidades que están en la etapa
@@ -18,7 +19,7 @@ export default async function ObrasPage() {
   const obras = await prisma.opportunity.findMany({
     where: {
       ...opportunityScope(user),
-      stage: { name: "En ejecución" },
+      stage: { name: EXECUTION_STAGE },
     },
     select: {
       id: true,

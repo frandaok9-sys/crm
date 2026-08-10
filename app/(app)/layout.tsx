@@ -13,6 +13,7 @@ import {
   quoteScope,
 } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
+import { EXECUTION_STAGE } from "@/lib/stages";
 import { AppSidebar, type SidebarItem } from "@/components/app-sidebar";
 import { CommandPalette } from "@/components/command-palette";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -30,16 +31,21 @@ export default async function AppLayout({
     cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
 
   // Badges del nav (mismo alcance que cada módulo).
-  const [clientCount, opportunityCount, quoteCount] = await Promise.all([
-    prisma.client.count({ where: clientScope(user) }),
-    prisma.opportunity.count({ where: opportunityScope(user) }),
-    prisma.quote.count({ where: { ...quoteScope(user), version: 1 } }),
-  ]);
+  const [clientCount, opportunityCount, obraCount, quoteCount] =
+    await Promise.all([
+      prisma.client.count({ where: clientScope(user) }),
+      prisma.opportunity.count({ where: opportunityScope(user) }),
+      prisma.opportunity.count({
+        where: { ...opportunityScope(user), stage: { name: EXECUTION_STAGE } },
+      }),
+      prisma.quote.count({ where: { ...quoteScope(user), version: 1 } }),
+    ]);
 
   const items: SidebarItem[] = [
     { href: "/dashboard", label: "Inicio" },
     { href: "/clientes", label: "Clientes", badge: clientCount },
     { href: "/oportunidades", label: "Pipeline", badge: opportunityCount },
+    { href: "/obras", label: "En obra", badge: obraCount },
     { href: "/mapa", label: "Mapa" },
     { href: "/presupuestos", label: "Presupuestos", badge: quoteCount },
     { href: "/productos", label: "Productos" },
