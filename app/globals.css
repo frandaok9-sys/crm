@@ -393,3 +393,17 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
   opacity: 0.92;
 }
+/* ---------------------------------------------------------------------------
+   Desplegables nativos (<select>) legibles en los dos temas.
+
+   En Windows, Chrome dibuja la lista del select con el tema del SISTEMA
+   (fondo blanco) pero las opciones heredan el color de texto de la página
+   — en modo oscuro quedaban blancas sobre blanco, invisibles. Fijar color
+   y fondo en la propia opción lo resuelve en todos los desplegables de la
+   app de una vez.
+--------------------------------------------------------------------------- */
+select option,
+select optgroup {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}
