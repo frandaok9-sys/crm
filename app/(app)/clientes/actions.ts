@@ -358,6 +358,9 @@ export async function toggleActivityDone(formData: FormData): Promise<void> {
   });
   revalidatePath(`/clientes/${activity.clientId}`);
   if (activity.quoteId) revalidatePath(`/presupuestos/${activity.quoteId}`);
+  if (activity.opportunityId) {
+    revalidatePath(`/oportunidades/${activity.opportunityId}`);
+  }
   revalidatePath("/dashboard");
 }
 
@@ -392,6 +395,9 @@ export async function replyAndConfirmTask(formData: FormData): Promise<void> {
   });
   revalidatePath(`/clientes/${activity.clientId}`);
   if (activity.quoteId) revalidatePath(`/presupuestos/${activity.quoteId}`);
+  if (activity.opportunityId) {
+    revalidatePath(`/oportunidades/${activity.opportunityId}`);
+  }
   revalidatePath("/dashboard");
 }
 
@@ -410,6 +416,9 @@ export async function deleteActivity(formData: FormData): Promise<void> {
   await prisma.clientActivity.delete({ where: { id } });
   revalidatePath(`/clientes/${activity.clientId}`);
   if (activity.quoteId) revalidatePath(`/presupuestos/${activity.quoteId}`);
+  if (activity.opportunityId) {
+    revalidatePath(`/oportunidades/${activity.opportunityId}`);
+  }
   revalidatePath("/dashboard");
 }
 

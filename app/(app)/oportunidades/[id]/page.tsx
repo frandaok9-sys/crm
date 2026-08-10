@@ -17,7 +17,13 @@ import { UserStatus, Currency, FiscalKind } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { ClientCombobox } from "@/components/client-combobox";
 import { DeleteOpportunityButton } from "@/components/delete-opportunity-button";
-import { createReminder, deleteReminder, updateOpportunity } from "../actions";
+import { TaskThread } from "@/components/task-thread";
+import {
+  createReminder,
+  deleteReminder,
+  updateOpportunity,
+  addOpportunityTask,
+} from "../actions";
 import { addLaborCost } from "../../contabilidad/gastos/actions";
 
 const inputClass =
@@ -56,6 +62,35 @@ export default async function OpportunityDetailPage({
   const canEdit = canEditOpportunity(user, opportunity);
   const canAssign = canAssignClients(user);
   const googleConnected = canEdit ? await hasGoogleTasksAccess(user.id) : false;
+
+  // Chat de tareas de la oportunidad + compañeros para delegar.
+  const [tasks, activeUsers] = await Promise.all([
+    prisma.clientActivity.findMany({
+      where: { opportunityId: id },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        doneAt: true,
+        reply: true,
+        createdAt: true,
+        createdById: true,
+        assignedToId: true,
+        createdBy: { select: { name: true, email: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 100,
+    }),
+    prisma.user.findMany({
+      where: { status: UserStatus.ACTIVE },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+  const teammates = activeUsers
+    .filter((u) => u.id !== user.id)
+    .map((u) => ({ id: u.id, label: u.name ?? u.email }));
 
   // M4 — Costos directos cargados a esta obra (módulo Gastos).
   const obraExpenses = await prisma.expense.findMany({
@@ -521,6 +556,16 @@ export default async function OpportunityDetailPage({
           </p>
         )}
       </section>
+
+      {/* Comunicación interna: tareas de esta oportunidad */}
+      <TaskThread
+        action={addOpportunityTask}
+        hiddenName="opportunityId"
+        hiddenValue={opportunity.id}
+        tasks={tasks}
+        teammates={teammates}
+        currentUserId={user.id}
+      />
 
       {/* Zona de riesgo: eliminar la oportunidad */}
       {canEdit && (

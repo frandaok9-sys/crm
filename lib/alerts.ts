@@ -145,6 +145,8 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
         dueAt: true,
         quoteId: true,
         quote: { select: { code: true } },
+        opportunityId: true,
+        opportunity: { select: { title: true } },
         createdBy: { select: { name: true, email: true } },
         client: { select: { id: true, legalName: true } },
       },
@@ -164,6 +166,7 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
         title: true,
         reply: true,
         quoteId: true,
+        opportunityId: true,
         assignedTo: { select: { name: true, email: true } },
         client: { select: { id: true, legalName: true } },
       },
@@ -287,9 +290,13 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       title: `Tarea delegada por ${who}: ${t.title}`,
       subtitle: t.quote
         ? `Presupuesto ${t.quote.code} (${t.client.legalName}) · respondé y confirmá`
+        : t.opportunity
+        ? `Oportunidad "${t.opportunity.title}" (${t.client.legalName}) · respondé y confirmá`
         : `${t.client.legalName} · respondé y confirmá desde la ficha del cliente`,
       href: t.quoteId
         ? `/presupuestos/${t.quoteId}`
+        : t.opportunityId
+        ? `/oportunidades/${t.opportunityId}`
         : `/clientes/${t.client.id}`,
     });
   }
@@ -304,6 +311,8 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
         : t.client.legalName,
       href: t.quoteId
         ? `/presupuestos/${t.quoteId}`
+        : t.opportunityId
+        ? `/oportunidades/${t.opportunityId}`
         : `/clientes/${t.client.id}`,
     });
   }

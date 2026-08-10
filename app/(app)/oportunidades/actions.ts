@@ -401,3 +401,72 @@ export async function deleteReminder(formData: FormData): Promise<void> {
   });
   revalidatePath(`/oportunidades/${reminder.opportunityId}`);
 }
+
+// ---------------------------------------------------------------------------
+// Chat de tareas de la oportunidad (comunicación interna con prioridad)
+// ---------------------------------------------------------------------------
+
+/**
+ * Agrega una tarea al chat de una oportunidad. Puede delegarse a un @usuario
+ * y lleva prioridad (0=Alta, 1=Media, 2=Baja); queda pineada arriba hasta que
+ * se complete (las delegadas, solo cuando el asignado responde y confirma).
+ */
+export async function addOpportunityTask(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const opportunity = await prisma.opportunity.findUnique({
+    where: { id: opportunityId },
+    select: { id: true, clientId: true, ownerId: true },
+  });
+  if (!opportunity) throw new Error("Oportunidad no encontrada.");
+  if (!canViewRecord(user, opportunity)) {
+    throw new Error("No tenés acceso a esta oportunidad.");
+  }
+
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) throw new Error("Escribí qué hay que hacer.");
+
+  const rawPriority = Number(formData.get("priority"));
+  const priority = [0, 1, 2].includes(rawPriority) ? rawPriority : 1;
+
+  let assignedToId: string | null = null;
+  const rawAssignee = String(formData.get("assignedToId") ?? "").trim();
+  if (rawAssignee && rawAssignee !== user.id) {
+    const assignee = await prisma.user.findUnique({
+      where: { id: rawAssignee },
+      select: { id: true, status: true },
+    });
+    if (!assignee || assignee.status !== "ACTIVE") {
+      throw new Error("El usuario asignado no existe o no está activo.");
+    }
+    assignedToId = assignee.id;
+  }
+
+  const task = await prisma.clientActivity.create({
+    data: {
+      clientId: opportunity.clientId,
+      opportunityId: opportunity.id,
+      type: "TASK",
+      title: title.slice(0, 200),
+      priority,
+      assignedToId,
+      createdById: user.id,
+    },
+  });
+  if (assignedToId) {
+    await logAudit({
+      action: "task.delegated",
+      actorId: user.id,
+      targetType: "ClientActivity",
+      targetId: task.id,
+      metadata: {
+        opportunityId: opportunity.id,
+        clientId: opportunity.clientId,
+        assignedToId,
+      },
+    });
+  }
+  revalidatePath(`/oportunidades/${opportunity.id}`);
+  revalidatePath(`/clientes/${opportunity.clientId}`);
+  revalidatePath("/dashboard");
+}

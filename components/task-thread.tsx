@@ -1,4 +1,3 @@
-import { addQuoteTask } from "@/app/(app)/presupuestos/actions";
 import {
   toggleActivityDone,
   replyAndConfirmTask,
@@ -15,7 +14,7 @@ const PRIORITY_DOT: Record<number, string> = {
   2: "bg-zinc-300 dark:bg-zinc-600",
 };
 
-export type QuoteTask = {
+export type ThreadTask = {
   id: string;
   title: string;
   priority: number;
@@ -28,22 +27,28 @@ export type QuoteTask = {
   assignedTo: { id: string; name: string | null; email: string } | null;
 };
 
-export type QuoteTaskUser = { id: string; label: string };
+export type ThreadUser = { id: string; label: string };
 
 /**
- * Chat de tareas de un presupuesto: se escribe una línea, se elige a quién y
- * la prioridad. Las abiertas quedan pineadas por prioridad; una delegada se
- * cierra cuando el asignado responde y confirma.
+ * Chat de tareas de un registro (presupuesto u oportunidad): se escribe una
+ * línea, se elige a quién y la prioridad. Las abiertas quedan pineadas por
+ * prioridad; una delegada se cierra cuando el asignado responde y confirma.
+ * `action` recibe el alta y `hiddenName/hiddenValue` identifican el registro
+ * (quoteId u opportunityId).
  */
-export function QuoteTasks({
-  quoteId,
+export function TaskThread({
+  action,
+  hiddenName,
+  hiddenValue,
   tasks,
   teammates,
   currentUserId,
 }: {
-  quoteId: string;
-  tasks: QuoteTask[];
-  teammates: QuoteTaskUser[];
+  action: (formData: FormData) => Promise<void>;
+  hiddenName: string;
+  hiddenValue: string;
+  tasks: ThreadTask[];
+  teammates: ThreadUser[];
   currentUserId: string;
 }) {
   const open = [...tasks]
@@ -160,8 +165,8 @@ export function QuoteTasks({
       )}
 
       {/* Escribir una tarea: una sola línea, estilo chat */}
-      <form action={addQuoteTask} className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="quoteId" value={quoteId} />
+      <form action={action} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name={hiddenName} value={hiddenValue} />
         <input
           name="title"
           required

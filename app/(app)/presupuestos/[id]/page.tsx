@@ -22,8 +22,13 @@ import {
 } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
-import { QuoteTasks } from "@/components/quote-tasks";
-import { setQuoteStatus, reviseQuote, invoiceQuote } from "../actions";
+import { TaskThread } from "@/components/task-thread";
+import {
+  setQuoteStatus,
+  reviseQuote,
+  invoiceQuote,
+  addQuoteTask,
+} from "../actions";
 
 function StatusButton({
   id,
@@ -433,8 +438,10 @@ export default async function QuoteDetailPage({
         </section>
       )}
 
-      <QuoteTasks
-        quoteId={quote.id}
+      <TaskThread
+        action={addQuoteTask}
+        hiddenName="quoteId"
+        hiddenValue={quote.id}
         tasks={tasks}
         teammates={teammates}
         currentUserId={user.id}
