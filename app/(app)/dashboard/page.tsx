@@ -13,6 +13,7 @@ import { stageHex } from "@/lib/stage-colors";
 import { IOS, monthlyBuckets, lighten, soft } from "@/lib/design";
 import { getNotifications } from "@/lib/alerts";
 import { latestRevisions } from "@/lib/quotes";
+import { getOverdueInvoices } from "@/lib/receivables";
 import {
   QuoteStatus,
   ClientActivityType,
@@ -61,7 +62,15 @@ export default async function DashboardPage({
   const { v } = await searchParams;
   const user = await requireActiveUser();
   const firstName = (user.name ?? user.email ?? "").split(" ")[0];
-  const notifications = await getNotifications(user);
+  const [notifications, allOverdueInvoices] = await Promise.all([
+    getNotifications(user),
+    getOverdueInvoices(),
+  ]);
+  // Facturas vencidas cargadas POR MÍ: quedan fijadas en Mis tareas hasta
+  // que se les impute el pago (se "cumplen" solas al cobrarse).
+  const myOverdueInvoices = allOverdueInvoices.filter(
+    (inv) => inv.createdById === user.id
+  );
 
   // Filtro por usuario (solo admin/gerente): el Inicio mide a una persona en
   // particular — incluidos ellos mismos. Notificaciones y Mis tareas siguen
@@ -535,7 +544,40 @@ export default async function DashboardPage({
         <h2 className="mb-4 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
           Mis tareas
         </h2>
-        {myTasks.length === 0 ? (
+        {/* Facturas vencidas cargadas por mí: fijadas arriba, en rojo.
+            Se resuelven solas al imputarles el pago en la cuenta corriente. */}
+        {myOverdueInvoices.length > 0 && (
+          <ul className="mb-2 space-y-2">
+            {myOverdueInvoices.map((inv) => (
+              <li
+                key={inv.id}
+                className="flex items-center gap-3 rounded-[10px] border border-red-300 bg-red-50 px-3 py-2.5 text-sm dark:border-red-900 dark:bg-red-950/40"
+              >
+                <span aria-hidden>💰</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">
+                    Factura impaga{inv.reference ? ` ${inv.reference}` : ""}:{" "}
+                    {inv.legalName}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    <Link
+                      href={`/clientes/${inv.clientId}/cuenta`}
+                      className="hover:underline"
+                    >
+                      {inv.currency === "USD" ? "US$" : "$"}{" "}
+                      {Number(inv.remaining).toLocaleString("es-AR")} pendiente
+                      · registrá el pago para resolverla →
+                    </Link>
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-red-600 dark:text-red-400">
+                  {inv.daysLate} día{inv.daysLate === 1 ? "" : "s"} de atraso
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {myTasks.length === 0 && myOverdueInvoices.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Sin tareas pendientes. Se crean desde la ficha de cada cliente
             (Actividades y tareas).

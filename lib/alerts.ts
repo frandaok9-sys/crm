@@ -7,6 +7,7 @@ import {
 } from "@/lib/permissions";
 import { QuoteStatus, ClientActivityType } from "@/lib/generated/prisma/enums";
 import { latestRevisions } from "@/lib/quotes";
+import { getOverdueInvoices } from "@/lib/receivables";
 
 type ActiveUser = Awaited<ReturnType<typeof requireActiveUser>>;
 
@@ -72,13 +73,19 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
     (q) => q.status === QuoteStatus.SENT
   ).length;
 
+  // Facturas vencidas sin cobrar: la alerta es para quien las cargó.
+  const overdueInvoices = (await getOverdueInvoices()).filter(
+    (inv) => inv.createdById === user.id
+  ).length;
+
   return (
     draftClients +
     quotesSent +
     quotesToReview +
     staleOpps +
     overdueTasks +
-    assignedTasks
+    assignedTasks +
+    overdueInvoices
   );
 }
 
@@ -112,6 +119,7 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
     sentQuoteRows,
     allQuoteVersions,
     draftClients,
+    allOverdueInvoices,
   ] = await Promise.all([
     prisma.quote.findMany({
       where: { ...quoteScope(user), needsReview: true },
@@ -218,7 +226,13 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       orderBy: { createdAt: "desc" },
       take: PER_KIND,
     }),
+    getOverdueInvoices(),
   ]);
+
+  // Facturas vencidas: la alerta le llega a QUIEN LAS CARGÓ.
+  const overdueInvoices = allOverdueInvoices
+    .filter((inv) => inv.createdById === user.id)
+    .slice(0, PER_KIND);
 
   const days = (from: Date) =>
     Math.max(0, Math.floor((now.getTime() - from.getTime()) / 86_400_000));
@@ -246,6 +260,22 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       title: `Presupuesto por completar: ${code}`,
       subtitle: `${q.client.legalName} · creado por el asistente, revisá precios y envialo`,
       href: `/presupuestos/${q.id}/editar`,
+    });
+  }
+  for (const inv of overdueInvoices) {
+    const symbol = inv.currency === "USD" ? "US$" : "$";
+    const term =
+      inv.termDays === 0
+        ? "contado"
+        : inv.termDays
+        ? `${inv.termDays} días`
+        : "sin condición";
+    out.push({
+      id: `invoice-${inv.id}`,
+      tone: "red",
+      title: `Factura impaga${inv.reference ? ` ${inv.reference}` : ""}: ${inv.legalName}`,
+      subtitle: `${symbol} ${Number(inv.remaining).toLocaleString("es-AR")} pendiente · venció hace ${inv.daysLate} día${inv.daysLate === 1 ? "" : "s"} (condición: ${term})`,
+      href: `/clientes/${inv.clientId}/cuenta`,
     });
   }
   for (const t of assignedTasks) {

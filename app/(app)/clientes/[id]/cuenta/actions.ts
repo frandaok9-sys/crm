@@ -69,6 +69,18 @@ export async function addMovement(formData: FormData): Promise<void> {
     type === LedgerMovementType.CREDIT_NOTE;
   const autoAllocate = isCredit && formData.get("autoAllocate") === "on";
 
+  // Condición de pago (solo débitos): contado / 10 / 15 / 30 / 45 días.
+  // Define el vencimiento; vencida y sin cobrar dispara la alerta de atraso.
+  let paymentTermDays: number | null = null;
+  let dueDate: Date | null = null;
+  if (!isCredit) {
+    const rawTerm = Number(formData.get("termDays"));
+    if ([0, 10, 15, 30, 45].includes(rawTerm)) {
+      paymentTermDays = rawTerm;
+      dueDate = new Date(date.getTime() + rawTerm * 86_400_000);
+    }
+  }
+
   // M3: facturado (comprobante fiscal) o "sin factura" (control interno).
   const fiscalKind =
     formData.get("fiscalKind") === FiscalKind.INTERNAL
@@ -90,6 +102,8 @@ export async function addMovement(formData: FormData): Promise<void> {
         amount,
         date,
         fiscalKind,
+        paymentTermDays,
+        dueDate,
         description: opt(formData, "description"),
         reference: opt(formData, "reference"),
         createdById: user.id,

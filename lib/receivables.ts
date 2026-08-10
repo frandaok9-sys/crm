@@ -40,6 +40,72 @@ const CREDIT_TYPES = [
   LedgerMovementType.CREDIT_NOTE,
 ];
 
+export type OverdueInvoice = {
+  id: string;
+  clientId: string;
+  legalName: string;
+  currency: Currency;
+  reference: string | null;
+  remaining: string; // resto sin cobrar (> 0)
+  termDays: number | null; // condición con la que se cargó (0 = contado)
+  dueDate: Date;
+  daysLate: number;
+  createdById: string | null; // quién cargó la factura (destino de la alerta)
+};
+
+/**
+ * Facturas/ND VENCIDAS con resto sin cobrar, según la condición de pago con
+ * la que se cargaron (contado/10/15/30/45 días). Alimenta las alertas de
+ * atraso: llegan a las notificaciones y a las tareas de quien las cargó.
+ */
+export async function getOverdueInvoices(): Promise<OverdueInvoice[]> {
+  const now = new Date();
+  const debits = await prisma.ledgerMovement.findMany({
+    where: {
+      type: { in: DEBIT_TYPES },
+      dueDate: { lt: now },
+    },
+    select: {
+      id: true,
+      clientId: true,
+      currency: true,
+      amount: true,
+      reference: true,
+      paymentTermDays: true,
+      dueDate: true,
+      createdById: true,
+      client: { select: { legalName: true } },
+      allocationsAsInvoice: { select: { amount: true } },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+
+  const out: OverdueInvoice[] = [];
+  for (const debit of debits) {
+    const paid = debit.allocationsAsInvoice.reduce(
+      (sum, a) => sum.plus(a.amount.toString()),
+      new Decimal(0)
+    );
+    const remaining = new Decimal(debit.amount.toString()).minus(paid);
+    if (remaining.lessThanOrEqualTo(0) || !debit.dueDate) continue;
+    out.push({
+      id: debit.id,
+      clientId: debit.clientId,
+      legalName: debit.client.legalName,
+      currency: debit.currency,
+      reference: debit.reference,
+      remaining: remaining.toFixed(2),
+      termDays: debit.paymentTermDays,
+      dueDate: debit.dueDate,
+      daysLate: Math.floor(
+        (now.getTime() - debit.dueDate.getTime()) / 86_400_000
+      ),
+      createdById: debit.createdById,
+    });
+  }
+  return out;
+}
+
 export async function getReceivables(): Promise<Receivables> {
   const [grouped, debits, credits] = await Promise.all([
     prisma.ledgerMovement.groupBy({

@@ -223,8 +223,20 @@ export default async function QuoteDetailPage({
               </Link>
             </>
           ) : canInvoice ? (
-            <form action={invoiceQuote}>
+            <form action={invoiceQuote} className="flex items-center gap-2">
               <input type="hidden" name="id" value={quote.id} />
+              <select
+                name="termDays"
+                defaultValue="0"
+                aria-label="Condición de pago"
+                className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800"
+              >
+                <option value="0">Contado</option>
+                <option value="10">10 días</option>
+                <option value="15">15 días</option>
+                <option value="30">30 días</option>
+                <option value="45">45 días</option>
+              </select>
               <SubmitButton size="sm" pendingText="Facturando…">
                 Facturar a cuenta corriente
               </SubmitButton>

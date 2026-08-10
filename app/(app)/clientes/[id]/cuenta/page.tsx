@@ -263,6 +263,22 @@ export default async function LedgerPage({
                 <option value={FiscalKind.INTERNAL}>Sin factura (interno)</option>
               </select>
             </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                Condición de pago (facturas/ND)
+              </span>
+              <select name="termDays" defaultValue="0" className={inputClass}>
+                <option value="0">Contado</option>
+                <option value="10">10 días</option>
+                <option value="15">15 días</option>
+                <option value="30">30 días</option>
+                <option value="45">45 días</option>
+              </select>
+              <span className="mt-1 block text-[11px] text-zinc-400">
+                Define el vencimiento: pasada la fecha sin cobrarse, avisa en
+                notificaciones y tareas de quien la cargó.
+              </span>
+            </label>
             <label className="sm:col-span-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
               <input type="checkbox" name="autoAllocate" defaultChecked />
               Imputar automáticamente a las facturas más antiguas (solo pagos
@@ -361,6 +377,22 @@ export default async function LedgerPage({
                           className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${chip.className}`}
                         >
                           {chip.label}
+                        </span>
+                      )}
+                      {/* Vencimiento de la factura (según condición de pago) */}
+                      {debit && m.dueDate && pending.gt(0) && (
+                        <span
+                          className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            m.dueDate.getTime() < Date.now()
+                              ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                              : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                          }`}
+                        >
+                          {m.dueDate.getTime() < Date.now()
+                            ? `VENCIDA ${m.dueDate.toLocaleDateString("es-AR")}`
+                            : `Vence ${m.dueDate.toLocaleDateString("es-AR")}`}
+                          {m.paymentTermDays != null &&
+                            ` (${m.paymentTermDays === 0 ? "contado" : `${m.paymentTermDays} días`})`}
                         </span>
                       )}
                     </td>

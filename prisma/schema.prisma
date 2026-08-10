@@ -534,6 +534,13 @@ model LedgerMovement {
   description String?
   reference   String? // N° de factura/recibo, etc.
 
+  /// Condición de pago de un débito (factura/ND): días de plazo.
+  /// 0 = contado. Null en pagos/NC o facturas viejas sin condición.
+  paymentTermDays Int?
+  /// Vencimiento (fecha + plazo). Una factura vencida con resto sin
+  /// cobrar dispara las alertas de atraso a quien la cargó.
+  dueDate DateTime?
+
   // Datos fiscales AFIP (cuando el movimiento es un comprobante electrónico).
   cbteTipo Int? // Código de comprobante AFIP (1=Fact A, 6=Fact B, 3=NC A, 8=NC B…)
   ptoVta   Int? // Punto de venta usado
@@ -554,6 +561,8 @@ model LedgerMovement {
   @@index([clientId, currency])
   // Cobranzas: recorre facturas/pagos por tipo ordenados por fecha.
   @@index([type, date])
+  // Alertas de facturas vencidas (por tipo y vencimiento).
+  @@index([type, dueDate])
   @@index([quoteId])
 }
 

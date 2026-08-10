@@ -383,6 +383,12 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
     throw new Error("Solo se pueden facturar presupuestos aprobados.");
   }
 
+  // Condición de pago: contado / 10 / 15 / 30 / 45 días → vencimiento.
+  const rawTerm = Number(formData.get("termDays"));
+  const paymentTermDays = [0, 10, 15, 30, 45].includes(rawTerm) ? rawTerm : 0;
+  const now = new Date();
+  const dueDate = new Date(now.getTime() + paymentTermDays * 86_400_000);
+
   const movement = await prisma.$transaction(async (tx) => {
     const existing = await tx.ledgerMovement.findFirst({
       where: { quoteId: id, type: LedgerMovementType.INVOICE },
@@ -398,6 +404,8 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
         amount: quote.total,
         reference: `${quote.code}${quote.version > 1 ? ` Rev.${quote.version}` : ""}`,
         description: "Factura por presupuesto aprobado",
+        paymentTermDays,
+        dueDate,
         quoteId: id,
         createdById: user.id,
       },
