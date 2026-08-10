@@ -45,7 +45,7 @@ export async function getAlertCount(user: ActiveUser): Promise<number> {
       prisma.opportunity.count({
         where: {
           ...opportunityScope(user),
-          stage: { name: { notIn: ["Ganada", "Perdida"] } },
+          stage: { name: { notIn: ["En ejecución", "Finalizada", "Perdida"] } },
           updatedAt: { lt: staleBefore },
         },
       }),
@@ -193,7 +193,7 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
     prisma.opportunity.findMany({
       where: {
         ...opportunityScope(user),
-        stage: { name: { notIn: ["Ganada", "Perdida"] } },
+        stage: { name: { notIn: ["En ejecución", "Finalizada", "Perdida"] } },
         updatedAt: { lt: staleBefore },
       },
       select: {

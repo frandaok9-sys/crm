@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { geocodeOpportunity } from "@/lib/geocode";
 import { requireActiveUser } from "@/lib/auth";
 import {
   canCreateQuotes,
@@ -779,4 +781,78 @@ export async function deleteQuote(formData: FormData): Promise<void> {
   });
   revalidatePath("/presupuestos");
   redirect("/presupuestos");
+}
+
+/**
+ * Pasa un presupuesto APROBADO "a ejecución": crea la obra (una oportunidad
+ * en la etapa "En ejecución", con su panel de costos M4) y la vincula al
+ * presupuesto. Si ya tiene obra, redirige a ella (idempotente).
+ */
+export async function startQuoteExecution(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const quote = await prisma.quote.findUnique({
+    where: { id },
+    include: { client: { select: { id: true, ownerId: true, legalName: true } } },
+  });
+  if (!quote) throw new Error("Presupuesto no encontrado.");
+  if (!canEditQuote(user, quote)) {
+    throw new Error("No tenés permisos sobre este presupuesto.");
+  }
+  if (quote.opportunityId) {
+    redirect(`/oportunidades/${quote.opportunityId}`);
+  }
+  if (quote.status !== QuoteStatus.APPROVED) {
+    throw new Error("Solo un presupuesto aprobado puede pasar a ejecución.");
+  }
+
+  const stage = await prisma.stage.findFirst({
+    where: { name: "En ejecución" },
+    select: { id: true },
+  });
+  if (!stage) {
+    throw new Error(
+      'No existe la etapa "En ejecución" en el pipeline (revisala en el Panel de control).'
+    );
+  }
+
+  const title =
+    quote.siteTitle ?? `Obra ${quote.code} · ${quote.client.legalName}`;
+  const position = await prisma.opportunity.count({
+    where: { stageId: stage.id },
+  });
+  const obra = await prisma.$transaction(async (tx) => {
+    const created = await tx.opportunity.create({
+      data: {
+        title: title.slice(0, 200),
+        clientId: quote.clientId,
+        ownerId: quote.ownerId ?? quote.client.ownerId,
+        stageId: stage.id,
+        position,
+        currency: quote.currency,
+        amount: quote.total,
+        siteAddress: quote.siteAddress,
+        tenantId: quote.tenantId,
+      },
+    });
+    await tx.quote.update({
+      where: { id },
+      data: { opportunityId: created.id },
+    });
+    return created;
+  });
+
+  await logAudit({
+    action: "quote.execution_started",
+    actorId: user.id,
+    targetType: "Quote",
+    targetId: id,
+    metadata: { code: quote.code, opportunityId: obra.id },
+  });
+  // Ubicar la obra en el mapa (no bloqueante).
+  after(() => geocodeOpportunity(obra.id));
+  revalidatePath("/oportunidades");
+  revalidatePath(`/presupuestos/${id}`);
+  revalidatePath("/dashboard");
+  redirect(`/oportunidades/${obra.id}`);
 }

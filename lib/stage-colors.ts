@@ -8,6 +8,7 @@ export const STAGE_HEX: Record<string, string> = {
   teal: "#6BBEE5", // Prospecto (turquesa, para que el donut no se vea gris)
   blue: "#2E82E0",
   amber: "#E0982C",
+  orange: "#E87A2E", // En ejecución (obra en marcha)
   purple: "#A66AD0",
   green: "#4FB574",
   red: "#D65A46",

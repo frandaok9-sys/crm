@@ -29,6 +29,7 @@ import {
   reviseQuote,
   invoiceQuote,
   addQuoteTask,
+  startQuoteExecution,
 } from "../actions";
 
 function StatusButton({
@@ -225,6 +226,34 @@ export default async function QuoteDetailPage({
               Nueva revisión
             </SubmitButton>
           </form>
+        </div>
+      )}
+
+      {/* Obra: pasar a ejecución (aprobado → oportunidad "En ejecución") */}
+      {quote.status === QuoteStatus.APPROVED && (
+        <div className="flex flex-wrap items-center gap-3">
+          {quote.opportunityId ? (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-800 dark:bg-orange-950 dark:text-orange-300">
+                🏗️ Obra en ejecución
+              </span>
+              <Link
+                href={`/oportunidades/${quote.opportunityId}`}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Ver obra →
+              </Link>
+            </>
+          ) : (
+            canEdit && (
+              <form action={startQuoteExecution}>
+                <input type="hidden" name="id" value={quote.id} />
+                <SubmitButton size="sm" pendingText="Creando obra…">
+                  🏗️ Pasar a ejecución
+                </SubmitButton>
+              </form>
+            )
+          )}
         </div>
       )}
 

@@ -264,7 +264,7 @@ export default async function DashboardPage({
   const stale = opps
     .filter(
       (o) =>
-        !["Ganada", "Perdida"].includes(o.stage.name) &&
+        !["En ejecución", "Finalizada", "Perdida"].includes(o.stage.name) &&
         now - o.updatedAt.getTime() > 7 * 86_400_000
     )
     .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime());
@@ -306,15 +306,19 @@ export default async function DashboardPage({
 
   // Anillos de rendimiento (métricas reales, sin inventar):
   const totalOpps = opps.length;
-  const won = opps.filter((o) => o.stage.name === "Ganada").length;
-  const active = opps.filter((o) => !["Ganada", "Perdida"].includes(o.stage.name));
+  const inExecution = opps.filter((o) => o.stage.name === "En ejecución").length;
+  const finished = opps.filter((o) => o.stage.name === "Finalizada").length;
+  const active = opps.filter(
+    (o) => !["En ejecución", "Finalizada", "Perdida"].includes(o.stage.name)
+  );
   const activeOnTrack = active.filter(
     (o) => now - o.updatedAt.getTime() <= 7 * 86_400_000
   ).length;
   const quotesDecided = quotesApproved + quotesRejected + quotesSent;
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
   const rings = [
-    { label: "Ganadas", value: pct(won, totalOpps), color: stageHex("green") },
+    { label: "En ejecución", value: pct(inExecution, totalOpps), color: stageHex("orange") },
+    { label: "Finalizadas", value: pct(finished, totalOpps), color: stageHex("green") },
     { label: "Aprobación", value: pct(quotesApproved, quotesDecided), color: "#E0503A" },
     { label: "Al día", value: pct(activeOnTrack, active.length), color: stageHex("blue") },
   ];
@@ -361,6 +365,17 @@ export default async function DashboardPage({
               current={filter}
             />
           )}
+          <Link
+            href="/obras"
+            className="flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-3.5 py-2 text-[13px] font-semibold transition-colors hover:border-primary/50"
+          >
+            🏗️ En obra
+            {inExecution > 0 && (
+              <span className="rounded-full bg-primary/10 px-1.5 text-xs font-bold text-primary tabular-nums">
+                {inExecution}
+              </span>
+            )}
+          </Link>
           {canCreateOpportunities(user) && (
             <Link href="/oportunidades/nueva">
               <Button size="cta">+ Nueva oportunidad</Button>

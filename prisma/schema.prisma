@@ -245,6 +245,8 @@ model Stage {
 model Opportunity {
   id         String  @id @default(cuid())
   externalId String? // Nexus: id en el sistema de origen (el `id` es el nexus_id)
+  /// Presupuestos que originaron esta obra ("Pasar a ejecución").
+  executedQuotes Quote[] @relation("QuoteObra")
   tenantId   String?
   tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   title      String
@@ -425,6 +427,11 @@ model Quote {
   id         String           @id @default(cuid())
   tasks      ClientActivity[] // Chat de tareas del presupuesto
   externalId String? // Nexus: id en el sistema de origen (el `id` es el nexus_id)
+
+  /// Obra creada al pasar el presupuesto aprobado "a ejecución"
+  /// (oportunidad en la etapa "En ejecución", con panel de costos M4).
+  opportunityId String?
+  obra          Opportunity? @relation("QuoteObra", fields: [opportunityId], references: [id], onDelete: SetNull)
 
   /// ---- Pliego técnico (informe estilo licitación, todas opcionales) ----
   /// Etapa 2 "Obra y plazos" + Etapa 3 "Parte técnica" de la carga.
