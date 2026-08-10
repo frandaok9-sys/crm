@@ -26,6 +26,10 @@ export default async function EditQuotePage({
     include: {
       client: { select: { id: true, legalName: true } },
       items: { orderBy: { position: "asc" } },
+      photos: {
+        orderBy: { position: "asc" },
+        select: { id: true, data: true, caption: true },
+      },
     },
   });
   if (!quote) notFound();
@@ -90,6 +94,7 @@ export default async function EditQuotePage({
             notes: quote.notes,
             ownerId: quote.ownerId,
             paymentTerms: quote.paymentTerms,
+            photos: quote.photos,
             siteTitle: quote.siteTitle,
             siteAddress: quote.siteAddress,
             deliveryTerm: quote.deliveryTerm,

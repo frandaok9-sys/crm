@@ -3,6 +3,10 @@ import { ClientCombobox } from "@/components/client-combobox";
 import { FormSteps } from "@/components/form-steps";
 import { PliegoDefaultsButton } from "@/components/pliego-defaults-button";
 import {
+  QuotePhotosField,
+  type ExistingPhoto,
+} from "@/components/quote-photos-field";
+import {
   QuoteItemsEditor,
   type QuoteRow,
   type CatalogProduct,
@@ -53,6 +57,7 @@ export type QuoteFormData = {
   overallDiscount?: string;
   items?: QuoteRow[];
   // Pliego técnico (etapas 2 y 3)
+  photos?: ExistingPhoto[];
   siteTitle?: string | null;
   siteAddress?: string | null;
   deliveryTerm?: string | null;
@@ -319,6 +324,18 @@ export function QuoteForm({
           className={inputClass}
         />
       </label>
+
+      <div className="block">
+        <span className="mb-1 block text-xs font-medium text-zinc-500">
+          Fotos de la propuesta
+        </span>
+        <p className="mb-2 text-[11px] text-zinc-400">
+          Trabajos de referencia, estado actual del piso, esquema propuesto…
+          Salen en el PDF como sección &quot;Fotos de la propuesta&quot;, antes
+          del precio.
+        </p>
+        <QuotePhotosField existing={quote?.photos} />
+      </div>
     </div>
   );
 

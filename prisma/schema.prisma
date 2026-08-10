@@ -437,6 +437,7 @@ model Quote {
   exclusions        String? // 3. Exclusiones del alcance
   warrantyText      String? // Garantía ofrecida
   generalConditions String? // Condiciones generales (forma de pago, etc.)
+  photos            QuotePhoto[] // Fotos de la propuesta (parte técnica)
   tenantId   String?
   tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   code       String // Número legible, p. ej. "PRE-0001"
@@ -489,6 +490,24 @@ model Quote {
 }
 
 /// Ítem de un presupuesto: producto, servicio o texto libre.
+/// Foto de la propuesta de un presupuesto (parte técnica del pliego).
+/// Imagen comprimida en el navegador y guardada como data URL base64
+/// (mismo patrón que el logo en CompanySettings). Tope por foto y por
+/// presupuesto validado en el servidor.
+model QuotePhoto {
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  data     String // data URL (image/jpeg|png|webp)
+  caption  String? // epígrafe opcional
+  position Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([quoteId, position])
+}
+
 model QuoteItem {
   id          String        @id @default(cuid())
   quoteId     String

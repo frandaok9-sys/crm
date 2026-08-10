@@ -58,6 +58,8 @@ export type QuotePdfData = {
   exclusions?: string | null;
   warrantyText?: string | null;
   generalConditions?: string | null;
+  /// Fotos de la propuesta (data URLs comprimidas) — parte del pliego.
+  photos?: { data: string; caption: string | null }[];
   client: {
     legalName: string;
     taxId: string | null;
@@ -237,6 +239,15 @@ const styles = StyleSheet.create({
   },
   pliegoNumber: { color: RED },
   pliegoBody: { fontSize: 9, lineHeight: 1.55, color: GRAPHITE },
+  photosGrid: { flexDirection: "row", flexWrap: "wrap" },
+  photoItem: { width: "48%", marginRight: "2%", marginBottom: 10 },
+  photoImg: {
+    width: "100%",
+    height: 150,
+    objectFit: "cover",
+    borderRadius: 4,
+  },
+  photoCaption: { fontSize: 7.5, color: STEEL, marginTop: 3 },
   bankBox: {
     marginTop: 10,
     backgroundColor: BG_SOFT,
@@ -278,6 +289,7 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
   // siempre). Secciones con contenido, numeradas en el orden del informe
   // real: alcance → tareas → exclusiones → plazo → PRECIO → garantía →
   // mantenimiento de oferta → condiciones generales.
+  const photos = data.photos ?? [];
   const hasPliego = !!(
     data.siteTitle ||
     data.siteAddress ||
@@ -286,7 +298,8 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
     data.exclusions ||
     data.deliveryTerm ||
     data.warrantyText ||
-    data.generalConditions
+    data.generalConditions ||
+    photos.length > 0
   );
   const pliegoPre = [
     { title: "Alcance del suministro o servicio", body: data.scopeText },
@@ -311,8 +324,9 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
         ]
       : []
   ).filter((s): s is { title: string; body: string } => !!s.body);
-  // Numeración corrida: pre (1..n), Precio (n+1), post (n+2..)
-  const priceNumber = pliegoPre.length + 1;
+  // Numeración corrida: pre (1..n), Fotos (n+1 si hay), Precio, post.
+  const photosNumber = photos.length > 0 ? pliegoPre.length + 1 : null;
+  const priceNumber = pliegoPre.length + (photos.length > 0 ? 1 : 0) + 1;
 
   return (
     <Document
@@ -434,6 +448,27 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
             <Text style={styles.pliegoBody}>{s.body}</Text>
           </View>
         ))}
+
+        {/* Fotos de la propuesta (como en el informe real, antes del precio) */}
+        {photos.length > 0 && (
+          <View style={styles.pliegoSection}>
+            <Text style={styles.pliegoHeading}>
+              <Text style={styles.pliegoNumber}>{photosNumber} · </Text>
+              Fotos de la propuesta
+            </Text>
+            <View style={styles.photosGrid}>
+              {photos.map((photo, i) => (
+                <View style={styles.photoItem} key={i} wrap={false}>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image src={photo.data} style={styles.photoImg} />
+                  {photo.caption && (
+                    <Text style={styles.photoCaption}>{photo.caption}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Planilla de precios (minPresenceAhead evita que el título quede
             huérfano al pie de una página, separado de su tabla) */}

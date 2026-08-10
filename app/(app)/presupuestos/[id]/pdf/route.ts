@@ -26,6 +26,10 @@ export async function GET(
       client: true,
       owner: { select: { name: true, email: true } },
       items: { orderBy: { position: "asc" } },
+      photos: {
+        orderBy: { position: "asc" },
+        select: { data: true, caption: true },
+      },
     },
   });
   if (!quote) return new Response("Presupuesto no encontrado", { status: 404 });
@@ -54,6 +58,7 @@ export async function GET(
     exclusions: quote.exclusions,
     warrantyText: quote.warrantyText,
     generalConditions: quote.generalConditions,
+    photos: quote.photos,
     client: {
       legalName: quote.client.legalName,
       taxId: quote.client.taxId,

@@ -59,6 +59,10 @@ export default async function QuoteDetailPage({
       client: { select: { id: true, legalName: true } },
       owner: { select: { name: true, email: true } },
       items: { orderBy: { position: "asc" } },
+      photos: {
+        orderBy: { position: "asc" },
+        select: { id: true, data: true, caption: true },
+      },
     },
   });
   if (!quote) notFound();
@@ -355,7 +359,8 @@ export default async function QuoteDetailPage({
         quote.exclusions ||
         quote.deliveryTerm ||
         quote.warrantyText ||
-        quote.generalConditions) && (
+        quote.generalConditions ||
+        quote.photos.length > 0) && (
         <section className="rounded-xl border bg-white p-6 text-sm dark:bg-zinc-900">
           <h2 className="mb-4 text-xs font-medium uppercase text-zinc-500">
             Informe técnico
@@ -394,6 +399,31 @@ export default async function QuoteDetailPage({
                   </p>
                 </div>
               ))}
+            {quote.photos.length > 0 && (
+              <div>
+                <h3 className="mb-2 border-b pb-1 text-xs font-bold uppercase tracking-wide dark:border-zinc-700">
+                  <span className="text-primary">§ </span>
+                  Fotos de la propuesta
+                </h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {quote.photos.map((p) => (
+                    <figure key={p.id}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.data}
+                        alt={p.caption ?? "Foto de la propuesta"}
+                        className="h-32 w-full rounded-lg border object-cover dark:border-zinc-700"
+                      />
+                      {p.caption && (
+                        <figcaption className="mt-1 text-[11px] text-zinc-500">
+                          {p.caption}
+                        </figcaption>
+                      )}
+                    </figure>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}

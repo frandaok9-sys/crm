@@ -71,6 +71,56 @@ function paymentTermsFrom(formData: FormData): string | null {
   return String(formData.get("paymentTerms") ?? "").trim().slice(0, 20) || null;
 }
 
+// ---- Fotos de la propuesta (parte técnica) ----
+const MAX_QUOTE_PHOTOS = 10;
+// Data URL JPEG comprimida en el navegador (~150-350 KB); tope duro por si
+// llega otra cosa: ~1,5 MB de imagen ≈ 2M caracteres base64.
+const MAX_PHOTO_CHARS = 2_000_000;
+
+type ParsedPhoto = { dataUrl: string; caption: string | null };
+
+function parseNewPhotos(formData: FormData): ParsedPhoto[] {
+  const raw = formData.get("newPhotos");
+  if (typeof raw !== "string" || !raw) return [];
+  let arr: unknown;
+  try {
+    arr = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(arr)) return [];
+  const out: ParsedPhoto[] = [];
+  for (const entry of arr) {
+    const r = entry as Record<string, unknown>;
+    const dataUrl = String(r.dataUrl ?? "");
+    if (dataUrl.length > MAX_PHOTO_CHARS) {
+      throw new Error("Una de las fotos es demasiado grande (máx. ~1,5 MB).");
+    }
+    if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
+      throw new Error("Una de las fotos no es una imagen válida.");
+    }
+    out.push({
+      dataUrl,
+      caption: String(r.caption ?? "").trim().slice(0, 200) || null,
+    });
+  }
+  if (out.length > MAX_QUOTE_PHOTOS) {
+    throw new Error(`Máximo ${MAX_QUOTE_PHOTOS} fotos por presupuesto.`);
+  }
+  return out;
+}
+
+function parseRemovePhotoIds(formData: FormData): string[] {
+  const raw = formData.get("removePhotoIds");
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Campos del pliego técnico (etapas "Obra y plazos" + "Parte técnica"). */
 function pliegoFrom(formData: FormData) {
   const text = (name: string, max: number) =>
@@ -159,6 +209,8 @@ export async function createQuote(formData: FormData): Promise<void> {
     ? (String(formData.get("ownerId") ?? "") || null) ?? client.ownerId
     : user.id;
 
+  const newPhotos = parseNewPhotos(formData);
+
   const count = await prisma.quote.count({ where: { version: 1 } });
   const code = `PRE-${String(count + 1).padStart(4, "0")}`;
   const tenantId = await defaultTenantId();
@@ -179,6 +231,13 @@ export async function createQuote(formData: FormData): Promise<void> {
       total: totals.total,
       tenantId,
       items: { create: itemCreateData(items) },
+      photos: {
+        create: newPhotos.map((p, i) => ({
+          data: p.dataUrl,
+          caption: p.caption,
+          position: i,
+        })),
+      },
     },
   });
 
@@ -229,7 +288,36 @@ export async function updateQuote(formData: FormData): Promise<void> {
     ? String(formData.get("ownerId") ?? "").trim() || client.ownerId
     : existing.ownerId;
 
+  const newPhotos = parseNewPhotos(formData);
+  const removePhotoIds = parseRemovePhotoIds(formData);
+
   await prisma.$transaction(async (tx) => {
+    // Fotos: primero se quitan las marcadas, después se agregan las nuevas
+    // (respetando el tope total por presupuesto).
+    if (removePhotoIds.length > 0) {
+      await tx.quotePhoto.deleteMany({
+        where: { quoteId: id, id: { in: removePhotoIds } },
+      });
+    }
+    if (newPhotos.length > 0) {
+      const remaining = await tx.quotePhoto.count({ where: { quoteId: id } });
+      if (remaining + newPhotos.length > MAX_QUOTE_PHOTOS) {
+        throw new Error(`Máximo ${MAX_QUOTE_PHOTOS} fotos por presupuesto.`);
+      }
+      const maxPos = await tx.quotePhoto.aggregate({
+        where: { quoteId: id },
+        _max: { position: true },
+      });
+      await tx.quotePhoto.createMany({
+        data: newPhotos.map((p, i) => ({
+          quoteId: id,
+          data: p.dataUrl,
+          caption: p.caption,
+          position: (maxPos._max.position ?? -1) + 1 + i,
+        })),
+      });
+    }
+
     await tx.quoteItem.deleteMany({ where: { quoteId: id } });
     await tx.quote.update({
       where: { id },
@@ -318,7 +406,10 @@ export async function reviseQuote(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const source = await prisma.quote.findUnique({
     where: { id },
-    include: { items: { orderBy: { position: "asc" } } },
+    include: {
+      items: { orderBy: { position: "asc" } },
+      photos: { orderBy: { position: "asc" } },
+    },
   });
   if (!source) throw new Error("Presupuesto no encontrado.");
   if (!canEditQuote(user, source)) {
@@ -372,6 +463,13 @@ export async function reviseQuote(formData: FormData): Promise<void> {
             ivaRate: it.ivaRate,
             lineNet: it.lineNet,
             position: it.position,
+          })),
+        },
+        photos: {
+          create: source.photos.map((p) => ({
+            data: p.data,
+            caption: p.caption,
+            position: p.position,
           })),
         },
       },

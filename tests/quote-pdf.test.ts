@@ -89,4 +89,28 @@ describe("renderQuotePdf", () => {
     const buffer = await renderQuotePdf(minimal);
     expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
   });
+
+  it("renders the pliego técnico with photos (informe mode)", async () => {
+    // JPEG válido de 1×1 px, como los que produce la compresión del cliente.
+    const tinyJpeg =
+      "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
+    const conPliego: QuotePdfData = {
+      ...sample,
+      siteTitle: "Pulido de pisos de hormigón — Planta Coca Cola Mendoza",
+      siteAddress: "Carril Cervantes 960, Godoy Cruz, Mendoza",
+      scopeText: "Provisión de materiales y mano de obra certificada.",
+      taskDescription: "Pulido con diamante y densificado Ashford.",
+      exclusions: "Provisión de agua y energía a pie de obra.",
+      deliveryTerm: "30 días de trabajo desde el ingreso a planta.",
+      warrantyText: "Garantía escrita por 20 años.",
+      generalConditions: "Adelanto del 50%, resto contra certificaciones.",
+      photos: [
+        { data: tinyJpeg, caption: "Depósito Sur — estado actual" },
+        { data: tinyJpeg, caption: null },
+      ],
+    };
+    const buffer = await renderQuotePdf(conPliego);
+    expect(buffer.length).toBeGreaterThan(1000);
+    expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
+  });
 });
