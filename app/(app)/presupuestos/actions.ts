@@ -733,3 +733,50 @@ export async function addQuoteTask(formData: FormData): Promise<void> {
   revalidatePath(`/clientes/${quote.clientId}`);
   revalidatePath("/dashboard");
 }
+
+/**
+ * Elimina un presupuesto COMPLETO (todas sus revisiones, con ítems, fotos y
+ * tareas). IRREVERSIBLE. FRENO contable: si alguna revisión fue facturada a
+ * la cuenta corriente, NO se borra — los registros financieros se conservan
+ * (regla del proyecto).
+ */
+export async function deleteQuote(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const quote = await prisma.quote.findUnique({ where: { id } });
+  if (!quote) throw new Error("Presupuesto no encontrado.");
+  if (!canEditQuote(user, quote)) {
+    throw new Error("No tenés permisos para eliminar este presupuesto.");
+  }
+
+  const group = quote.rootId ?? quote.id;
+  const revisions = await prisma.quote.findMany({
+    where: { OR: [{ id: group }, { rootId: group }] },
+    select: { id: true },
+  });
+  const ids = revisions.map((r) => r.id);
+
+  const invoiced = await prisma.ledgerMovement.count({
+    where: { quoteId: { in: ids } },
+  });
+  if (invoiced > 0) {
+    throw new Error(
+      "Este presupuesto está facturado en la cuenta corriente y no se puede eliminar (los registros contables se conservan)."
+    );
+  }
+
+  await prisma.quote.deleteMany({ where: { id: { in: ids } } });
+  await logAudit({
+    action: "quote.deleted",
+    actorId: user.id,
+    targetType: "Quote",
+    targetId: id,
+    metadata: {
+      code: quote.code,
+      revisions: ids.length,
+      clientId: quote.clientId,
+    },
+  });
+  revalidatePath("/presupuestos");
+  redirect("/presupuestos");
+}

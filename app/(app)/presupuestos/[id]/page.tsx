@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { TaskThread } from "@/components/task-thread";
+import { DeleteQuoteButton } from "@/components/delete-quote-button";
 import {
   setQuoteStatus,
   reviseQuote,
@@ -101,6 +102,17 @@ export default async function QuoteDetailPage({
   const teammates = activeUsers
     .filter((u) => u.id !== user.id)
     .map((u) => ({ id: u.id, label: u.name ?? u.email }));
+
+  // Eliminar: se borra el grupo COMPLETO de revisiones; si alguna fue
+  // facturada a la cuenta corriente, el borrado se frena (regla contable).
+  const group = quote.rootId ?? quote.id;
+  const groupRevisions = await prisma.quote.findMany({
+    where: { OR: [{ id: group }, { rootId: group }] },
+    select: { id: true },
+  });
+  const invoicedCount = await prisma.ledgerMovement.count({
+    where: { quoteId: { in: groupRevisions.map((r) => r.id) } },
+  });
 
   const canEdit = canEditQuote(user, quote);
   const canInvoice = canManageLedger(user);
@@ -446,6 +458,28 @@ export default async function QuoteDetailPage({
         teammates={teammates}
         currentUserId={user.id}
       />
+
+      {/* Zona de riesgo: eliminar el presupuesto (abajo de todo) */}
+      {canEdit && (
+        <section className="rounded-xl border border-red-200 bg-white p-6 dark:border-red-950 dark:bg-zinc-900">
+          <h2 className="mb-1 text-sm font-medium text-red-600 dark:text-red-400">
+            Eliminar presupuesto
+          </h2>
+          <p className="mb-4 text-xs text-zinc-500">
+            {invoicedCount > 0
+              ? "Este presupuesto está facturado en la cuenta corriente: no se puede eliminar (los registros contables se conservan)."
+              : "Borra el presupuesto definitivamente, con todas sus revisiones, ítems, fotos y tareas. No se puede deshacer."}
+          </p>
+          {invoicedCount === 0 && (
+            <DeleteQuoteButton
+              quoteId={quote.id}
+              code={quote.code}
+              revisionCount={groupRevisions.length}
+              taskCount={tasks.length}
+            />
+          )}
+        </section>
+      )}
     </div>
   );
 }
