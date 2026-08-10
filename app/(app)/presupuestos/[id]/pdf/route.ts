@@ -28,7 +28,7 @@ export async function GET(
       items: { orderBy: { position: "asc" } },
       photos: {
         orderBy: { position: "asc" },
-        select: { data: true, caption: true },
+        select: { data: true, caption: true, section: true },
       },
     },
   });

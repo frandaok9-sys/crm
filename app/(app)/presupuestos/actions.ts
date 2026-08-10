@@ -11,6 +11,7 @@ import {
   canAssignClients,
   canViewRecord,
   canManageLedger,
+  canManageProducts,
 } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
@@ -71,54 +72,144 @@ function paymentTermsFrom(formData: FormData): string | null {
   return String(formData.get("paymentTerms") ?? "").trim().slice(0, 20) || null;
 }
 
-// ---- Fotos de la propuesta (parte técnica) ----
-const MAX_QUOTE_PHOTOS = 10;
+// ---- Fotos por sección del pliego + biblioteca de imágenes ----
+/// Secciones que aceptan fotos. "general" = "Fotos de la propuesta".
+const PHOTO_SECTIONS = [
+  "scope",
+  "tasks",
+  "exclusions",
+  "warranty",
+  "conditions",
+  "general",
+] as const;
+const MAX_PHOTOS_PER_SECTION = 8;
+// Coherente con el presupuesto compartido del cliente (QuotePhotoBudget).
+const MAX_QUOTE_PHOTOS = 20;
 // Data URL JPEG comprimida en el navegador (~150-350 KB); tope duro por si
 // llega otra cosa: ~1,5 MB de imagen ≈ 2M caracteres base64.
 const MAX_PHOTO_CHARS = 2_000_000;
+// Peso total de fotos nuevas por guardado (el POST tiene límite de tamaño).
+const MAX_TOTAL_PHOTO_CHARS = 4_000_000;
 
-type ParsedPhoto = { dataUrl: string; caption: string | null };
+type ParsedPhoto = {
+  dataUrl: string;
+  caption: string | null;
+  section: string;
+  saveToLibrary: boolean;
+};
 
+/** Lee las fotos nuevas de TODAS las secciones (hidden newPhotos_<sección>). */
 function parseNewPhotos(formData: FormData): ParsedPhoto[] {
-  const raw = formData.get("newPhotos");
-  if (typeof raw !== "string" || !raw) return [];
-  let arr: unknown;
-  try {
-    arr = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(arr)) return [];
   const out: ParsedPhoto[] = [];
-  for (const entry of arr) {
-    const r = entry as Record<string, unknown>;
-    const dataUrl = String(r.dataUrl ?? "");
-    if (dataUrl.length > MAX_PHOTO_CHARS) {
-      throw new Error("Una de las fotos es demasiado grande (máx. ~1,5 MB).");
+  for (const section of PHOTO_SECTIONS) {
+    const raw = formData.get(`newPhotos_${section}`);
+    if (typeof raw !== "string" || !raw) continue;
+    let arr: unknown;
+    try {
+      arr = JSON.parse(raw);
+    } catch {
+      continue;
     }
-    if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
-      throw new Error("Una de las fotos no es una imagen válida.");
+    if (!Array.isArray(arr)) continue;
+    if (arr.length > MAX_PHOTOS_PER_SECTION) {
+      throw new Error(`Máximo ${MAX_PHOTOS_PER_SECTION} fotos por sección.`);
     }
-    out.push({
-      dataUrl,
-      caption: String(r.caption ?? "").trim().slice(0, 200) || null,
-    });
+    for (const entry of arr) {
+      const r = entry as Record<string, unknown>;
+      const dataUrl = String(r.dataUrl ?? "");
+      if (dataUrl.length > MAX_PHOTO_CHARS) {
+        throw new Error("Una de las fotos es demasiado grande (máx. ~1,5 MB).");
+      }
+      if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
+        throw new Error("Una de las fotos no es una imagen válida.");
+      }
+      out.push({
+        dataUrl,
+        caption: String(r.caption ?? "").trim().slice(0, 200) || null,
+        section,
+        saveToLibrary: r.saveToLibrary === true,
+      });
+    }
   }
   if (out.length > MAX_QUOTE_PHOTOS) {
     throw new Error(`Máximo ${MAX_QUOTE_PHOTOS} fotos por presupuesto.`);
   }
+  const totalChars = out.reduce((sum, p) => sum + p.dataUrl.length, 0);
+  if (totalChars > MAX_TOTAL_PHOTO_CHARS) {
+    throw new Error(
+      "Las fotos nuevas pesan demasiado para un solo guardado: guardá y agregá el resto editando el presupuesto."
+    );
+  }
   return out;
 }
 
+/** Ids a borrar, juntando los hidden removePhotoIds_<sección>. */
 function parseRemovePhotoIds(formData: FormData): string[] {
-  const raw = formData.get("removePhotoIds");
-  if (typeof raw !== "string" || !raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.map(String) : [];
-  } catch {
-    return [];
+  const out: string[] = [];
+  for (const section of PHOTO_SECTIONS) {
+    const raw = formData.get(`removePhotoIds_${section}`);
+    if (typeof raw !== "string" || !raw) continue;
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) out.push(...arr.map(String));
+    } catch {
+      // ignorar
+    }
   }
+  return out;
+}
+
+/**
+ * Copia a la biblioteca las fotos marcadas "guardar en biblioteca".
+ * Best-effort: el presupuesto ya quedó guardado; un fallo acá no debe
+ * hacer creer que falló todo (y un reintento duplicaría el presupuesto).
+ * Dedupe por contenido: la misma imagen no se guarda dos veces.
+ */
+async function saveToLibrary(photos: ParsedPhoto[]): Promise<void> {
+  const marked = photos.filter((p) => p.saveToLibrary);
+  if (marked.length === 0) return;
+  try {
+    const existing = await prisma.companyImage.findMany({
+      where: { data: { in: marked.map((p) => p.dataUrl) } },
+      select: { data: true },
+    });
+    const known = new Set(existing.map((e) => e.data));
+    const fresh = marked.filter((p) => !known.has(p.dataUrl));
+    if (fresh.length === 0) return;
+    await prisma.companyImage.createMany({
+      data: fresh.map((p) => ({
+        name: p.caption ?? "Imagen sin nombre",
+        data: p.dataUrl,
+      })),
+    });
+  } catch (error) {
+    console.error("saveToLibrary failed (presupuesto ya guardado):", error);
+  }
+}
+
+/** Borra una imagen de la biblioteca (los presupuestos que la usan no se
+ * tocan: al insertarla se copia). Solo admins/gerentes/administración —
+ * es un recurso compartido de toda la empresa. */
+export async function deleteCompanyImage(id: string): Promise<void> {
+  const user = await requireActiveUser();
+  if (!canManageProducts(user)) {
+    throw new Error(
+      "Solo administradores o gerentes pueden borrar de la biblioteca."
+    );
+  }
+  const image = await prisma.companyImage.findUnique({
+    where: { id },
+    select: { name: true },
+  });
+  if (!image) return; // ya borrada (carrera): no es error
+  await prisma.companyImage.deleteMany({ where: { id } });
+  await logAudit({
+    action: "company_image.deleted",
+    actorId: user.id,
+    targetType: "CompanyImage",
+    targetId: id,
+    metadata: { name: image.name },
+  });
 }
 
 /** Campos del pliego técnico (etapas "Obra y plazos" + "Parte técnica"). */
@@ -235,11 +326,13 @@ export async function createQuote(formData: FormData): Promise<void> {
         create: newPhotos.map((p, i) => ({
           data: p.dataUrl,
           caption: p.caption,
+          section: p.section,
           position: i,
         })),
       },
     },
   });
+  await saveToLibrary(newPhotos);
 
   await logAudit({
     action: "quote.created",
@@ -304,6 +397,26 @@ export async function updateQuote(formData: FormData): Promise<void> {
       if (remaining + newPhotos.length > MAX_QUOTE_PHOTOS) {
         throw new Error(`Máximo ${MAX_QUOTE_PHOTOS} fotos por presupuesto.`);
       }
+      // Tope por sección (existentes tras el borrado + nuevas).
+      const perSection = await tx.quotePhoto.groupBy({
+        by: ["section"],
+        where: { quoteId: id },
+        _count: { _all: true },
+      });
+      // SUMANDO por clave: fotos viejas con section NULL y nuevas con
+      // "general" son la misma sección (un Map directo del groupBy pisaría
+      // una con la otra y el tope sería evadible).
+      const bySection = new Map<string, number>();
+      for (const g of perSection) {
+        const key = g.section ?? "general";
+        bySection.set(key, (bySection.get(key) ?? 0) + g._count._all);
+      }
+      for (const p of newPhotos) {
+        bySection.set(p.section, (bySection.get(p.section) ?? 0) + 1);
+      }
+      if ([...bySection.values()].some((c) => c > MAX_PHOTOS_PER_SECTION)) {
+        throw new Error(`Máximo ${MAX_PHOTOS_PER_SECTION} fotos por sección.`);
+      }
       const maxPos = await tx.quotePhoto.aggregate({
         where: { quoteId: id },
         _max: { position: true },
@@ -313,6 +426,7 @@ export async function updateQuote(formData: FormData): Promise<void> {
           quoteId: id,
           data: p.dataUrl,
           caption: p.caption,
+          section: p.section,
           position: (maxPos._max.position ?? -1) + 1 + i,
         })),
       });
@@ -339,6 +453,7 @@ export async function updateQuote(formData: FormData): Promise<void> {
       },
     });
   });
+  await saveToLibrary(newPhotos);
 
   await logAudit({
     action: "quote.updated",
@@ -469,6 +584,7 @@ export async function reviseQuote(formData: FormData): Promise<void> {
           create: source.photos.map((p) => ({
             data: p.data,
             caption: p.caption,
+            section: p.section,
             position: p.position,
           })),
         },

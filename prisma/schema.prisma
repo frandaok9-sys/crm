@@ -501,11 +501,26 @@ model QuotePhoto {
 
   data     String // data URL (image/jpeg|png|webp)
   caption  String? // epígrafe opcional
+  /// Sección del pliego a la que pertenece: scope | tasks | exclusions |
+  /// warranty | conditions | general (null = general, "Fotos de la propuesta").
+  section  String?
   position Int     @default(0)
 
   createdAt DateTime @default(now())
 
   @@index([quoteId, position])
+}
+
+/// Biblioteca de imágenes de la empresa, reutilizables en cualquier
+/// presupuesto sin volver a subirlas: certificación Ashford, pulidoras,
+/// ciencia del producto, pisos terminados de referencia, etc. Al insertar
+/// una en un presupuesto se COPIA (borrar de la biblioteca no toca los
+/// presupuestos ya armados).
+model CompanyImage {
+  id        String   @id @default(cuid())
+  name      String // "Certificación Ashford", "Pulidora HTC 800", …
+  data      String // data URL comprimida
+  createdAt DateTime @default(now())
 }
 
 model QuoteItem {

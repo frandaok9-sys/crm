@@ -61,7 +61,7 @@ export default async function QuoteDetailPage({
       items: { orderBy: { position: "asc" } },
       photos: {
         orderBy: { position: "asc" },
-        select: { id: true, data: true, caption: true },
+        select: { id: true, data: true, caption: true, section: true },
       },
     },
   });
@@ -376,54 +376,59 @@ export default async function QuoteDetailPage({
             </div>
           )}
           <div className="space-y-4">
-            {[
-              ["Alcance del suministro o servicio", quote.scopeText],
-              ["Descripción de tareas", quote.taskDescription],
-              ["Exclusiones del alcance", quote.exclusions],
-              ["Plazo de entrega", quote.deliveryTerm],
-              ["Garantía", quote.warrantyText],
-              ["Condiciones generales", quote.generalConditions],
-            ]
-              .filter(([, body]) => body)
-              .map(([title, body]) => (
-                <div key={title}>
-                  {/* Sin números acá: el PDF numera distinto (intercala
-                      "Precio" y "Mantenimiento de la oferta") y hablar de
-                      "el punto 6" con un cliente debe referir al PDF. */}
-                  <h3 className="mb-1 border-b pb-1 text-xs font-bold uppercase tracking-wide dark:border-zinc-700">
-                    <span className="text-primary">§ </span>
-                    {title}
-                  </h3>
-                  <p className="whitespace-pre-wrap text-zinc-600 dark:text-zinc-300">
-                    {body}
-                  </p>
-                </div>
-              ))}
-            {quote.photos.length > 0 && (
-              <div>
-                <h3 className="mb-2 border-b pb-1 text-xs font-bold uppercase tracking-wide dark:border-zinc-700">
-                  <span className="text-primary">§ </span>
-                  Fotos de la propuesta
-                </h3>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {quote.photos.map((p) => (
-                    <figure key={p.id}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={p.data}
-                        alt={p.caption ?? "Foto de la propuesta"}
-                        className="h-32 w-full rounded-lg border object-cover dark:border-zinc-700"
-                      />
-                      {p.caption && (
-                        <figcaption className="mt-1 text-[11px] text-zinc-500">
-                          {p.caption}
-                        </figcaption>
-                      )}
-                    </figure>
-                  ))}
-                </div>
-              </div>
-            )}
+            {(
+              [
+                ["scope", "Alcance del suministro o servicio", quote.scopeText],
+                ["tasks", "Descripción de tareas", quote.taskDescription],
+                ["exclusions", "Exclusiones del alcance", quote.exclusions],
+                ["delivery", "Plazo de entrega", quote.deliveryTerm],
+                ["warranty", "Garantía", quote.warrantyText],
+                ["conditions", "Condiciones generales", quote.generalConditions],
+                ["general", "Fotos de la propuesta", null],
+              ] as [string, string, string | null][]
+            )
+              .map(([key, title, body]) => {
+                const sectionPhotos = quote.photos.filter(
+                  (p) => (p.section ?? "general") === key
+                );
+                if (!body && sectionPhotos.length === 0) return null;
+                return (
+                  <div key={key}>
+                    {/* Sin números acá: el PDF numera distinto (intercala
+                        "Precio" y "Mantenimiento de la oferta") y hablar de
+                        "el punto 6" con un cliente debe referir al PDF. */}
+                    <h3 className="mb-1 border-b pb-1 text-xs font-bold uppercase tracking-wide dark:border-zinc-700">
+                      <span className="text-primary">§ </span>
+                      {title}
+                    </h3>
+                    {body && (
+                      <p className="whitespace-pre-wrap text-zinc-600 dark:text-zinc-300">
+                        {body}
+                      </p>
+                    )}
+                    {sectionPhotos.length > 0 && (
+                      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {sectionPhotos.map((p) => (
+                          <figure key={p.id}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={p.data}
+                              alt={p.caption ?? "Foto de la propuesta"}
+                              className="h-32 w-full rounded-lg border object-cover dark:border-zinc-700"
+                            />
+                            {p.caption && (
+                              <figcaption className="mt-1 text-[11px] text-zinc-500">
+                                {p.caption}
+                              </figcaption>
+                            )}
+                          </figure>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+              .filter(Boolean)}
           </div>
         </section>
       )}

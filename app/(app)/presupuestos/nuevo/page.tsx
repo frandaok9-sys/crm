@@ -47,6 +47,11 @@ export default async function NewQuotePage() {
   // Apply the company's "base design" defaults (validity + footer).
   const settings = await getCompanySettings();
   const products = await getCatalogProducts();
+  // Biblioteca de imágenes reutilizables (certificación, pulidoras, etc.).
+  const library = await prisma.companyImage.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, data: true },
+  });
   let defaultValidUntil = "";
   if (settings?.quoteValidity) {
     const due = new Date();
@@ -90,6 +95,7 @@ export default async function NewQuotePage() {
               notes: settings?.quoteFooter ?? "",
             }}
             products={products}
+            library={library}
           />
         </div>
       )}

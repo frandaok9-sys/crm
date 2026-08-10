@@ -58,8 +58,9 @@ export type QuotePdfData = {
   exclusions?: string | null;
   warrantyText?: string | null;
   generalConditions?: string | null;
-  /// Fotos de la propuesta (data URLs comprimidas) — parte del pliego.
-  photos?: { data: string; caption: string | null }[];
+  /// Fotos del pliego (data URLs comprimidas), cada una con su sección:
+  /// scope | tasks | exclusions | warranty | conditions | general (null).
+  photos?: { data: string; caption: string | null; section: string | null }[];
   client: {
     legalName: string;
     taxId: string | null;
@@ -290,6 +291,15 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
   // real: alcance → tareas → exclusiones → plazo → PRECIO → garantía →
   // mantenimiento de oferta → condiciones generales.
   const photos = data.photos ?? [];
+  // Fotos agrupadas por sección del pliego ("general" = sin sección).
+  const photosBySection = new Map<string, typeof photos>();
+  for (const photo of photos) {
+    const key = photo.section ?? "general";
+    photosBySection.set(key, [...(photosBySection.get(key) ?? []), photo]);
+  }
+  const photosOf = (key: string) => photosBySection.get(key) ?? [];
+  const generalPhotos = photosOf("general");
+
   const hasPliego = !!(
     data.siteTitle ||
     data.siteAddress ||
@@ -301,32 +311,48 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
     data.generalConditions ||
     photos.length > 0
   );
+  // Cada sección entra si tiene texto O fotos propias.
   const pliegoPre = [
-    { title: "Alcance del suministro o servicio", body: data.scopeText },
-    { title: "Descripción de tareas", body: data.taskDescription },
-    { title: "Exclusiones del alcance", body: data.exclusions },
-    { title: "Plazo de entrega", body: data.deliveryTerm },
-  ].filter((s): s is { title: string; body: string } => !!s.body);
+    {
+      key: "scope",
+      title: "Alcance del suministro o servicio",
+      body: data.scopeText ?? null,
+    },
+    {
+      key: "tasks",
+      title: "Descripción de tareas",
+      body: data.taskDescription ?? null,
+    },
+    {
+      key: "exclusions",
+      title: "Exclusiones del alcance",
+      body: data.exclusions ?? null,
+    },
+    { key: "delivery", title: "Plazo de entrega", body: data.deliveryTerm ?? null },
+  ].filter((s) => s.body || photosOf(s.key).length > 0);
   const pliegoPost = (
     hasPliego
       ? [
-          { title: "Garantía", body: data.warrantyText ?? null },
+          { key: "warranty", title: "Garantía", body: data.warrantyText ?? null },
           data.validUntil
             ? {
+                key: "validity",
                 title: "Mantenimiento de la oferta",
                 body: `La presente oferta se mantiene hasta el ${data.validUntil}. Pasada esa fecha, los valores quedan sujetos a revisión.`,
               }
-            : { title: "", body: null },
+            : { key: "validity", title: "", body: null },
           {
+            key: "conditions",
             title: "Condiciones generales",
             body: data.generalConditions ?? null,
           },
         ]
       : []
-  ).filter((s): s is { title: string; body: string } => !!s.body);
-  // Numeración corrida: pre (1..n), Fotos (n+1 si hay), Precio, post.
-  const photosNumber = photos.length > 0 ? pliegoPre.length + 1 : null;
-  const priceNumber = pliegoPre.length + (photos.length > 0 ? 1 : 0) + 1;
+  ).filter((s) => s.title && (s.body || photosOf(s.key).length > 0));
+  // Numeración corrida: pre (1..n), Fotos generales (n+1 si hay), Precio, post.
+  const photosNumber = generalPhotos.length > 0 ? pliegoPre.length + 1 : null;
+  const priceNumber =
+    pliegoPre.length + (generalPhotos.length > 0 ? 1 : 0) + 1;
 
   return (
     <Document
@@ -438,26 +464,40 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
           </View>
         )}
 
-        {/* Secciones del informe técnico previas al precio */}
+        {/* Secciones del informe técnico previas al precio, cada una con
+            sus fotos (solución propuesta, pulidoras, etc.) */}
         {pliegoPre.map((s, i) => (
           <View style={styles.pliegoSection} key={s.title}>
             <Text style={styles.pliegoHeading}>
               <Text style={styles.pliegoNumber}>{i + 1} · </Text>
               {s.title}
             </Text>
-            <Text style={styles.pliegoBody}>{s.body}</Text>
+            {s.body && <Text style={styles.pliegoBody}>{s.body}</Text>}
+            {photosOf(s.key).length > 0 && (
+              <View style={[styles.photosGrid, { marginTop: 6 }]}>
+                {photosOf(s.key).map((photo, j) => (
+                  <View style={styles.photoItem} key={j} wrap={false}>
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                    <Image src={photo.data} style={styles.photoImg} />
+                    {photo.caption && (
+                      <Text style={styles.photoCaption}>{photo.caption}</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         ))}
 
-        {/* Fotos de la propuesta (como en el informe real, antes del precio) */}
-        {photos.length > 0 && (
+        {/* Fotos generales de la propuesta (las sin sección puntual) */}
+        {generalPhotos.length > 0 && (
           <View style={styles.pliegoSection}>
             <Text style={styles.pliegoHeading}>
               <Text style={styles.pliegoNumber}>{photosNumber} · </Text>
               Fotos de la propuesta
             </Text>
             <View style={styles.photosGrid}>
-              {photos.map((photo, i) => (
+              {generalPhotos.map((photo, i) => (
                 <View style={styles.photoItem} key={i} wrap={false}>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
                   <Image src={photo.data} style={styles.photoImg} />
@@ -559,7 +599,22 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
                   </Text>
                   {s.title}
                 </Text>
-                <Text style={styles.pliegoBody}>{s.body}</Text>
+                {s.body && <Text style={styles.pliegoBody}>{s.body}</Text>}
+                {photosOf(s.key).length > 0 && (
+                  <View style={[styles.photosGrid, { marginTop: 6 }]}>
+                    {photosOf(s.key).map((photo, j) => (
+                      <View style={styles.photoItem} key={j} wrap={false}>
+                        {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                        <Image src={photo.data} style={styles.photoImg} />
+                        {photo.caption && (
+                          <Text style={styles.photoCaption}>
+                            {photo.caption}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             ))}
           </View>

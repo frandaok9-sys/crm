@@ -105,8 +105,12 @@ describe("renderQuotePdf", () => {
       warrantyText: "Garantía escrita por 20 años.",
       generalConditions: "Adelanto del 50%, resto contra certificaciones.",
       photos: [
-        { data: tinyJpeg, caption: "Depósito Sur — estado actual" },
-        { data: tinyJpeg, caption: null },
+        // Foto dentro de "Descripción de tareas" (pulidora / piso terminado)
+        { data: tinyJpeg, caption: "Pulidora en sector depósito", section: "tasks" },
+        // Foto dentro de "Garantía" (certificación Ashford)
+        { data: tinyJpeg, caption: "Certificación Ashford", section: "warranty" },
+        // Foto general ("Fotos de la propuesta")
+        { data: tinyJpeg, caption: "Depósito Sur — estado actual", section: null },
       ],
     };
     const buffer = await renderQuotePdf(conPliego);

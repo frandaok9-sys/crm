@@ -28,7 +28,7 @@ export default async function EditQuotePage({
       items: { orderBy: { position: "asc" } },
       photos: {
         orderBy: { position: "asc" },
-        select: { id: true, data: true, caption: true },
+        select: { id: true, data: true, caption: true, section: true },
       },
     },
   });
@@ -55,6 +55,11 @@ export default async function EditQuotePage({
     name: t.name,
   }));
   const products = await getCatalogProducts();
+  // Biblioteca de imágenes reutilizables (certificación, pulidoras, etc.).
+  const library = await prisma.companyImage.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, data: true },
+  });
   const defaultRate =
     taxRates.find((t) => t.isDefault)?.rate.toString() ??
     taxRates[0]?.rate.toString() ??
@@ -83,6 +88,7 @@ export default async function EditQuotePage({
           owners={owners}
           submitLabel="Guardar cambios"
           products={products}
+          library={library}
           quote={{
             id: quote.id,
             clientId: quote.clientId,
