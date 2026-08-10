@@ -48,6 +48,16 @@ export type QuotePdfData = {
   overallDiscount: string; // porcentaje
   notes: string | null;
   ownerName: string | null;
+  /// Pliego técnico (informe estilo licitación) — opcionales: las secciones
+  /// vacías no se imprimen y el PDF queda como planilla simple.
+  siteTitle?: string | null;
+  siteAddress?: string | null;
+  deliveryTerm?: string | null;
+  scopeText?: string | null;
+  taskDescription?: string | null;
+  exclusions?: string | null;
+  warrantyText?: string | null;
+  generalConditions?: string | null;
   client: {
     legalName: string;
     taxId: string | null;
@@ -199,6 +209,34 @@ const styles = StyleSheet.create({
 
   section: { marginTop: 16 },
   notesText: { color: STEEL, fontSize: 8.5, lineHeight: 1.5 },
+
+  // Pliego técnico (informe)
+  obraBox: {
+    backgroundColor: BG_SOFT,
+    borderLeftWidth: 3,
+    borderLeftColor: GRAPHITE,
+    borderRadius: 4,
+    padding: 10,
+    marginBottom: 16,
+  },
+  obraTitle: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 11,
+    textTransform: "uppercase",
+  },
+  pliegoSection: { marginBottom: 14 },
+  pliegoHeading: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: LINE,
+    paddingBottom: 3,
+    marginBottom: 5,
+  },
+  pliegoNumber: { color: RED },
+  pliegoBody: { fontSize: 9, lineHeight: 1.55, color: GRAPHITE },
   bankBox: {
     marginTop: 10,
     backgroundColor: BG_SOFT,
@@ -234,6 +272,47 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
   const hasOverallDiscount = Number(totals.overallDiscountAmount) > 0;
   const fmt = (v: string) => money(v, data.currency);
   const companyName = data.company.name ?? "RC Pisos Industriales";
+
+  // Pliego técnico: SOLO si hay campos de pliego cargados (un presupuesto
+  // simple —aunque tenga fecha de validez— mantiene el formato planilla de
+  // siempre). Secciones con contenido, numeradas en el orden del informe
+  // real: alcance → tareas → exclusiones → plazo → PRECIO → garantía →
+  // mantenimiento de oferta → condiciones generales.
+  const hasPliego = !!(
+    data.siteTitle ||
+    data.siteAddress ||
+    data.scopeText ||
+    data.taskDescription ||
+    data.exclusions ||
+    data.deliveryTerm ||
+    data.warrantyText ||
+    data.generalConditions
+  );
+  const pliegoPre = [
+    { title: "Alcance del suministro o servicio", body: data.scopeText },
+    { title: "Descripción de tareas", body: data.taskDescription },
+    { title: "Exclusiones del alcance", body: data.exclusions },
+    { title: "Plazo de entrega", body: data.deliveryTerm },
+  ].filter((s): s is { title: string; body: string } => !!s.body);
+  const pliegoPost = (
+    hasPliego
+      ? [
+          { title: "Garantía", body: data.warrantyText ?? null },
+          data.validUntil
+            ? {
+                title: "Mantenimiento de la oferta",
+                body: `La presente oferta se mantiene hasta el ${data.validUntil}. Pasada esa fecha, los valores quedan sujetos a revisión.`,
+              }
+            : { title: "", body: null },
+          {
+            title: "Condiciones generales",
+            body: data.generalConditions ?? null,
+          },
+        ]
+      : []
+  ).filter((s): s is { title: string; body: string } => !!s.body);
+  // Numeración corrida: pre (1..n), Precio (n+1), post (n+2..)
+  const priceNumber = pliegoPre.length + 1;
 
   return (
     <Document
@@ -332,7 +411,40 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
           )}
         </View>
 
-        {/* Items */}
+        {/* Obra (pliego técnico) */}
+        {(data.siteTitle || data.siteAddress) && (
+          <View style={styles.obraBox}>
+            <Text style={styles.label}>Obra</Text>
+            {data.siteTitle && (
+              <Text style={styles.obraTitle}>{data.siteTitle}</Text>
+            )}
+            {data.siteAddress && (
+              <Text style={styles.clientLine}>{data.siteAddress}</Text>
+            )}
+          </View>
+        )}
+
+        {/* Secciones del informe técnico previas al precio */}
+        {pliegoPre.map((s, i) => (
+          <View style={styles.pliegoSection} key={s.title}>
+            <Text style={styles.pliegoHeading}>
+              <Text style={styles.pliegoNumber}>{i + 1} · </Text>
+              {s.title}
+            </Text>
+            <Text style={styles.pliegoBody}>{s.body}</Text>
+          </View>
+        ))}
+
+        {/* Planilla de precios (minPresenceAhead evita que el título quede
+            huérfano al pie de una página, separado de su tabla) */}
+        {hasPliego && (
+          <View minPresenceAhead={80}>
+            <Text style={styles.pliegoHeading}>
+              <Text style={styles.pliegoNumber}>{priceNumber} · </Text>
+              Precio
+            </Text>
+          </View>
+        )}
         <View style={styles.th}>
           <Text style={[styles.thText, styles.cDesc]}>Descripción</Text>
           <Text style={[styles.thText, styles.cQty]}>Cantidad</Text>
@@ -400,6 +512,23 @@ function QuotePdf({ data }: { data: QuotePdfData }) {
             </View>
           </View>
         </View>
+
+        {/* Secciones del informe técnico posteriores al precio */}
+        {pliegoPost.length > 0 && (
+          <View style={styles.section}>
+            {pliegoPost.map((s, i) => (
+              <View style={styles.pliegoSection} key={s.title}>
+                <Text style={styles.pliegoHeading}>
+                  <Text style={styles.pliegoNumber}>
+                    {priceNumber + 1 + i} ·{" "}
+                  </Text>
+                  {s.title}
+                </Text>
+                <Text style={styles.pliegoBody}>{s.body}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Notes + bank info */}
         {data.notes && (

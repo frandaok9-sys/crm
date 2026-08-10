@@ -347,6 +347,57 @@ export default async function QuoteDetailPage({
         </section>
       )}
 
+      {/* Pliego técnico (solo las secciones cargadas) */}
+      {(quote.siteTitle ||
+        quote.siteAddress ||
+        quote.scopeText ||
+        quote.taskDescription ||
+        quote.exclusions ||
+        quote.deliveryTerm ||
+        quote.warrantyText ||
+        quote.generalConditions) && (
+        <section className="rounded-xl border bg-white p-6 text-sm dark:bg-zinc-900">
+          <h2 className="mb-4 text-xs font-medium uppercase text-zinc-500">
+            Informe técnico
+          </h2>
+          {(quote.siteTitle || quote.siteAddress) && (
+            <div className="mb-4 rounded-lg border-l-4 border-zinc-800 bg-zinc-50 p-3 dark:border-zinc-500 dark:bg-zinc-800/60">
+              {quote.siteTitle && (
+                <p className="font-semibold uppercase">{quote.siteTitle}</p>
+              )}
+              {quote.siteAddress && (
+                <p className="text-zinc-500">{quote.siteAddress}</p>
+              )}
+            </div>
+          )}
+          <div className="space-y-4">
+            {[
+              ["Alcance del suministro o servicio", quote.scopeText],
+              ["Descripción de tareas", quote.taskDescription],
+              ["Exclusiones del alcance", quote.exclusions],
+              ["Plazo de entrega", quote.deliveryTerm],
+              ["Garantía", quote.warrantyText],
+              ["Condiciones generales", quote.generalConditions],
+            ]
+              .filter(([, body]) => body)
+              .map(([title, body]) => (
+                <div key={title}>
+                  {/* Sin números acá: el PDF numera distinto (intercala
+                      "Precio" y "Mantenimiento de la oferta") y hablar de
+                      "el punto 6" con un cliente debe referir al PDF. */}
+                  <h3 className="mb-1 border-b pb-1 text-xs font-bold uppercase tracking-wide dark:border-zinc-700">
+                    <span className="text-primary">§ </span>
+                    {title}
+                  </h3>
+                  <p className="whitespace-pre-wrap text-zinc-600 dark:text-zinc-300">
+                    {body}
+                  </p>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
       <QuoteTasks
         quoteId={quote.id}
         tasks={tasks}

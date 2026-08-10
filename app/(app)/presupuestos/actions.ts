@@ -71,6 +71,22 @@ function paymentTermsFrom(formData: FormData): string | null {
   return String(formData.get("paymentTerms") ?? "").trim().slice(0, 20) || null;
 }
 
+/** Campos del pliego técnico (etapas "Obra y plazos" + "Parte técnica"). */
+function pliegoFrom(formData: FormData) {
+  const text = (name: string, max: number) =>
+    String(formData.get(name) ?? "").trim().slice(0, max) || null;
+  return {
+    siteTitle: text("siteTitle", 200),
+    siteAddress: text("siteAddress", 300),
+    deliveryTerm: text("deliveryTerm", 2000),
+    scopeText: text("scopeText", 5000),
+    taskDescription: text("taskDescription", 10000),
+    exclusions: text("exclusions", 5000),
+    warrantyText: text("warrantyText", 2000),
+    generalConditions: text("generalConditions", 5000),
+  };
+}
+
 function parseItems(formData: FormData): ParsedItem[] {
   const raw = formData.get("items");
   if (typeof raw !== "string") return [];
@@ -156,6 +172,7 @@ export async function createQuote(formData: FormData): Promise<void> {
       validUntil: parseDate(formData.get("validUntil")),
       notes: String(formData.get("notes") ?? "").trim() || null,
       paymentTerms: paymentTermsFrom(formData),
+      ...pliegoFrom(formData),
       overallDiscount,
       net: totals.net,
       ivaTotal: totals.ivaTotal,
@@ -206,8 +223,10 @@ export async function updateQuote(formData: FormData): Promise<void> {
     formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
   const overallDiscount = overallDiscountFrom(formData);
   const totals = computeQuoteTotals(items, overallDiscount);
+  // "Según el cliente / sin asignar" (opción vacía) toma el dueño del
+  // cliente, igual que al crear — antes la opción no hacía nada.
   const ownerId = canAssignClients(user)
-    ? (String(formData.get("ownerId") ?? "") || null) ?? existing.ownerId
+    ? String(formData.get("ownerId") ?? "").trim() || client.ownerId
     : existing.ownerId;
 
   await prisma.$transaction(async (tx) => {
@@ -221,6 +240,7 @@ export async function updateQuote(formData: FormData): Promise<void> {
         validUntil: parseDate(formData.get("validUntil")),
         notes: String(formData.get("notes") ?? "").trim() || null,
         paymentTerms: paymentTermsFrom(formData),
+        ...pliegoFrom(formData),
         overallDiscount,
         net: totals.net,
         ivaTotal: totals.ivaTotal,
@@ -328,6 +348,14 @@ export async function reviseQuote(formData: FormData): Promise<void> {
         validUntil: source.validUntil,
         notes: source.notes,
         paymentTerms: source.paymentTerms,
+        siteTitle: source.siteTitle,
+        siteAddress: source.siteAddress,
+        deliveryTerm: source.deliveryTerm,
+        scopeText: source.scopeText,
+        taskDescription: source.taskDescription,
+        exclusions: source.exclusions,
+        warrantyText: source.warrantyText,
+        generalConditions: source.generalConditions,
         overallDiscount: source.overallDiscount,
         net: source.net,
         ivaTotal: source.ivaTotal,

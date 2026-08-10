@@ -425,6 +425,18 @@ model Quote {
   id         String           @id @default(cuid())
   tasks      ClientActivity[] // Chat de tareas del presupuesto
   externalId String? // Nexus: id en el sistema de origen (el `id` es el nexus_id)
+
+  /// ---- Pliego técnico (informe estilo licitación, todas opcionales) ----
+  /// Etapa 2 "Obra y plazos" + Etapa 3 "Parte técnica" de la carga.
+  /// Si están vacías, el presupuesto funciona como siempre (solo planilla).
+  siteTitle         String? // Obra: título del trabajo
+  siteAddress       String? // Lugar / planta donde se ejecuta
+  deliveryTerm      String? // Plazo de entrega (texto)
+  scopeText         String? // 1. Alcance del suministro o servicio
+  taskDescription   String? // 2. Descripción de tareas / solución técnica
+  exclusions        String? // 3. Exclusiones del alcance
+  warrantyText      String? // Garantía ofrecida
+  generalConditions String? // Condiciones generales (forma de pago, etc.)
   tenantId   String?
   tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   code       String // Número legible, p. ej. "PRE-0001"

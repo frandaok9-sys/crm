@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { computeQuoteTotals } from "@/lib/quotes-calc";
 
@@ -165,10 +165,31 @@ export function QuoteItemsEditor({
       maximumFractionDigits: 2,
     })}`;
 
+  const hasValidRow = rows.some((r) => r.description.trim() !== "");
+  const sentinelRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    sentinelRef.current?.setCustomValidity(
+      hasValidRow ? "" : "Agregá al menos un ítem con su descripción."
+    );
+  }, [hasValidRow]);
+
   return (
-    <div>
+    <div className="relative">
       <input type="hidden" name="items" value={JSON.stringify(rows)} />
       <input type="hidden" name="overallDiscount" value={overallDiscount || "0"} />
+      {/* Centinela de validación: exige al menos un ítem con descripción
+          ANTES de enviar (el servidor lo rechazaría y se perdería lo
+          tipeado). No es display:none para que el navegador pueda enfocarlo
+          y mostrar el aviso; FormSteps salta a esta etapa si está oculta. */}
+      <input
+        ref={sentinelRef}
+        tabIndex={-1}
+        aria-hidden
+        required
+        value={hasValidRow ? "ok" : ""}
+        onChange={() => {}}
+        className="pointer-events-none absolute h-px w-px opacity-0"
+      />
 
       {products && products.length > 0 && (
         <div className="relative mb-3">
