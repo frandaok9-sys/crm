@@ -23,8 +23,8 @@ export function MetricCard({
   label: string;
   value: string;
   iconPath: string;
-  series: number[];
-  sparkColor: string;
+  series?: number[];
+  sparkColor?: string;
   trend?: MetricTrend;
   note?: string;
 }) {
@@ -82,22 +82,24 @@ export function MetricCard({
             {note && <span className="text-[11.5px] text-muted2">{note}</span>}
           </div>
         </div>
-        <svg
-          width="60"
-          height="34"
-          viewBox="0 0 72 36"
-          preserveAspectRatio="none"
-          className="shrink-0 overflow-visible"
-        >
-          <polyline
-            points={sparkPoints(series)}
-            fill="none"
-            stroke={sparkColor}
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {series && series.length > 0 && sparkColor && (
+          <svg
+            width="60"
+            height="34"
+            viewBox="0 0 72 36"
+            preserveAspectRatio="none"
+            className="shrink-0 overflow-visible"
+          >
+            <polyline
+              points={sparkPoints(series)}
+              fill="none"
+              stroke={sparkColor}
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </div>
     </div>
   );

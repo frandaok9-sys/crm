@@ -33,6 +33,7 @@ const METRIC_ICONS = {
   pipeline: "M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z",
   doc: "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
   check: "M4 12l5 5 11-11",
+  obra: "M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6",
 } as const;
 
 const BAR_QUOTED = "#5B82D6";
@@ -215,11 +216,6 @@ export default async function DashboardPage({
   const oppSeries = monthlyBuckets(oppDates.map((o) => o.createdAt)).map(
     (b) => b.count
   );
-  const sentSeries = monthlyBuckets(
-    quoteRows
-      .filter((q) => q.status === QuoteStatus.SENT)
-      .map((q) => q.createdAt)
-  ).map((b) => b.count);
   const approvedSeries = monthlyBuckets(
     quoteRows
       .filter((q) => q.status === QuoteStatus.APPROVED)
@@ -365,17 +361,6 @@ export default async function DashboardPage({
               current={filter}
             />
           )}
-          <Link
-            href="/obras"
-            className="flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-3.5 py-2 text-[13px] font-semibold transition-colors hover:border-primary/50"
-          >
-            🏗️ En obra
-            {inExecution > 0 && (
-              <span className="rounded-full bg-primary/10 px-1.5 text-xs font-bold text-primary tabular-nums">
-                {inExecution}
-              </span>
-            )}
-          </Link>
           {canCreateOpportunities(user) && (
             <Link href="/oportunidades/nueva">
               <Button size="cta">+ Nueva oportunidad</Button>
@@ -385,7 +370,7 @@ export default async function DashboardPage({
       </div>
 
       {/* Métricas (franja accent + ícono + tendencia + sparkline) */}
-      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-4">
         <MetricCard
           label="Clientes"
           value={String(clients)}
@@ -411,25 +396,17 @@ export default async function DashboardPage({
           series={cotizadoSeries}
           sparkColor={IOS.purple}
           trend={thisMonthTrend(cotizadoSeries)}
-          note="hechos este mes"
+          note={`${quotesSent} enviados · ${quotesApproved} aprobados`}
         />
-        <MetricCard
-          label="Presupuestos enviados"
-          value={String(quotesSent)}
-          iconPath={METRIC_ICONS.doc}
-          series={sentSeries}
-          sparkColor={IOS.blue}
-          note={quotesSent > 0 ? "esperando respuesta" : undefined}
-        />
-        <MetricCard
-          label="Presupuestos aprobados"
-          value={String(quotesApproved)}
-          iconPath={METRIC_ICONS.check}
-          series={approvedSeries}
-          sparkColor={IOS.green}
-          trend={thisMonthTrend(approvedSeries)}
-          note="listos para facturar"
-        />
+        {/* Acceso directo a las obras en ejecución */}
+        <Link href="/obras" className="block transition-transform hover:scale-[1.02]">
+          <MetricCard
+            label="En obra"
+            value={String(inExecution)}
+            iconPath={METRIC_ICONS.obra}
+            note="entrar a las obras →"
+          />
+        </Link>
       </div>
 
       {/* Distribución (donut) + Rendimiento (anillos) */}
