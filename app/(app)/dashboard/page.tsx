@@ -33,7 +33,6 @@ const METRIC_ICONS = {
   pipeline: "M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z",
   doc: "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
   check: "M4 12l5 5 11-11",
-  obra: "M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6",
 } as const;
 
 const BAR_QUOTED = "#5B82D6";
@@ -214,9 +213,6 @@ export default async function DashboardPage({
   const quotesApproved = latestQuotes.filter(
     (q) => q.status === QuoteStatus.APPROVED
   ).length;
-  const quotesRejected = latestQuotes.filter(
-    (q) => q.status === QuoteStatus.REJECTED
-  ).length;
   const firstDateByGroup = new Map<string, Date>();
   for (const q of allQuoteRows) {
     if (q.version === 1) firstDateByGroup.set(q.id, q.createdAt);
@@ -328,19 +324,14 @@ export default async function DashboardPage({
   const totalOpps = opps.length;
   const inExecution = opps.filter((o) => o.stage.name === "En ejecución").length;
   const finished = opps.filter((o) => o.stage.name === "Finalizada").length;
-  const active = opps.filter(
-    (o) => !["En ejecución", "Finalizada", "Perdida"].includes(o.stage.name)
-  );
-  const activeOnTrack = active.filter(
-    (o) => now - o.updatedAt.getTime() <= 7 * 86_400_000
-  ).length;
-  const quotesDecided = quotesApproved + quotesRejected + quotesSent;
+  const lost = opps.filter((o) => o.stage.name === "Perdida").length;
+  // Ganado = obras conseguidas (en marcha o ya terminadas).
+  const won = inExecution + finished;
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
   const rings = [
+    { label: "Ganadas", value: pct(won, totalOpps), color: stageHex("green") },
+    { label: "Perdidas", value: pct(lost, totalOpps), color: stageHex("red") },
     { label: "En ejecución", value: pct(inExecution, totalOpps), color: stageHex("orange") },
-    { label: "Finalizadas", value: pct(finished, totalOpps), color: stageHex("green") },
-    { label: "Aprobación", value: pct(quotesApproved, quotesDecided), color: "#E0503A" },
-    { label: "Al día", value: pct(activeOnTrack, active.length), color: stageHex("blue") },
   ];
 
   return (
@@ -394,7 +385,7 @@ export default async function DashboardPage({
       </div>
 
       {/* Métricas (franja accent + ícono + tendencia + sparkline) */}
-      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-3">
         <MetricCard
           label="Clientes"
           value={String(clients)}
@@ -422,24 +413,19 @@ export default async function DashboardPage({
           trend={thisMonthTrend(cotizadoSeries)}
           note={`${quotesSent} enviados · ${quotesApproved} aprobados`}
         />
-        {/* Acceso directo a las obras en ejecución */}
-        <Link href="/obras" className="block transition-transform hover:scale-[1.02]">
-          <MetricCard
-            label="En obra"
-            value={String(inExecution)}
-            iconPath={METRIC_ICONS.obra}
-            note="entrar a las obras →"
-          />
-        </Link>
       </div>
 
       {/* En obra (protagonista) + Rendimiento (anillos) */}
       <div className="grid gap-[14px] lg:grid-cols-[1.35fr_1fr]">
         <section className="rounded-[16px] border bg-card p-5" style={{ boxShadow: "var(--shadow-sm)" }}>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold tracking-[0.04em] text-muted-foreground">
-              🏗️ En obra
-            </h2>
+            {/* El título también es un acceso: clic → /obras */}
+            <Link
+              href="/obras"
+              className="text-[13px] font-semibold tracking-[0.04em] text-muted-foreground transition-colors hover:text-primary"
+            >
+              🏗️ En obra{inExecution > 0 ? ` · ${inExecution}` : ""}
+            </Link>
             <Link href="/obras" className="text-xs font-semibold text-primary hover:underline">
               Ver todo →
             </Link>
