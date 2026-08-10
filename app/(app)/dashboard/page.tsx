@@ -229,6 +229,9 @@ export default async function DashboardPage({
   // Barras "Presupuestos por mes": cotizados (todos) vs aprobados.
   const quoteBuckets = monthlyBuckets(quoteRows.map((q) => q.createdAt));
   const cotizadoSeries = quoteBuckets.map((b) => b.count);
+  // Presupuestos HECHOS este mes (por fecha de emisión original, cada
+  // presupuesto una vez aunque tenga revisiones) = último bucket de la serie.
+  const quotesThisMonth = cotizadoSeries[cotizadoSeries.length - 1] ?? 0;
   const monthLabels = quoteBuckets.map((b) => b.label);
   const maxBar = Math.max(...cotizadoSeries, 1);
 
@@ -367,7 +370,7 @@ export default async function DashboardPage({
       </div>
 
       {/* Métricas (franja accent + ícono + tendencia + sparkline) */}
-      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           label="Clientes"
           value={String(clients)}
@@ -385,6 +388,15 @@ export default async function DashboardPage({
           sparkColor={IOS.orange}
           trend={thisMonthTrend(oppSeries)}
           note="nuevas"
+        />
+        <MetricCard
+          label="Presupuestos del mes"
+          value={String(quotesThisMonth)}
+          iconPath={METRIC_ICONS.doc}
+          series={cotizadoSeries}
+          sparkColor={IOS.purple}
+          trend={thisMonthTrend(cotizadoSeries)}
+          note="hechos este mes"
         />
         <MetricCard
           label="Presupuestos enviados"
