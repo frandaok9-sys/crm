@@ -113,7 +113,7 @@ export default async function DashboardPage({
     opportunities,
     allQuoteRows,
     draftClients,
-    stages,
+    obras,
     opps,
     myTasks,
     clientDates,
@@ -139,7 +139,26 @@ export default async function DashboardPage({
     prisma.client.count({
       where: { ...clientScope(user), ...ownerFilter, isDraft: true },
     }),
-    prisma.stage.findMany({ orderBy: { position: "asc" } }),
+    // Obras en ejecución (panel protagonista del Inicio).
+    prisma.opportunity.findMany({
+      where: {
+        ...opportunityScope(user),
+        ...ownerFilter,
+        stage: { name: "En ejecución" },
+      },
+      select: {
+        id: true,
+        title: true,
+        currency: true,
+        amount: true,
+        siteAddress: true,
+        updatedAt: true,
+        client: { select: { legalName: true } },
+        expenses: { select: { amount: true, currency: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    }),
     prisma.opportunity.findMany({
       where: { ...opportunityScope(user), ...ownerFilter },
       select: {
@@ -232,10 +251,21 @@ export default async function DashboardPage({
   const maxBar = Math.max(...cotizadoSeries, 1);
 
   // Pipeline por etapa
-  const countByStage = new Map<string, number>();
-  for (const o of opps) {
-    countByStage.set(o.stageId, (countByStage.get(o.stageId) ?? 0) + 1);
-  }
+  // Tareas abiertas por obra (avisos del panel "En obra").
+  const obraTaskGroups = obras.length
+    ? await prisma.clientActivity.groupBy({
+        by: ["opportunityId"],
+        where: {
+          opportunityId: { in: obras.map((o) => o.id) },
+          type: ClientActivityType.TASK,
+          doneAt: null,
+        },
+        _count: { _all: true },
+      })
+    : [];
+  const openTasksByObra = new Map(
+    obraTaskGroups.map((g) => [g.opportunityId, g._count._all])
+  );
 
   // Requiere atención (hasta 3)
   const alerts: Alert[] = [];
@@ -293,12 +323,6 @@ export default async function DashboardPage({
     });
   }
 
-  // Donut: distribución del pipeline (etapas sin "Perdida"), con su color.
-  const donutSegments = stages
-    .filter((s) => s.name !== "Perdida")
-    .map((s) => ({ name: s.name, count: countByStage.get(s.id) ?? 0, hex: stageHex(s.color) }))
-    .filter((s) => s.count > 0);
-  const donutTotal = donutSegments.reduce((a, s) => a + s.count, 0);
 
   // Anillos de rendimiento (métricas reales, sin inventar):
   const totalOpps = opps.length;
@@ -409,36 +433,109 @@ export default async function DashboardPage({
         </Link>
       </div>
 
-      {/* Distribución (donut) + Rendimiento (anillos) */}
+      {/* En obra (protagonista) + Rendimiento (anillos) */}
       <div className="grid gap-[14px] lg:grid-cols-[1.35fr_1fr]">
         <section className="rounded-[16px] border bg-card p-5" style={{ boxShadow: "var(--shadow-sm)" }}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[13px] font-semibold tracking-[0.04em] text-muted-foreground">
-              Distribución del pipeline
+              🏗️ En obra
             </h2>
-            <Link href="/oportunidades" className="text-xs font-semibold text-primary hover:underline">
+            <Link href="/obras" className="text-xs font-semibold text-primary hover:underline">
               Ver todo →
             </Link>
           </div>
-          <div className="flex flex-wrap items-center gap-6">
-            <PipelineDonut segments={donutSegments} total={donutTotal} />
-            <div className="min-w-0 flex-1 space-y-2">
-              {donutSegments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin oportunidades activas.</p>
-              ) : (
-                donutSegments.map((s) => (
-                  <div key={s.name} className="flex items-center gap-2.5 text-[13px]">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.hex }} />
-                    <span className="min-w-0 flex-1 truncate text-text2">{s.name}</span>
-                    <span className="font-semibold tabular-nums">{s.count}</span>
-                    <span className="w-9 text-right text-muted-foreground tabular-nums">
-                      {Math.round((s.count / donutTotal) * 100)}%
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          {obras.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No hay obras en ejecución. Un presupuesto aprobado pasa acá con
+              el botón &quot;Pasar a ejecución&quot;.
+            </p>
+          ) : (
+            <ul className="space-y-2.5">
+              {obras.map((o) => {
+                // Costos cargados (en la moneda de la obra) vs. presupuestado.
+                const cost = o.expenses
+                  .filter((e) => e.currency === o.currency)
+                  .reduce((sum, e) => sum + Number(e.amount), 0);
+                const budget = o.amount ? Number(o.amount) : 0;
+                const costPct =
+                  budget > 0 ? Math.round((cost / budget) * 100) : null;
+                const barColor =
+                  costPct === null
+                    ? "#8E8E93"
+                    : costPct > 100
+                      ? "#D65A46"
+                      : costPct > 80
+                        ? "#E0982C"
+                        : "#4FB574";
+                const openTasks = openTasksByObra.get(o.id) ?? 0;
+                const idleDays = Math.floor(
+                  (now - o.updatedAt.getTime()) / 86_400_000
+                );
+                const symbol = o.currency === "USD" ? "US$" : "$";
+                return (
+                  <li key={o.id}>
+                    <Link
+                      href={`/oportunidades/${o.id}`}
+                      className="block rounded-[10px] border border-border2 bg-card2 px-4 py-3 transition-colors hover:border-primary/50"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="min-w-0 truncate text-sm font-semibold">
+                          {o.title}
+                        </p>
+                        {budget > 0 && (
+                          <span className="shrink-0 text-xs font-semibold tabular-nums">
+                            {symbol} {budget.toLocaleString("es-AR")}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {o.client.legalName}
+                        {o.siteAddress && ` · ${o.siteAddress}`}
+                      </p>
+                      {costPct !== null && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-chip">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(costPct, 100)}%`,
+                                background: barColor,
+                              }}
+                            />
+                          </div>
+                          <span
+                            className="shrink-0 text-[11px] font-semibold tabular-nums"
+                            style={{ color: barColor }}
+                          >
+                            {costPct}% del presupuesto en costos
+                          </span>
+                        </div>
+                      )}
+                      <div className="mt-1.5 flex flex-wrap gap-2 text-[11px]">
+                        {openTasks > 0 && (
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                            {openTasks} tarea{openTasks === 1 ? "" : "s"} abierta
+                            {openTasks === 1 ? "" : "s"}
+                          </span>
+                        )}
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-medium ${
+                            idleDays > 7
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                              : "bg-chip text-muted-foreground"
+                          }`}
+                        >
+                          {idleDays === 0
+                            ? "con novedades hoy"
+                            : `${idleDays} día${idleDays === 1 ? "" : "s"} sin novedades`}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
 
         <section className="rounded-[16px] border bg-card p-5" style={{ boxShadow: "var(--shadow-sm)" }}>
@@ -659,58 +756,6 @@ export default async function DashboardPage({
           </ul>
         )}
       </section>
-    </div>
-  );
-}
-
-/** Donut de distribución (conic-gradient) con centro glass. */
-function PipelineDonut({
-  segments,
-  total,
-}: {
-  segments: { name: string; count: number; hex: string }[];
-  total: number;
-}) {
-  let acc = 0;
-  // Degradé sutil por segmento: aclara el arranque y cierra en el color pleno.
-  const stops = segments
-    .map((s) => {
-      const start = (acc / total) * 100;
-      acc += s.count;
-      const end = (acc / total) * 100;
-      return `${lighten(s.hex, 26)} ${start.toFixed(1)}%, ${s.hex} ${end.toFixed(1)}%`;
-    })
-    .join(", ");
-  const bg = total > 0 ? `conic-gradient(from -90deg, ${stops})` : "var(--chip)";
-  return (
-    <div
-      className="relative shrink-0"
-      style={{ width: 156, height: 156, borderRadius: "50%", background: bg, boxShadow: "var(--shadow-sm)" }}
-    >
-      {/* Sombra interior muy leve (sin glow) */}
-      <div
-        className="pointer-events-none absolute inset-0 rounded-full"
-        style={{ boxShadow: "inset 0 -6px 12px rgba(0,0,0,0.08)" }}
-      />
-      <div
-        className="absolute left-1/2 top-1/2 flex flex-col items-center justify-center"
-        style={{
-          width: 104,
-          height: 104,
-          transform: "translate(-50%,-50%)",
-          borderRadius: "50%",
-          background: "var(--glass-hole)",
-          border: "1px solid var(--glass-border)",
-          boxShadow: "0 3px 10px rgba(0,0,0,0.12)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-        }}
-      >
-        <span className="text-[26px] font-bold leading-none tabular-nums">{total}</span>
-        <span className="mt-1 text-[11px] text-muted-foreground">
-          activa{total === 1 ? "" : "s"}
-        </span>
-      </div>
     </div>
   );
 }
