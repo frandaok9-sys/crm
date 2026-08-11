@@ -6,6 +6,7 @@ import { Role, UserStatus } from "@/lib/generated/prisma/enums";
 import { TintBadge, type TintVariant } from "@/components/tint-badge";
 import { InitialsAvatar } from "@/components/initials-avatar";
 import { SubmitButton } from "@/components/submit-button";
+import { ChangeRoleForm } from "@/components/change-role-form";
 import {
   activateUser,
   changeUserRole,
@@ -118,21 +119,13 @@ export async function AdminUsersSection({ adminId }: { adminId: string }) {
 
                     {user.status === UserStatus.ACTIVE && (
                       <>
-                        <form
+                        {/* Avisa que cambiar el rol reemplaza los permisos */}
+                        <ChangeRoleForm
                           action={changeUserRole}
-                          className="flex items-center gap-2"
-                        >
-                          <input type="hidden" name="userId" value={user.id} />
-                          <RoleSelect defaultValue={user.role ?? undefined} />
-                          <SubmitButton
-                            size="sm"
-                            variant="ghost"
-                            pendingText="…"
-                            className="h-auto p-0 text-[12.5px] font-medium text-muted-foreground hover:bg-transparent hover:text-foreground"
-                          >
-                            Guardar
-                          </SubmitButton>
-                        </form>
+                          userId={user.id}
+                          userLabel={user.name ?? user.email}
+                          defaultRole={user.role ?? undefined}
+                        />
                         <Link
                           href={`/admin/users/${user.id}`}
                           className="text-[12.5px] font-semibold text-primary hover:underline"
