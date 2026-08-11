@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { ClientCombobox } from "@/components/client-combobox";
 import { DeleteOpportunityButton } from "@/components/delete-opportunity-button";
 import { TaskThread } from "@/components/task-thread";
+import { OpportunityDocuments } from "@/components/opportunity-documents";
 import {
   createReminder,
   deleteReminder,
@@ -56,6 +57,21 @@ export default async function OpportunityDetailPage({
   const canEdit = canEditOpportunity(user, opportunity);
   const canAssign = canAssignClients(user);
   const googleConnected = canEdit ? await hasGoogleTasksAccess(user.id) : false;
+
+  // Documentos adjuntos (sin traer `data`: pesa).
+  const documents = await prisma.opportunityDocument.findMany({
+    where: { opportunityId: id },
+    select: {
+      id: true,
+      name: true,
+      fileName: true,
+      mimeType: true,
+      size: true,
+      createdAt: true,
+      uploadedBy: { select: { name: true, email: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
   // Chat de tareas de la oportunidad + compañeros para delegar.
   const [tasks, activeUsers] = await Promise.all([
@@ -550,6 +566,13 @@ export default async function OpportunityDetailPage({
           </p>
         )}
       </section>
+
+      {/* Documentos de la obra (pliegos, planos, órdenes de compra…) */}
+      <OpportunityDocuments
+        opportunityId={opportunity.id}
+        documents={documents}
+        canEdit={canEdit}
+      />
 
       {/* Comunicación interna: tareas de esta oportunidad */}
       <TaskThread

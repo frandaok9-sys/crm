@@ -58,6 +58,7 @@ model User {
   quotes        Quote[]          @relation("QuoteOwner")
   activities         ClientActivity[] @relation("ActivityAuthor")
   assignedActivities ClientActivity[] @relation("ActivityAssignee")
+  uploadedDocuments  OpportunityDocument[] @relation("DocumentUploader")
   expenses      Expense[]        @relation("ExpenseAuthor")
   assistantLogs AssistantLog[]   @relation("AssistantLogUser")
 
@@ -247,6 +248,8 @@ model Opportunity {
   externalId String? // Nexus: id en el sistema de origen (el `id` es el nexus_id)
   /// Presupuestos que originaron esta obra ("Pasar a ejecución").
   executedQuotes Quote[] @relation("QuoteObra")
+  /// Documentos adjuntos (pliegos, planos, órdenes de compra, actas…).
+  documents      OpportunityDocument[]
   tenantId   String?
   tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   title      String
@@ -497,6 +500,29 @@ model Quote {
 }
 
 /// Ítem de un presupuesto: producto, servicio o texto libre.
+/// Documento adjunto a una oportunidad/obra: pliego del cliente, plano,
+/// orden de compra, acta de recepción, foto del relevamiento… Se guarda
+/// como data URL (mismo patrón que el comprobante de gastos) y se sirve
+/// por una ruta protegida; las listas NUNCA seleccionan `data` (pesa).
+model OpportunityDocument {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  name     String // nombre visible ("Pliego Andina 2025")
+  fileName String // nombre original del archivo
+  mimeType String
+  size     Int // bytes del archivo original
+  data     String // data URL
+
+  uploadedById String?
+  uploadedBy   User?   @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([opportunityId, createdAt])
+}
+
 /// Foto de la propuesta de un presupuesto (parte técnica del pliego).
 /// Imagen comprimida en el navegador y guardada como data URL base64
 /// (mismo patrón que el logo en CompanySettings). Tope por foto y por

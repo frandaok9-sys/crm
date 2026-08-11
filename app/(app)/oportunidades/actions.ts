@@ -473,3 +473,120 @@ export async function addOpportunityTask(formData: FormData): Promise<void> {
   revalidatePath(`/clientes/${opportunity.clientId}`);
   revalidatePath("/dashboard");
 }
+
+// ---------------------------------------------------------------------------
+// Documentos de la obra (pliegos, planos, órdenes de compra, actas…)
+// ---------------------------------------------------------------------------
+
+const MAX_DOCS_PER_OPPORTUNITY = 20;
+/** 4 MB por archivo: un pliego o plano en PDF entra cómodo. */
+const MAX_DOC_BYTES = 4 * 1024 * 1024;
+const DOC_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+
+/** Adjunta un documento a una oportunidad/obra. */
+export async function uploadOpportunityDocument(
+  formData: FormData
+): Promise<void> {
+  const user = await requireActiveUser();
+  const opportunityId = String(formData.get("opportunityId") ?? "");
+  const opportunity = await prisma.opportunity.findUnique({
+    where: { id: opportunityId },
+    select: { id: true, ownerId: true, clientId: true },
+  });
+  if (!opportunity) throw new Error("Oportunidad no encontrada.");
+  if (!canEditOpportunity(user, opportunity)) {
+    throw new Error("No tenés permisos para adjuntar documentos acá.");
+  }
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Elegí un archivo para adjuntar.");
+  }
+  if (!DOC_TYPES.includes(file.type)) {
+    throw new Error(
+      "Formato no admitido. Se pueden adjuntar PDF, fotos (JPG/PNG/WebP), Word o Excel."
+    );
+  }
+  if (file.size > MAX_DOC_BYTES) {
+    throw new Error(
+      "El archivo no puede superar los 4 MB. Comprimí el PDF o sacá la foto en menor calidad."
+    );
+  }
+
+  const count = await prisma.opportunityDocument.count({
+    where: { opportunityId },
+  });
+  if (count >= MAX_DOCS_PER_OPPORTUNITY) {
+    throw new Error(
+      `Máximo ${MAX_DOCS_PER_OPPORTUNITY} documentos por obra. Borrá alguno antes de subir otro.`
+    );
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const name =
+    String(formData.get("name") ?? "").trim().slice(0, 120) ||
+    file.name.replace(/\.[^.]+$/, "").slice(0, 120);
+
+  const doc = await prisma.opportunityDocument.create({
+    data: {
+      opportunityId,
+      name,
+      fileName: file.name.slice(0, 200),
+      mimeType: file.type,
+      size: file.size,
+      data: `data:${file.type};base64,${bytes.toString("base64")}`,
+      uploadedById: user.id,
+    },
+    select: { id: true },
+  });
+
+  await logAudit({
+    action: "opportunity.document_uploaded",
+    actorId: user.id,
+    targetType: "Opportunity",
+    targetId: opportunityId,
+    metadata: { documentId: doc.id, name, size: file.size },
+  });
+  revalidatePath(`/oportunidades/${opportunityId}`);
+}
+
+/** Borra un documento adjunto de una obra. */
+export async function deleteOpportunityDocument(
+  formData: FormData
+): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const doc = await prisma.opportunityDocument.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      opportunityId: true,
+      opportunity: { select: { ownerId: true } },
+    },
+  });
+  if (!doc) return;
+  if (!canEditOpportunity(user, doc.opportunity)) {
+    throw new Error("No tenés permisos para borrar documentos de esta obra.");
+  }
+
+  await prisma.opportunityDocument.delete({ where: { id } });
+  await logAudit({
+    action: "opportunity.document_deleted",
+    actorId: user.id,
+    targetType: "Opportunity",
+    targetId: doc.opportunityId,
+    metadata: { documentId: id, name: doc.name },
+  });
+  revalidatePath(`/oportunidades/${doc.opportunityId}`);
+}
