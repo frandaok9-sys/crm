@@ -8,7 +8,6 @@ import {
   canViewRecord,
   canEditOpportunity,
   canAssignClients,
-  canLogExpenses,
   canPostTasks,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
@@ -25,7 +24,6 @@ import {
   updateOpportunity,
   addOpportunityTask,
 } from "../actions";
-import { addLaborCost } from "../../contabilidad/gastos/actions";
 import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 
 const inputClass =
@@ -118,8 +116,6 @@ export default async function OpportunityDetailPage({
     orderBy: { date: "desc" },
     take: 100,
   });
-  const canAddCosts = canLogExpenses(user);
-
   // Totales por moneda + margen contra el monto estimado de la obra.
   const costByCurrency = new Map<string, Decimal>();
   for (const e of obraExpenses) {
@@ -489,47 +485,10 @@ export default async function OpportunityDetailPage({
           </div>
         </div>
 
-        {/* Carga rápida de mano de obra */}
-        {canAddCosts && (
-          <form
-            action={addLaborCost}
-            className="mt-5 grid gap-3 border-t pt-5 sm:grid-cols-5"
-          >
-            <input type="hidden" name="opportunityId" value={opportunity.id} />
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-zinc-500">
-                Horas *
-              </span>
-              <input name="hours" required inputMode="decimal" placeholder="16" className={inputClass} />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-zinc-500">
-                Valor hora *
-              </span>
-              <input name="rate" required inputMode="decimal" placeholder="9500" className={inputClass} />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-zinc-500">
-                Moneda
-              </span>
-              <select name="currency" defaultValue={Currency.ARS} className={inputClass}>
-                <option value={Currency.ARS}>ARS</option>
-                <option value={Currency.USD}>USD</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-zinc-500">
-                Detalle
-              </span>
-              <input name="description" placeholder="Cuadrilla x2, día 1" className={inputClass} />
-            </label>
-            <div className="flex items-end">
-              <Button type="submit" variant="outline" className="w-full">
-                + Mano de obra
-              </Button>
-            </div>
-          </form>
-        )}
+        {/* La carga rápida de mano de obra (horas × valor hora) se quitó de
+            acá a pedido del usuario. Los costos se cargan desde Gastos
+            asociándolos a la obra; la acción addLaborCost sigue disponible
+            en contabilidad/gastos/actions.ts por si se reactiva. */}
 
         {/* Gastos de la obra */}
         {obraExpenses.length > 0 ? (
