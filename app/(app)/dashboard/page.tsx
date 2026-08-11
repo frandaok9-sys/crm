@@ -187,6 +187,9 @@ export default async function DashboardPage({
         client: { select: { id: true, legalName: true } },
         createdBy: { select: { name: true, email: true } },
         assignedTo: { select: { id: true, name: true, email: true } },
+        // Dónde se creó la tarea, para que el clic lleve ahí.
+        quote: { select: { id: true, code: true } },
+        opportunity: { select: { id: true, title: true } },
       },
     }),
     // Series de los últimos 6 meses (para sparklines y barras) — acotadas por fecha.
@@ -707,10 +710,26 @@ export default async function DashboardPage({
               const overdue = t.dueAt && t.dueAt.getTime() < now;
               const delegatedToMe = t.assignedToId === user.id;
               const delegatedByMe = !!t.assignedToId && !delegatedToMe;
+              // El clic lleva a DONDE se creó la tarea (ahí se responde y
+              // se confirma): presupuesto, obra o ficha del cliente.
+              const origin = t.quote
+                ? {
+                    href: `/presupuestos/${t.quote.id}`,
+                    label: `Presupuesto ${t.quote.code}`,
+                  }
+                : t.opportunity
+                  ? {
+                      href: `/oportunidades/${t.opportunity.id}`,
+                      label: t.opportunity.title,
+                    }
+                  : {
+                      href: `/clientes/${t.client.id}`,
+                      label: t.client.legalName,
+                    };
               return (
                 <li
                   key={t.id}
-                  className="flex items-center gap-3 rounded-[10px] border border-border2 bg-card2 px-3 py-2.5 text-sm"
+                  className="flex items-center gap-3 rounded-[10px] border border-border2 bg-card2 px-3 py-2.5 text-sm transition-colors hover:border-primary/50"
                 >
                   {/* Delegadas: se resuelven en la ficha del cliente (respuesta
                       + confirmación), no con el tilde rápido. */}
@@ -733,15 +752,14 @@ export default async function DashboardPage({
                       />
                     </form>
                   )}
-                  <div className="min-w-0 flex-1">
+                  {/* Toda la fila es el acceso al origen de la tarea */}
+                  <Link href={origin.href} className="min-w-0 flex-1">
                     <p className="truncate font-medium">{t.title}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      <Link
-                        href={`/clientes/${t.client.id}`}
-                        className="hover:underline"
-                      >
-                        {t.client.legalName}
-                      </Link>
+                      <span className="text-text2">{origin.label}</span>
+                      {origin.label !== t.client.legalName && (
+                        <span> · {t.client.legalName}</span>
+                      )}
                       {delegatedToMe && (
                         <span className="font-medium text-primary">
                           {" "}
@@ -756,7 +774,7 @@ export default async function DashboardPage({
                         </span>
                       )}
                     </p>
-                  </div>
+                  </Link>
                   <span
                     className={`shrink-0 text-xs tabular-nums ${
                       overdue

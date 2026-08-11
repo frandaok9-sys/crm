@@ -186,6 +186,8 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
         id: true,
         title: true,
         dueAt: true,
+        quoteId: true,
+        opportunityId: true,
         client: { select: { id: true, legalName: true } },
       },
       orderBy: { dueAt: "asc" },
@@ -324,7 +326,12 @@ export async function getNotifications(user: ActiveUser): Promise<AppNotificatio
       tone: "red",
       title: `Tarea vencida: ${t.title}`,
       subtitle: `${t.client.legalName} · venció hace ${d} día${d === 1 ? "" : "s"}`,
-      href: `/clientes/${t.client.id}`,
+      // Lleva a donde se creó la tarea (ahí se resuelve).
+      href: t.quoteId
+        ? `/presupuestos/${t.quoteId}`
+        : t.opportunityId
+          ? `/oportunidades/${t.opportunityId}`
+          : `/clientes/${t.client.id}`,
     });
   }
   for (const o of staleOpps) {
