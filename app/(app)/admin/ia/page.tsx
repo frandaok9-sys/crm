@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { canManageUsers } from "@/lib/permissions";
 import { TintBadge } from "@/components/tint-badge";
+import { formatDateAR } from "@/lib/dates";
 
 const CHANNEL_LABELS: Record<string, string> = {
   asistente: "Chat del asistente",
@@ -147,7 +148,7 @@ export default async function AiUsagePage({
             >
               <summary className="flex cursor-pointer items-center gap-3 px-5 py-3 text-[13px] hover:bg-hoverbg">
                 <span className="w-[118px] shrink-0 tabular-nums text-muted-foreground">
-                  {r.createdAt.toLocaleDateString("es-AR")}{" "}
+                  {formatDateAR(r.createdAt)}{" "}
                   {r.createdAt.toLocaleTimeString("es-AR", {
                     hour: "2-digit",
                     minute: "2-digit",

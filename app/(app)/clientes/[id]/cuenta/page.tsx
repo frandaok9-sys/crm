@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { addMovement, deleteMovement } from "./actions";
+import { formatDateAR } from "@/lib/dates";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -359,7 +360,7 @@ export default async function LedgerPage({
                 return (
                   <tr key={m.id} className="border-b last:border-0">
                     <td className="px-4 py-3 text-zinc-500">
-                      {m.date.toLocaleDateString("es-AR")}
+                      {formatDateAR(m.date)}
                     </td>
                     <td className="px-4 py-3">{LEDGER_TYPE_LABELS[m.type]}</td>
                     <td className="px-4 py-3">
@@ -389,8 +390,8 @@ export default async function LedgerPage({
                           }`}
                         >
                           {m.dueDate.getTime() < Date.now()
-                            ? `VENCIDA ${m.dueDate.toLocaleDateString("es-AR")}`
-                            : `Vence ${m.dueDate.toLocaleDateString("es-AR")}`}
+                            ? `VENCIDA ${formatDateAR(m.dueDate)}`
+                            : `Vence ${formatDateAR(m.dueDate)}`}
                           {m.paymentTermDays != null &&
                             ` (${m.paymentTermDays === 0 ? "contado" : `${m.paymentTermDays} días`})`}
                         </span>

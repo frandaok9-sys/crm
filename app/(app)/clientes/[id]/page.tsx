@@ -23,6 +23,7 @@ import {
   replyAndConfirmTask,
   deleteActivity,
 } from "../actions";
+import { formatDateAR } from "@/lib/dates";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -290,7 +291,7 @@ export default async function ClientDetailPage({
                       <p className="mt-0.5 text-xs text-zinc-400">
                         {a.dueAt ? (
                           <span className={overdue ? "font-semibold text-red-600 dark:text-red-400" : ""}>
-                            Vence {a.dueAt.toLocaleDateString("es-AR")}
+                            Vence {formatDateAR(a.dueAt)}
                             {overdue && " · VENCIDA"}
                           </span>
                         ) : (
@@ -388,7 +389,7 @@ export default async function ClientDetailPage({
                       </p>
                     )}
                     <p className="mt-0.5 text-xs text-zinc-400">
-                      {a.createdAt.toLocaleDateString("es-AR")} ·{" "}
+                      {formatDateAR(a.createdAt)} ·{" "}
                       {a.createdBy.name ?? a.createdBy.email}
                       {a.doneAt && (a.reply ? " · confirmada" : " · completada")}
                     </p>

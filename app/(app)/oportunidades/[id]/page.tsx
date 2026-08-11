@@ -25,19 +25,13 @@ import {
   addOpportunityTask,
 } from "../actions";
 import { addLaborCost } from "../../contabilidad/gastos/actions";
+import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
-function formatDate(date: Date): string {
-  return date.toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+// Hora de Argentina (el servidor corre en UTC) — ver lib/dates.ts.
+const formatDate = formatDateTimeAR;
 
 export default async function OpportunityDetailPage({
   params,
@@ -527,7 +521,7 @@ export default async function OpportunityDetailPage({
             {obraExpenses.map((e) => (
               <li key={e.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="w-20 shrink-0 tabular-nums text-zinc-500">
-                  {e.date.toLocaleDateString("es-AR")}
+                  {formatDateAR(e.date)}
                 </span>
                 <span className="min-w-0 flex-1 truncate">
                   <span className="font-medium">{e.category.name}</span>

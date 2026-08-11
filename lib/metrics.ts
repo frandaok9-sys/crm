@@ -9,6 +9,7 @@ import {
 } from "@/lib/permissions";
 import { SEGMENT_LABELS } from "@/lib/clients";
 import { latestRevisions } from "@/lib/quotes";
+import { monthKeyAR, monthLabelAR } from "@/lib/dates";
 import { QuoteStatus } from "@/lib/generated/prisma/enums";
 
 /**
@@ -61,15 +62,10 @@ export type MetricsData = {
 
 const MONTHS_BACK = 6;
 
-function monthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function monthLabel(date: Date): string {
-  return date
-    .toLocaleDateString("es-AR", { month: "short", year: "2-digit" })
-    .replace(".", "");
-}
+// Agrupar por mes EN ARGENTINA: el servidor corre en UTC, así que un
+// presupuesto del 31 a la noche caía en el mes siguiente (ver lib/dates.ts).
+const monthKey = monthKeyAR;
+const monthLabel = monthLabelAR;
 
 /**
  * `ownerId` (opcional): mide SOLO lo de ese usuario. Únicamente lo puede usar

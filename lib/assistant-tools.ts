@@ -21,6 +21,7 @@ import { planTrip, tripMapsUrl, type TripWaypoint } from "@/lib/trip";
 import { IVA_LABELS, SEGMENT_LABELS } from "@/lib/clients";
 import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
 import { QuoteStatus, Currency, QuoteItemType } from "@/lib/generated/prisma/enums";
+import { formatDateAR } from "@/lib/dates";
 
 /**
  * Caja de herramientas de SOLO LECTURA para el asistente de IA. El asistente
@@ -1078,7 +1079,7 @@ async function listarHojasRuta(user: Principal) {
     hojas: rows.map((r) => ({
       nombre: r.name,
       km: Math.round(r.totalKm),
-      fecha: r.createdAt.toLocaleDateString("es-AR"),
+      fecha: formatDateAR(r.createdAt),
       maps: (r.data as { mapsUrl?: string })?.mapsUrl ?? null,
     })),
   };

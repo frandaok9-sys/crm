@@ -2,6 +2,7 @@
  * Helpers de color y de gráficos del handoff v5 "iOS + Industrial + Glass/Malla".
  * Puros (sin estado ni DOM) para usarlos tanto en server como en client components.
  */
+import { AR_TIME_ZONE, monthKeyAR, yearMonthAR } from "@/lib/dates";
 
 /** Colores del sistema iOS (ambos temas). */
 export const IOS = {
@@ -82,19 +83,25 @@ export function monthlyBuckets(
   n = 6,
   now = new Date()
 ): { label: string; count: number }[] {
+  // Meses EN ARGENTINA: el servidor corre en UTC, así que un registro del
+  // 31 a la noche caería en el mes siguiente (ver lib/dates.ts).
+  const hoy = yearMonthAR(now);
   const buckets: { label: string; count: number; key: string }[] = [];
   for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    // Día 15 para que el corrimiento UTC nunca cambie de mes la etiqueta.
+    const d = new Date(Date.UTC(hoy.year, hoy.month - 1 - i, 15, 12));
     buckets.push({
-      key: `${d.getFullYear()}-${d.getMonth()}`,
-      label: d.toLocaleDateString("es-AR", { month: "short" }),
+      key: monthKeyAR(d),
+      label: d.toLocaleDateString("es-AR", {
+        timeZone: AR_TIME_ZONE,
+        month: "short",
+      }),
       count: 0,
     });
   }
   const index = new Map(buckets.map((b, i) => [b.key, i]));
   for (const date of dates) {
-    const key = `${date.getFullYear()}-${date.getMonth()}`;
-    const i = index.get(key);
+    const i = index.get(monthKeyAR(date));
     if (i != null) buckets[i].count++;
   }
   return buckets.map(({ label, count }) => ({ label, count }));

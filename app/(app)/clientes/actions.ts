@@ -28,6 +28,7 @@ import {
   normalizeHeader,
   type ImportState,
 } from "@/lib/client-import";
+import { formatDateAR } from "@/lib/dates";
 
 /** Reads a trimmed form field, returning null when empty. */
 function opt(formData: FormData, key: string): string | null {
@@ -429,7 +430,7 @@ function cellText(value: ExcelJS.CellValue): string | null {
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
-  if (value instanceof Date) return value.toLocaleDateString("es-AR");
+  if (value instanceof Date) return formatDateAR(value);
   if (typeof value === "object") {
     const obj = value as unknown as Record<string, unknown>;
     if (typeof obj.text === "string") return obj.text.trim() || null;

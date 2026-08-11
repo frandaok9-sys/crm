@@ -27,6 +27,7 @@ import {
   createExpenseCategory,
   toggleExpenseCategory,
 } from "./actions";
+import { formatDateAR } from "@/lib/dates";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -275,7 +276,7 @@ export default async function ExpensesPage({
               className="grid grid-cols-[100px_1.4fr_1fr_1fr_120px_90px_60px] items-center border-b border-border2 px-5 py-3 text-[13px] last:border-0 hover:bg-hoverbg"
             >
               <span className="tabular-nums text-text2">
-                {e.date.toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" })}
+                {formatDateAR(e.date)}
               </span>
               <span className="min-w-0 pr-2">
                 <span className="font-semibold">{e.category.name}</span>

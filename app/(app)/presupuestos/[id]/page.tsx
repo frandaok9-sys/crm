@@ -33,6 +33,7 @@ import {
   addQuoteTask,
   startQuoteExecution,
 } from "../actions";
+import { formatDateAR } from "@/lib/dates";
 
 function StatusButton({
   id,
@@ -174,9 +175,9 @@ export default async function QuoteDetailPage({
             >
               {quote.client.legalName}
             </Link>{" "}
-            · {quote.createdAt.toLocaleDateString("es-AR")}
+            · {formatDateAR(quote.createdAt)}
             {quote.validUntil && (
-              <> · vence {quote.validUntil.toLocaleDateString("es-AR")}</>
+              <> · vence {formatDateAR(quote.validUntil)}</>
             )}
             {quote.paymentTerms && <> · pago: {quote.paymentTerms}</>}
           </p>
@@ -274,7 +275,7 @@ export default async function QuoteDetailPage({
           {invoice ? (
             <>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                ✓ Facturado el {invoice.date.toLocaleDateString("es-AR")}
+                ✓ Facturado el {formatDateAR(invoice.date)}
               </span>
               <Link
                 href={`/clientes/${quote.client.id}/cuenta`}

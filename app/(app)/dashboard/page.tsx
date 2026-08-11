@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { MetricCard, type MetricTrend } from "@/components/metric-card";
 import { DashboardNotifications } from "@/components/dashboard-notifications";
 import { toggleActivityDone } from "../clientes/actions";
+import { formatDateAR, todayKickerAR } from "@/lib/dates";
 
 type Alert = { color: string; title: string; subtitle: string };
 
@@ -50,15 +51,9 @@ function thisMonthTrend(series: number[]): MetricTrend | undefined {
   return cur > 0 ? { text: `+${cur}`, dir: "up" } : undefined;
 }
 
-function todayKicker(): string {
-  return new Date()
-    .toLocaleDateString("es-AR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    })
-    .toUpperCase();
-}
+// El saludo usa la hora de ARGENTINA: el servidor corre en UTC y después
+// de las 21:00 mostraba el día siguiente (ver lib/dates.ts).
+const todayKicker = todayKickerAR;
 
 export default async function DashboardPage({
   searchParams,
@@ -783,7 +778,7 @@ export default async function DashboardPage({
                     }`}
                   >
                     {t.dueAt
-                      ? `${overdue ? "Venció " : "Vence "}${t.dueAt.toLocaleDateString("es-AR")}`
+                      ? `${overdue ? "Venció " : "Vence "}${formatDateAR(t.dueAt)}`
                       : "Sin fecha"}
                   </span>
                 </li>

@@ -13,6 +13,7 @@ import { QuoteStatus } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { TintBadge, type TintVariant } from "@/components/tint-badge";
 import { InitialsAvatar } from "@/components/initials-avatar";
+import { formatDateAR } from "@/lib/dates";
 
 const GRID = "grid grid-cols-[1.6fr_2fr_1.1fr_1.3fr_1fr_1.3fr] items-center";
 
@@ -127,7 +128,7 @@ export default async function QuotesPage() {
                   {formatMoney(quote.total.toString(), quote.currency)}
                 </span>
                 <span className="pl-4 tabular-nums text-muted-foreground">
-                  {quote.createdAt.toLocaleDateString("es-AR")}
+                  {formatDateAR(quote.createdAt)}
                 </span>
                 <span className="flex min-w-0 items-center gap-2 pl-2">
                   {ownerName ? (

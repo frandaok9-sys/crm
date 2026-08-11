@@ -4,14 +4,11 @@ import { canViewRecord } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
 import { renderQuotePdf, type QuotePdfData } from "@/lib/quote-pdf";
 import { Currency } from "@/lib/generated/prisma/enums";
+import { formatDatePadAR } from "@/lib/dates";
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
+// Hora de Argentina: si no, un presupuesto emitido de noche salía con la
+// fecha del día siguiente en el PDF que recibe el cliente (ver lib/dates.ts).
+const formatDate = formatDatePadAR;
 
 export async function GET(
   _request: Request,
