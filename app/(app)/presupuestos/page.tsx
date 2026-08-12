@@ -15,7 +15,11 @@ import { TintBadge, type TintVariant } from "@/components/tint-badge";
 import { InitialsAvatar } from "@/components/initials-avatar";
 import { formatDateAR } from "@/lib/dates";
 
-const GRID = "grid grid-cols-[1.6fr_2fr_1.1fr_1.3fr_1fr_1.3fr] items-center";
+// Total y Fecha van con ancho AUTOMÁTICO (max-content): con fracciones
+// fijas, un importe largo ($ 129.711.941,41) desbordaba su columna y
+// quedaba pegado a la fecha, comiéndose el gap.
+const GRID =
+  "grid grid-cols-[1.4fr_1.8fr_1.1fr_max-content_max-content_1.2fr] items-center gap-x-6";
 
 const STATUS_VARIANT: Record<QuoteStatus, TintVariant> = {
   [QuoteStatus.DRAFT]: "gray",
@@ -94,7 +98,7 @@ export default async function QuotesPage() {
                 key={quote.id}
                 className={`${GRID} border-b border-border2 px-5 py-[14px] text-[13px] transition-colors last:border-0 hover:bg-hoverbg`}
               >
-                <span className="min-w-0 pr-3">
+                <span className="min-w-0">
                   <Link
                     href={`/presupuestos/${quote.id}`}
                     className="block text-[13.5px] font-bold text-foreground hover:underline"
@@ -107,7 +111,7 @@ export default async function QuotesPage() {
                     </span>
                   )}
                 </span>
-                <span className="truncate pr-3 text-text2">
+                <span className="truncate text-text2">
                   {quote.client.legalName}
                 </span>
                 <span className="flex flex-wrap items-center gap-1.5">
@@ -127,10 +131,10 @@ export default async function QuotesPage() {
                 <span className="text-right font-bold tabular-nums">
                   {formatMoney(quote.total.toString(), quote.currency)}
                 </span>
-                <span className="pl-4 tabular-nums text-muted-foreground">
+                <span className="tabular-nums text-muted-foreground">
                   {formatDateAR(quote.createdAt)}
                 </span>
-                <span className="flex min-w-0 items-center gap-2 pl-2">
+                <span className="flex min-w-0 items-center gap-2">
                   {ownerName ? (
                     <>
                       <InitialsAvatar name={ownerName} size={22} />
