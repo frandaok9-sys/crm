@@ -19,11 +19,11 @@ import { InitialsAvatar } from "@/components/initials-avatar";
 import { formatDateAR } from "@/lib/dates";
 import { formatInvoiceNumber } from "@/lib/invoices";
 
-// Total y Fecha van con ancho AUTOMÁTICO (max-content): con fracciones
-// fijas, un importe largo ($ 129.711.941,41) desbordaba su columna y
-// quedaba pegado a la fecha, comiéndose el gap.
+// Estado, Total y Fecha van con ancho AUTOMÁTICO (max-content): con
+// fracciones fijas, el contenido más largo (un importe grande, el chip
+// "Facturado") desbordaba su columna y corría todo lo de al lado.
 const GRID =
-  "grid grid-cols-[1.4fr_1.8fr_1.1fr_max-content_max-content_1.2fr] items-center gap-x-6";
+  "grid grid-cols-[1.4fr_1.8fr_max-content_max-content_max-content_1.2fr] items-center gap-x-6";
 
 const STATUS_VARIANT: Record<QuoteStatus, TintVariant> = {
   [QuoteStatus.DRAFT]: "gray",
@@ -156,7 +156,9 @@ export default async function QuotesPage() {
                 <span className="truncate text-text2">
                   {quote.client.legalName}
                 </span>
-                <span className="flex flex-wrap items-center gap-1.5">
+                {/* justify-start + sin wrap: el chip arranca SIEMPRE en el
+                    mismo punto, fila a fila. */}
+                <span className="flex items-center justify-start gap-1.5">
                   {/* UN solo estado: facturado es el final del circuito y
                       reemplaza al estado comercial. */}
                   {invoice ? (
