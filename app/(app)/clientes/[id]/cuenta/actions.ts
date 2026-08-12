@@ -17,6 +17,45 @@ import { Prisma } from "@/lib/generated/prisma/client";
 
 const MOVEMENT_TYPES = Object.values(LedgerMovementType) as string[];
 
+// Comprobante adjunto del movimiento (factura escaneada, recibo, orden de
+// pago). Mismos formatos que en Gastos, con más margen de tamaño.
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+const ATTACHMENT_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+];
+
+/** Lee el adjunto del formulario y lo devuelve como data URL. */
+async function parseAttachment(formData: FormData): Promise<{
+  attachment: string | null;
+  attachmentType: string | null;
+  attachmentName: string | null;
+}> {
+  const file = formData.get("attachment");
+  if (!(file instanceof File) || file.size === 0) {
+    return { attachment: null, attachmentType: null, attachmentName: null };
+  }
+  if (!ATTACHMENT_TYPES.includes(file.type)) {
+    throw new Error(
+      "El comprobante debe ser un PDF o una foto (JPG/PNG/WebP)."
+    );
+  }
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    throw new Error(
+      "El comprobante no puede superar los 4 MB. Comprimí el PDF o sacá la foto en menor calidad."
+    );
+  }
+  const bytes = Buffer.from(await file.arrayBuffer());
+  return {
+    attachment: `data:${file.type};base64,${bytes.toString("base64")}`,
+    attachmentType: file.type,
+    attachmentName: file.name.slice(0, 200),
+  };
+}
+
 function opt(formData: FormData, key: string): string | null {
   const value = formData.get(key);
   if (value == null) return null;
@@ -87,6 +126,9 @@ export async function addMovement(formData: FormData): Promise<void> {
       ? FiscalKind.INTERNAL
       : FiscalKind.INVOICED;
 
+  // Comprobante adjunto (opcional): se lee ANTES de la transacción.
+  const adjunto = await parseAttachment(formData);
+
   // Movement + FIFO allocation happen in ONE transaction: the balance and
   // the imputations can never be left inconsistent.
   //
@@ -104,6 +146,7 @@ export async function addMovement(formData: FormData): Promise<void> {
         fiscalKind,
         paymentTermDays,
         dueDate,
+        ...adjunto,
         description: opt(formData, "description"),
         reference: opt(formData, "reference"),
         createdById: user.id,

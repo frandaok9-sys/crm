@@ -613,6 +613,13 @@ model LedgerMovement {
   description String?
   reference   String? // N° de factura/recibo, etc.
 
+  /// Comprobante adjunto (factura escaneada, recibo, orden de pago) como
+  /// data URL, igual que en Gastos. Se sirve por una ruta protegida; las
+  /// listas NUNCA seleccionan `attachment` (pesa).
+  attachment     String?
+  attachmentType String? // MIME
+  attachmentName String? // nombre original del archivo
+
   /// Condición de pago de un débito (factura/ND): días de plazo.
   /// 0 = contado. Null en pagos/NC o facturas viejas sin condición.
   paymentTermDays Int?

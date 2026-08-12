@@ -52,10 +52,24 @@ export default async function LedgerPage({
   if (!canViewRecord(user, client)) redirect("/clientes");
 
   const canManage = canManageLedger(user);
+  // OJO: nunca traer `attachment` acá (es el archivo entero). Solo su tipo
+  // y nombre, para saber si hay comprobante y mostrar el link.
   const movements = await prisma.ledgerMovement.findMany({
     where: { clientId: id },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    include: {
+    select: {
+      id: true,
+      type: true,
+      currency: true,
+      amount: true,
+      date: true,
+      description: true,
+      reference: true,
+      fiscalKind: true,
+      dueDate: true,
+      paymentTermDays: true,
+      attachmentType: true,
+      attachmentName: true,
       allocationsAsInvoice: { select: { amount: true } },
       allocationsAsPayment: { select: { amount: true } },
     },
@@ -280,6 +294,21 @@ export default async function LedgerPage({
                 notificaciones y tareas de quien la cargó.
               </span>
             </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                Adjuntar comprobante
+              </span>
+              <input
+                type="file"
+                name="attachment"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"
+                className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-transparent file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-600 hover:file:bg-zinc-100 dark:file:border-zinc-700 dark:file:text-zinc-300 dark:hover:file:bg-zinc-800"
+              />
+              <span className="mt-1 block text-[11px] text-zinc-400">
+                Factura, recibo u orden de pago · PDF o foto, hasta 4 MB.
+              </span>
+            </label>
+
             <label className="sm:col-span-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
               <input type="checkbox" name="autoAllocate" defaultChecked />
               Imputar automáticamente a las facturas más antiguas (solo pagos
@@ -368,6 +397,17 @@ export default async function LedgerPage({
                         <span className="font-medium">{m.reference} </span>
                       )}
                       <span className="text-zinc-500">{m.description}</span>
+                      {m.attachmentType && (
+                        <a
+                          href={`/clientes/${id}/cuenta/${m.id}/comprobante`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={m.attachmentName ?? "Ver comprobante"}
+                          className="ml-2 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-primary hover:underline dark:bg-zinc-800"
+                        >
+                          📎 Comprobante
+                        </a>
+                      )}
                       {m.fiscalKind === FiscalKind.INTERNAL && (
                         <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                           {FISCAL_KIND_LABELS[m.fiscalKind]}
