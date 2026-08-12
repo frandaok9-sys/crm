@@ -26,6 +26,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { TaskThread } from "@/components/task-thread";
 import { DeleteQuoteButton } from "@/components/delete-quote-button";
 import { EXECUTION_STAGE } from "@/lib/stages";
+import { formatInvoiceNumber } from "@/lib/invoices";
 import {
   setQuoteStatus,
   reviseQuote,
@@ -123,13 +124,23 @@ export default async function QuoteDetailPage({
 
   const canEdit = canEditQuote(user, quote);
   const canInvoice = canManageLedger(user);
-  const invoice =
-    quote.status === QuoteStatus.APPROVED || quote.status === QuoteStatus.SENT
-      ? await prisma.ledgerMovement.findFirst({
-          where: { quoteId: id, type: LedgerMovementType.INVOICE },
-          select: { id: true, date: true },
-        })
-      : null;
+  // La factura puede estar en CUALQUIER revisión del presupuesto (se
+  // factura el trabajo, no la revisión).
+  const invoice = await prisma.ledgerMovement.findFirst({
+    where: {
+      quoteId: { in: groupRevisions.map((r) => r.id) },
+      type: LedgerMovementType.INVOICE,
+    },
+    select: {
+      id: true,
+      date: true,
+      reference: true,
+      cbteTipo: true,
+      ptoVta: true,
+      cbteNro: true,
+    },
+  });
+  const invoiceNumber = invoice ? formatInvoiceNumber(invoice) : null;
   const currency = quote.currency;
   const fmt = (value: string) => formatMoney(value, currency);
 
@@ -275,7 +286,8 @@ export default async function QuoteDetailPage({
           {invoice ? (
             <>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                ✓ Facturado el {formatDateAR(invoice.date)}
+                ✓ Facturado{invoiceNumber ? ` · ${invoiceNumber}` : ""} el{" "}
+                {formatDateAR(invoice.date)}
               </span>
               <Link
                 href={`/clientes/${quote.client.id}/cuenta`}
@@ -285,8 +297,15 @@ export default async function QuoteDetailPage({
               </Link>
             </>
           ) : canInvoice ? (
-            <form action={invoiceQuote} className="flex items-center gap-2">
+            <form action={invoiceQuote} className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="id" value={quote.id} />
+              <input
+                name="invoiceNumber"
+                maxLength={40}
+                placeholder="N° de factura (ej: 0003-00001234)"
+                aria-label="Número de factura"
+                className="w-56 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800"
+              />
               <select
                 name="termDays"
                 defaultValue="0"

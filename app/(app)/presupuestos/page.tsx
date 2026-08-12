@@ -9,11 +9,15 @@ import {
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
-import { QuoteStatus } from "@/lib/generated/prisma/enums";
+import {
+  QuoteStatus,
+  LedgerMovementType,
+} from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { TintBadge, type TintVariant } from "@/components/tint-badge";
 import { InitialsAvatar } from "@/components/initials-avatar";
 import { formatDateAR } from "@/lib/dates";
+import { formatInvoiceNumber } from "@/lib/invoices";
 
 // Total y Fecha van con ancho AUTOMÁTICO (max-content): con fracciones
 // fijas, un importe largo ($ 129.711.941,41) desbordaba su columna y
@@ -48,6 +52,37 @@ export default async function QuotesPage() {
   for (const quote of allQuotes) {
     const group = quote.rootId ?? quote.id;
     revisionCount.set(group, (revisionCount.get(group) ?? 0) + 1);
+  }
+
+  // Facturado = existe el movimiento de factura (no es un estado del
+  // presupuesto). Se busca por GRUPO: la factura puede estar en cualquier
+  // revisión. Ver lib/invoices.ts.
+  const invoices = await prisma.ledgerMovement.findMany({
+    where: {
+      type: LedgerMovementType.INVOICE,
+      quoteId: { in: allQuotes.map((q) => q.id) },
+    },
+    select: {
+      quoteId: true,
+      date: true,
+      reference: true,
+      cbteTipo: true,
+      ptoVta: true,
+      cbteNro: true,
+    },
+  });
+  const groupOf = new Map(allQuotes.map((q) => [q.id, q.rootId ?? q.id]));
+  const invoiceByGroup = new Map<
+    string,
+    { number: string | null; date: Date }
+  >();
+  for (const inv of invoices) {
+    const group = inv.quoteId ? groupOf.get(inv.quoteId) : null;
+    if (!group) continue;
+    invoiceByGroup.set(group, {
+      number: formatInvoiceNumber(inv),
+      date: inv.date,
+    });
   }
   const quotes = latestRevisions(allQuotes).sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
@@ -89,10 +124,14 @@ export default async function QuotesPage() {
           </div>
         ) : (
           quotes.map((quote) => {
-            const versions = revisionCount.get(quote.rootId ?? quote.id) ?? 1;
+            const group = quote.rootId ?? quote.id;
+            const versions = revisionCount.get(group) ?? 1;
             const ownerName = quote.owner
               ? quote.owner.name ?? quote.owner.email
               : null;
+            // Facturado: el identificador principal pasa a ser el número de
+            // factura y el PRE-XXXX baja a la línea de abajo (trazabilidad).
+            const invoice = invoiceByGroup.get(group);
             return (
               <div
                 key={quote.id}
@@ -101,21 +140,26 @@ export default async function QuotesPage() {
                 <span className="min-w-0">
                   <Link
                     href={`/presupuestos/${quote.id}`}
-                    className="block text-[13.5px] font-bold text-foreground hover:underline"
+                    className="block truncate text-[13.5px] font-bold text-foreground hover:underline"
                   >
-                    {quote.code}
+                    {invoice?.number ?? quote.code}
                   </Link>
-                  {quote.version > 1 && (
-                    <span className="block text-[11px] text-muted-foreground">
-                      Rev. {quote.version} · {versions} versiones
-                    </span>
-                  )}
+                  <span className="block truncate text-[11px] text-muted-foreground">
+                    {invoice && `${quote.code} · `}
+                    {quote.version > 1 &&
+                      `Rev. ${quote.version} · ${versions} versiones`}
+                  </span>
                 </span>
                 <span className="truncate text-text2">
                   {quote.client.legalName}
                 </span>
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <TintBadge variant={STATUS_VARIANT[quote.status]}>
+                  {/* Facturado manda: es el final del circuito. El estado
+                      comercial queda al lado, más apagado. */}
+                  {invoice && <TintBadge variant="green">Facturado</TintBadge>}
+                  <TintBadge
+                    variant={invoice ? "gray" : STATUS_VARIANT[quote.status]}
+                  >
                     {QUOTE_STATUS_LABELS[quote.status]}
                   </TintBadge>
                   {quote.needsReview && (

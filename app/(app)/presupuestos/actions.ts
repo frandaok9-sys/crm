@@ -22,6 +22,7 @@ import { defaultTenantId, recordCanonicalEvent } from "@/lib/nexus/central";
 import { computeQuoteTotals, lineNet } from "@/lib/quotes-calc";
 import { canTransitionQuote, QUOTE_STATUS_LABELS } from "@/lib/quotes";
 import { EXECUTION_STAGE } from "@/lib/stages";
+import { cleanInvoiceNumber } from "@/lib/invoices";
 import {
   Currency,
   QuoteStatus,
@@ -653,6 +654,10 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
   const now = new Date();
   const dueDate = new Date(now.getTime() + paymentTermDays * 86_400_000);
 
+  // N° de factura (opcional mientras se factura a mano; con ARCA lo dará
+  // el web service).
+  const invoiceNumber = cleanInvoiceNumber(formData.get("invoiceNumber") as string);
+
   // El freno mira TODAS las revisiones: facturar Rev.1 y después Rev.2
   // duplicaría la deuda del cliente en la cuenta corriente.
   const groupIds = await quoteGroupIds(quote);
@@ -672,8 +677,13 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
         type: LedgerMovementType.INVOICE,
         currency: quote.currency,
         amount: quote.total,
-        reference: `${quote.code}${quote.version > 1 ? ` Rev.${quote.version}` : ""}`,
-        description: "Factura por presupuesto aprobado",
+        // N° de comprobante real si lo cargaron; si no, queda el código del
+        // presupuesto como referencia (cuando entre ARCA el número lo pone
+        // el web service en ptoVta/cbteNro).
+        reference:
+          invoiceNumber ??
+          `${quote.code}${quote.version > 1 ? ` Rev.${quote.version}` : ""}`,
+        description: `Factura por presupuesto ${quote.code}`,
         paymentTermDays,
         dueDate,
         quoteId: id,
