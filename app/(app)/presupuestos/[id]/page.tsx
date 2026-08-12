@@ -174,11 +174,18 @@ export default async function QuoteDetailPage({
                 Rev.{quote.version} de {groupRevisions.length}
               </span>
             )}
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${QUOTE_STATUS_STYLES[quote.status]}`}
-            >
-              {QUOTE_STATUS_LABELS[quote.status]}
-            </span>
+            {/* UN solo estado: facturado reemplaza al estado comercial. */}
+            {invoice ? (
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Facturado
+              </span>
+            ) : (
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${QUOTE_STATUS_STYLES[quote.status]}`}
+              >
+                {QUOTE_STATUS_LABELS[quote.status]}
+              </span>
+            )}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
             <Link
@@ -286,8 +293,10 @@ export default async function QuoteDetailPage({
         <div className="flex flex-wrap items-center gap-3">
           {invoice ? (
             <>
+              {/* El título ya dice "Facturado": acá va el dato del
+                  comprobante (número, si existe, y fecha). */}
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                ✓ Facturado{invoiceNumber ? ` · ${invoiceNumber}` : ""} el{" "}
+                ✓ {invoiceNumber ? `${invoiceNumber} · ` : "Comprobante del "}
                 {formatDateAR(invoice.date)}
               </span>
               <Link

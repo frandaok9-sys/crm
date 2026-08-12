@@ -157,14 +157,15 @@ export default async function QuotesPage() {
                   {quote.client.legalName}
                 </span>
                 <span className="flex flex-wrap items-center gap-1.5">
-                  {/* Facturado manda: es el final del circuito. El estado
-                      comercial queda al lado, más apagado. */}
-                  {invoice && <TintBadge variant="green">Facturado</TintBadge>}
-                  <TintBadge
-                    variant={invoice ? "gray" : STATUS_VARIANT[quote.status]}
-                  >
-                    {QUOTE_STATUS_LABELS[quote.status]}
-                  </TintBadge>
+                  {/* UN solo estado: facturado es el final del circuito y
+                      reemplaza al estado comercial. */}
+                  {invoice ? (
+                    <TintBadge variant="green">Facturado</TintBadge>
+                  ) : (
+                    <TintBadge variant={STATUS_VARIANT[quote.status]}>
+                      {QUOTE_STATUS_LABELS[quote.status]}
+                    </TintBadge>
+                  )}
                   {quote.needsReview && (
                     <Link
                       href={`/presupuestos/${quote.id}/editar`}
