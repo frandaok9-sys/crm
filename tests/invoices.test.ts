@@ -50,6 +50,19 @@ describe("número de comprobante", () => {
     expect(formatInvoiceNumber({ reference: "   " })).toBeNull();
   });
 
+  it("no inventa un comprobante con el código del presupuesto", () => {
+    // Al facturar sin cargar el número, la referencia queda con el código
+    // del presupuesto: eso NO es una factura ("FC PRE-0005 Rev.4").
+    expect(formatInvoiceNumber({ reference: "PRE-0005" }, "PRE-0005")).toBeNull();
+    expect(
+      formatInvoiceNumber({ reference: "PRE-0005 Rev.4" }, "PRE-0005")
+    ).toBeNull();
+    // Un número real sí se muestra, aunque se pase el código.
+    expect(formatInvoiceNumber({ reference: "0003-00001234" }, "PRE-0005")).toBe(
+      "FC 0003-00001234"
+    );
+  });
+
   it("limpia lo que escribe la persona sin inventar nada", () => {
     expect(cleanInvoiceNumber("  0003-00001234  ")).toBe("0003-00001234");
     expect(cleanInvoiceNumber("A   0003-00001234")).toBe("A 0003-00001234");

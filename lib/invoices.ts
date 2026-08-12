@@ -29,7 +29,17 @@ function letra(cbteTipo?: number | null): string {
   return /[A-Z]/.test(last) ? ` ${last}` : "";
 }
 
-export function formatInvoiceNumber(inv: InvoiceRef): string | null {
+/**
+ * `quoteCode`: código del presupuesto (PRE-0005). Si la referencia guardada
+ * es ese mismo código, NO es un número de factura — es el eco del
+ * presupuesto que se usa como referencia cuando se facturó sin cargar el
+ * comprobante. En ese caso devuelve null: mejor mostrar solo "Facturado"
+ * que inventar un "FC PRE-0005".
+ */
+export function formatInvoiceNumber(
+  inv: InvoiceRef,
+  quoteCode?: string | null
+): string | null {
   if (inv.ptoVta && inv.cbteNro) {
     const pv = String(inv.ptoVta).padStart(4, "0");
     const nro = String(inv.cbteNro).padStart(8, "0");
@@ -37,6 +47,9 @@ export function formatInvoiceNumber(inv: InvoiceRef): string | null {
   }
   const manual = inv.reference?.trim();
   if (!manual) return null;
+  if (quoteCode && manual.toUpperCase().startsWith(quoteCode.toUpperCase())) {
+    return null; // es el código del presupuesto, no un comprobante
+  }
   // Si ya viene con prefijo (FC, FA, Factura…), se respeta tal cual.
   return /^(fc|fa|factura)\b/i.test(manual) ? manual : `FC ${manual}`;
 }

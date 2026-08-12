@@ -47,12 +47,8 @@ export default async function QuotesPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Una fila por presupuesto (su última revisión).
-  const revisionCount = new Map<string, number>();
-  for (const quote of allQuotes) {
-    const group = quote.rootId ?? quote.id;
-    revisionCount.set(group, (revisionCount.get(group) ?? 0) + 1);
-  }
+  // Una fila por presupuesto: su última revisión (el detalle muestra
+  // cuántas tuvo).
 
   // Facturado = existe el movimiento de factura (no es un estado del
   // presupuesto). Se busca por GRUPO: la factura puede estar en cualquier
@@ -72,6 +68,7 @@ export default async function QuotesPage() {
     },
   });
   const groupOf = new Map(allQuotes.map((q) => [q.id, q.rootId ?? q.id]));
+  const codeOf = new Map(allQuotes.map((q) => [q.id, q.code]));
   const invoiceByGroup = new Map<
     string,
     { number: string | null; date: Date }
@@ -80,7 +77,12 @@ export default async function QuotesPage() {
     const group = inv.quoteId ? groupOf.get(inv.quoteId) : null;
     if (!group) continue;
     invoiceByGroup.set(group, {
-      number: formatInvoiceNumber(inv),
+      // Sin comprobante real cargado, number queda null: se muestra el
+      // código del presupuesto y el cartel "Facturado".
+      number: formatInvoiceNumber(
+        inv,
+        inv.quoteId ? codeOf.get(inv.quoteId) : null
+      ),
       date: inv.date,
     });
   }
@@ -125,7 +127,6 @@ export default async function QuotesPage() {
         ) : (
           quotes.map((quote) => {
             const group = quote.rootId ?? quote.id;
-            const versions = revisionCount.get(group) ?? 1;
             const ownerName = quote.owner
               ? quote.owner.name ?? quote.owner.email
               : null;
@@ -137,6 +138,8 @@ export default async function QuotesPage() {
                 key={quote.id}
                 className={`${GRID} border-b border-border2 px-5 py-[14px] text-[13px] transition-colors last:border-0 hover:bg-hoverbg`}
               >
+                {/* Vista general: solo el identificador. Las revisiones se
+                    ven al entrar al presupuesto. */}
                 <span className="min-w-0">
                   <Link
                     href={`/presupuestos/${quote.id}`}
@@ -144,11 +147,11 @@ export default async function QuotesPage() {
                   >
                     {invoice?.number ?? quote.code}
                   </Link>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {invoice && `${quote.code} · `}
-                    {quote.version > 1 &&
-                      `Rev. ${quote.version} · ${versions} versiones`}
-                  </span>
+                  {invoice?.number && (
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {quote.code}
+                    </span>
+                  )}
                 </span>
                 <span className="truncate text-text2">
                   {quote.client.legalName}

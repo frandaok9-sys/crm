@@ -140,7 +140,7 @@ export default async function QuoteDetailPage({
       cbteNro: true,
     },
   });
-  const invoiceNumber = invoice ? formatInvoiceNumber(invoice) : null;
+  const invoiceNumber = invoice ? formatInvoiceNumber(invoice, quote.code) : null;
   const currency = quote.currency;
   const fmt = (value: string) => formatMoney(value, currency);
 
@@ -168,9 +168,10 @@ export default async function QuoteDetailPage({
           </Link>
           <h1 className="mt-2 flex items-center gap-2 text-2xl font-semibold tracking-tight">
             {quote.code}
-            {quote.version > 1 && (
+            {/* El historial de revisiones vive acá (no en la lista) */}
+            {groupRevisions.length > 1 && (
               <span className="text-base font-normal text-zinc-400">
-                Rev.{quote.version}
+                Rev.{quote.version} de {groupRevisions.length}
               </span>
             )}
             <span
