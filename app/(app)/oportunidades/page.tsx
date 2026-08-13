@@ -10,6 +10,7 @@ import {
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { stageHex } from "@/lib/stage-colors";
+import { ClientActivityType } from "@/lib/generated/prisma/enums";
 import { sellerColor } from "@/components/initials-avatar";
 import { Button } from "@/components/ui/button";
 import { PipelineBoard, type BoardColumn } from "@/components/pipeline-board";
@@ -65,20 +66,56 @@ export default async function OpportunitiesPage({
       ? v
       : null;
 
-  const [stages, opportunities] = await Promise.all([
+  // Una tarea delegada TRAE la oportunidad al pipeline de quien la recibió,
+  // aunque no sea su vendedor, hasta que la complete. Solo se agrega cuando
+  // el usuario no ve toda la cartera (si ya la ve, la tiene igual) y cuando
+  // no está mirando el pipeline filtrado de otra persona.
+  const scope = opportunityScope(user);
+  const myTaskScope =
+    !canFilter && !filter
+      ? {
+          OR: [
+            scope,
+            {
+              activities: {
+                some: {
+                  assignedToId: user.id,
+                  type: ClientActivityType.TASK,
+                  doneAt: null,
+                },
+              },
+            },
+          ],
+        }
+      : {
+          ...scope,
+          ...(filter ? { ownerId: filter === "none" ? null : filter } : {}),
+        };
+
+  const [stages, opportunities, myTaskOppIds] = await Promise.all([
     prisma.stage.findMany({ orderBy: { position: "asc" } }),
     prisma.opportunity.findMany({
-      where: {
-        ...opportunityScope(user),
-        ...(filter ? { ownerId: filter === "none" ? null : filter } : {}),
-      },
+      where: myTaskScope,
       include: {
         client: { select: { legalName: true } },
         owner: { select: { name: true, email: true } },
       },
       orderBy: { position: "asc" },
     }),
+    // Oportunidades donde tengo una tarea abierta (para marcar la tarjeta).
+    prisma.clientActivity.findMany({
+      where: {
+        assignedToId: user.id,
+        type: ClientActivityType.TASK,
+        doneAt: null,
+        opportunityId: { not: null },
+      },
+      select: { opportunityId: true },
+    }),
   ]);
+  const withMyTask = new Set(
+    myTaskOppIds.map((t) => t.opportunityId).filter(Boolean) as string[]
+  );
 
   const columns: BoardColumn[] = stages.map((stage) => {
     const inStage = opportunities.filter((o) => o.stageId === stage.id);
@@ -111,6 +148,7 @@ export default async function OpportunitiesPage({
           ownerName,
           ownerTint: ownerName ? sellerColor(ownerName) : null,
           isPinned: o.isPinned,
+          hasMyTask: withMyTask.has(o.id),
         };
       }),
     };

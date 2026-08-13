@@ -22,6 +22,8 @@ export type BoardCard = {
   ownerName: string | null;
   ownerTint: string | null;
   isPinned: boolean;
+  /** Tengo una tarea abierta acá: la tarjeta está en mi pipeline por eso. */
+  hasMyTask?: boolean;
 };
 
 export type BoardColumn = {
@@ -176,6 +178,13 @@ export function PipelineBoard({
                                 </span>
                               )}
                             </p>
+                            {/* Está en mi pipeline porque me delegaron una
+                                tarea acá; se va cuando la confirmo. */}
+                            {card.hasMyTask && (
+                              <p className="mt-1.5 inline-flex items-center gap-1 rounded-[10px] bg-primary/10 px-1.5 py-px text-[10.5px] font-semibold text-primary">
+                                ✋ Tarea tuya pendiente
+                              </p>
+                            )}
                             <div className="mt-2 flex items-center justify-between">
                               <span className="text-[14.5px] font-extrabold tabular-nums">
                                 {card.amountLabel ?? ""}
