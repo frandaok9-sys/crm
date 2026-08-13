@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { TintBadge, type TintVariant } from "@/components/tint-badge";
 import { InitialsAvatar } from "@/components/initials-avatar";
 
-const GRID = "grid grid-cols-[2.2fr_1.3fr_1.5fr_1fr_0.8fr_1.2fr] items-center";
+const GRID =
+  "grid min-w-[860px] grid-cols-[2.2fr_1.3fr_1.5fr_1fr_0.8fr_1.2fr] items-center lg:min-w-0";
 
 // Carteras de 2000+ clientes: la lista SIEMPRE viene paginada de la base.
 const PAGE_SIZE = 50;
@@ -106,7 +107,7 @@ export default async function ClientsPage({
         />
       </form>
 
-      <section className="overflow-hidden rounded-[12px] border bg-card">
+      <section className="overflow-x-auto rounded-[12px] border bg-card">
         <div
           className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
         >

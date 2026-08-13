@@ -407,3 +407,22 @@ select optgroup {
   background-color: var(--popover);
   color: var(--popover-foreground);
 }
+
+/* ---------------------------------------------------------------------------
+   Móvil (fase 1). Solo actúa en pantallas chicas; el escritorio no cambia.
+--------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  /* iOS hace zoom automático al enfocar un campo con letra menor a 16px:
+     en el celu los campos van a 16px y el zoom no salta. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Tocar con el dedo: los botones y filas muy finitos son injugables. */
+  button,
+  a[role="button"] {
+    min-height: 34px;
+  }
+}

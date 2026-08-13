@@ -66,7 +66,13 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    // 100dvh: en el celu, 100vh incluye la barra del navegador y deja la
+    // barra inferior tapada; dvh mide lo realmente visible (en escritorio
+    // es lo mismo que h-screen).
+    <div
+      className="flex h-screen overflow-hidden bg-background"
+      style={{ height: "100dvh" }}
+    >
       <AppSidebar
         items={items}
         brandName={settings?.tradeName ?? "RC CRM"}
@@ -76,8 +82,9 @@ export default async function AppLayout({
         initialTheme={theme}
         signOutAction={signOutAction}
       />
+      {/* Móvil: menos margen y aire abajo para la barra de navegación */}
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[1240px] px-9 pb-10 pt-8">
+        <div className="mx-auto w-full max-w-[1240px] px-4 pb-28 pt-5 lg:px-9 lg:pb-10 lg:pt-8">
           {children}
         </div>
       </main>

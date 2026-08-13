@@ -255,8 +255,8 @@ export default async function ExpensesPage({
       </div>
 
       {/* Lista del mes */}
-      <section className="overflow-hidden rounded-[12px] border bg-card">
-        <div className="grid grid-cols-[100px_1.4fr_1fr_1fr_120px_90px_60px] items-center border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+      <section className="overflow-x-auto rounded-[12px] border bg-card">
+        <div className="grid min-w-[820px] grid-cols-[100px_1.4fr_1fr_1fr_120px_90px_60px] items-center lg:min-w-0 border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
           <span>Fecha</span>
           <span>Categoría / detalle</span>
           <span>Obra</span>
@@ -273,7 +273,7 @@ export default async function ExpensesPage({
           expenses.map((e) => (
             <div
               key={e.id}
-              className="grid grid-cols-[100px_1.4fr_1fr_1fr_120px_90px_60px] items-center border-b border-border2 px-5 py-3 text-[13px] last:border-0 hover:bg-hoverbg"
+              className="grid min-w-[820px] grid-cols-[100px_1.4fr_1fr_1fr_120px_90px_60px] items-center lg:min-w-0 border-b border-border2 px-5 py-3 text-[13px] last:border-0 hover:bg-hoverbg"
             >
               <span className="tabular-nums text-text2">
                 {formatDateAR(e.date)}

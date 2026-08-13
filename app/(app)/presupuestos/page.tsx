@@ -23,7 +23,7 @@ import { formatInvoiceNumber } from "@/lib/invoices";
 // fracciones fijas, el contenido más largo (un importe grande, el chip
 // "Facturado") desbordaba su columna y corría todo lo de al lado.
 const GRID =
-  "grid grid-cols-[1.4fr_1.8fr_max-content_max-content_max-content_1.2fr] items-center gap-x-6";
+  "grid min-w-[860px] grid-cols-[1.4fr_1.8fr_max-content_max-content_max-content_1.2fr] items-center gap-x-6 lg:min-w-0";
 
 const STATUS_VARIANT: Record<QuoteStatus, TintVariant> = {
   [QuoteStatus.DRAFT]: "gray",
@@ -108,7 +108,7 @@ export default async function QuotesPage() {
         )}
       </div>
 
-      <section className="overflow-hidden rounded-[12px] border bg-card">
+      <section className="overflow-x-auto rounded-[12px] border bg-card">
         <div
           className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
         >

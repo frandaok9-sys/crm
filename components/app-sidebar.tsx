@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -117,7 +117,12 @@ export function AppSidebar({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(initialTheme);
+  // Móvil: hoja "Más" de la barra inferior (se cierra al navegar).
+  const [moreOpen, setMoreOpen] = useState(false);
   const pathname = usePathname();
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -129,8 +134,14 @@ export function AppSidebar({
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
 
+  // Móvil: 4 accesos directos abajo + el resto en la hoja "Más".
+  const primary = items.slice(0, 4);
+  const rest = items.slice(4);
+
   return (
-    <div className="relative w-[68px] shrink-0">
+    <>
+    {/* Escritorio: riel lateral (idéntico a siempre; oculto en móvil) */}
+    <div className="relative hidden w-[68px] shrink-0 lg:block">
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
@@ -311,5 +322,168 @@ export function AppSidebar({
         </div>
       </aside>
     </div>
+
+    {/* ---------- Móvil: barra de navegación inferior ---------- */}
+    <nav
+      className="fixed inset-x-0 bottom-0 z-[1100] flex items-stretch justify-around border-t border-border bg-side pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+      aria-label="Navegación principal"
+    >
+      {primary.map((item) => {
+        const active = isActive(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 pb-2 pt-2.5",
+              active ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={active ? 2 : 1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d={ICON_PATHS[item.href] ?? ICON_PATHS["/dashboard"]} />
+            </svg>
+            <span className="max-w-full truncate text-[10px] font-medium">
+              {item.label}
+            </span>
+            {item.badge != null && item.badge > 0 && (
+              <span className="absolute right-1/2 top-1 flex h-[15px] min-w-[15px] -mr-[22px] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold tabular-nums text-white">
+                {item.badge > 99 ? "99+" : item.badge}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => setMoreOpen((v) => !v)}
+        className={cn(
+          "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 pb-2 pt-2.5",
+          moreOpen ? "text-primary" : "text-muted-foreground"
+        )}
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.7}
+          strokeLinecap="round"
+        >
+          <circle cx="5" cy="12" r="1.6" />
+          <circle cx="12" cy="12" r="1.6" />
+          <circle cx="19" cy="12" r="1.6" />
+        </svg>
+        <span className="text-[10px] font-medium">Más</span>
+      </button>
+    </nav>
+
+    {/* ---------- Móvil: hoja "Más" ---------- */}
+    {moreOpen && (
+      <div className="fixed inset-0 z-[1090] lg:hidden">
+        {/* Fondo: tocar afuera cierra */}
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={() => setMoreOpen(false)}
+          className="absolute inset-0 bg-black/40"
+        />
+        <div className="absolute inset-x-0 bottom-0 mb-[calc(58px+env(safe-area-inset-bottom))] max-h-[70dvh] overflow-y-auto rounded-t-[16px] border-t border-border bg-side p-3 shadow-2xl backdrop-blur-xl">
+          {rest.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-[10px] px-3 py-3",
+                  active ? "bg-navactive" : "hover:bg-hoverbg"
+                )}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.7}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={active ? "text-primary" : "text-muted-foreground"}
+                >
+                  <path d={ICON_PATHS[item.href] ?? ICON_PATHS["/dashboard"]} />
+                </svg>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[14px]",
+                    active
+                      ? "font-semibold text-foreground"
+                      : "font-medium text-muted-foreground"
+                  )}
+                >
+                  {item.label}
+                </span>
+                {item.badge != null && item.badge > 0 && (
+                  <span className="flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold tabular-nums text-white">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+
+          <div className="my-2 border-t border-border" />
+
+          {/* Mi cuenta + tema + salir */}
+          <Link
+            href="/cuenta"
+            className="flex items-center gap-3 rounded-[10px] px-3 py-3 hover:bg-hoverbg"
+          >
+            <InitialsAvatar name={userName} size={28} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-foreground">
+                {userName}
+              </span>
+              <span className="block truncate text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                {roleLabel} · Mi cuenta
+              </span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-[14px] font-medium text-muted-foreground hover:bg-hoverbg"
+          >
+            <span className="flex h-7 w-7 items-center justify-center">
+              <ThemeIcon dark={theme === "dark"} stroke="var(--text2)" />
+            </span>
+            {theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+          </button>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-[14px] font-medium text-muted-foreground hover:bg-hoverbg"
+            >
+              <span className="flex h-7 w-7 items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+                </svg>
+              </span>
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

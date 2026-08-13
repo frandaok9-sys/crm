@@ -9,7 +9,8 @@ import { Currency } from "@/lib/generated/prisma/enums";
 import { KpiCard } from "@/components/kpi-card";
 import { TintBadge, type TintVariant } from "@/components/tint-badge";
 
-const GRID = "grid grid-cols-[2fr_0.8fr_1.3fr_1.1fr_1.4fr_1fr] items-center";
+const GRID =
+  "grid min-w-[820px] grid-cols-[2fr_0.8fr_1.3fr_1.1fr_1.4fr_1fr] items-center lg:min-w-0";
 
 function agingVariant(days: number): TintVariant {
   if (days > 60) return "red";
@@ -66,7 +67,7 @@ export default async function ReceivablesPage() {
           No hay cuentas con saldo deudor.
         </div>
       ) : (
-        <section className="overflow-hidden rounded-[12px] border bg-card">
+        <section className="overflow-x-auto rounded-[12px] border bg-card">
           <div
             className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
           >
