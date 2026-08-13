@@ -398,6 +398,31 @@ export function AppSidebar({
           className="absolute inset-0 bg-black/40"
         />
         <div className="absolute inset-x-0 bottom-0 mb-[calc(58px+env(safe-area-inset-bottom))] max-h-[70dvh] overflow-y-auto rounded-t-[16px] border-t border-border bg-side p-3 shadow-2xl backdrop-blur-xl">
+          {/* Buscador global (en escritorio es Ctrl+K) */}
+          <button
+            type="button"
+            onClick={() => {
+              setMoreOpen(false);
+              window.dispatchEvent(new Event("rc:abrir-buscador"));
+            }}
+            className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-[14px] font-medium text-muted-foreground hover:bg-hoverbg"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            Buscar en todo el CRM
+          </button>
+          <div className="my-2 border-t border-border" />
           {rest.map((item) => {
             const active = isActive(item.href);
             return (

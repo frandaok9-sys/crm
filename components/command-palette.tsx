@@ -48,6 +48,13 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Móvil: no hay Ctrl+K con el dedo; la hoja "Más" dispara este evento.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener("rc:abrir-buscador", onOpen);
+    return () => window.removeEventListener("rc:abrir-buscador", onOpen);
+  }, []);
+
   // Al abrir: foco y limpieza.
   useEffect(() => {
     if (open) {
@@ -97,7 +104,7 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 pt-[14vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-[1200] flex items-start justify-center bg-black/40 px-3 pt-[14vh] backdrop-blur-[2px]"
       onMouseDown={() => setOpen(false)}
     >
       <div
