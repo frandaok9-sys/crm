@@ -9,7 +9,8 @@ import { fetchAuditLog } from "@/app/(app)/admin/actions";
 
 type UserOption = { id: string; label: string };
 
-const GRID = "grid grid-cols-[minmax(84px,0.7fr)_1.3fr_1.5fr_1fr_1.4fr] items-center";
+const GRID =
+  "grid min-w-[760px] grid-cols-[minmax(84px,0.7fr)_1.3fr_1.5fr_1fr_1.4fr] items-center lg:min-w-0";
 const SELECT =
   "rounded-[8px] border border-border bg-field px-2.5 py-2 text-[13px] outline-none focus:border-muted-foreground";
 
@@ -108,7 +109,7 @@ export function AdminAuditSection({
       </div>
 
       {/* Tabla */}
-      <section className="overflow-hidden rounded-[12px] border bg-card">
+      <section className="overflow-x-auto rounded-[12px] border bg-card">
         <div
           className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
         >

@@ -77,6 +77,31 @@ export function PipelineBoard({
     });
   }
 
+  // Móvil: arrastrar tarjetas con el dedo es incómodo; cada tarjeta tiene
+  // un selector "Mover a…" que usa la MISMA acción que el arrastre.
+  function moveToStage(cardId: string, fromId: string, toId: string) {
+    if (fromId === toId) return;
+    let orderedIds: string[] = [];
+    setBoard((prev) => {
+      const next = prev.map((col) => ({
+        ...col,
+        opportunities: [...col.opportunities],
+      }));
+      const from = next.find((c) => c.id === fromId);
+      const to = next.find((c) => c.id === toId);
+      if (!from || !to) return prev;
+      const idx = from.opportunities.findIndex((o) => o.id === cardId);
+      if (idx < 0) return prev;
+      const [moved] = from.opportunities.splice(idx, 1);
+      to.opportunities.push(moved);
+      orderedIds = to.opportunities.map((o) => o.id);
+      return next;
+    });
+    startTransition(() => {
+      moveOpportunity(cardId, toId, orderedIds).catch(() => router.refresh());
+    });
+  }
+
   function handlePin(cardId: string) {
     setBoard((prev) =>
       prev.map((col) => ({
@@ -197,13 +222,39 @@ export function PipelineBoard({
                                 />
                               )}
                             </div>
-                            <Link
-                              href={`/oportunidades/${card.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-2 block text-[12px] font-semibold text-primary hover:underline"
-                            >
-                              Ver / alertas →
-                            </Link>
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <Link
+                                href={`/oportunidades/${card.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[12px] font-semibold text-primary hover:underline"
+                              >
+                                Ver / alertas →
+                              </Link>
+                              {canEdit && board.length > 1 && (
+                                <select
+                                  aria-label="Mover de etapa"
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value)
+                                      moveToStage(
+                                        card.id,
+                                        col.id,
+                                        e.target.value
+                                      );
+                                  }}
+                                  className="max-w-[132px] rounded-[8px] border border-border bg-field px-1.5 py-1 text-[12px] text-muted-foreground lg:hidden"
+                                >
+                                  <option value="">Mover a…</option>
+                                  {board
+                                    .filter((c) => c.id !== col.id)
+                                    .map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                </select>
+                              )}
+                            </div>
                           </div>
                         )}
                       </Draggable>

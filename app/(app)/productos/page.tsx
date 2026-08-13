@@ -9,7 +9,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { toggleProductActive } from "./actions";
 
 const GRID =
-  "grid grid-cols-[2.6fr_0.9fr_0.9fr_0.7fr_1.1fr_0.6fr_1fr] items-center";
+  "grid min-w-[880px] grid-cols-[2.6fr_0.9fr_0.9fr_0.7fr_1.1fr_0.6fr_1fr] items-center lg:min-w-0";
 
 export default async function ProductsPage({
   searchParams,
@@ -106,7 +106,7 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[12px] border bg-card">
+      <section className="overflow-x-auto rounded-[12px] border bg-card">
         <div
           className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
         >

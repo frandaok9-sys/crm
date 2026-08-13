@@ -106,13 +106,15 @@ export function DashboardNotifications({ items }: { items: AppNotification[] }) 
         )}
       </button>
 
-      {/* Panel: se despliega HACIA EL COSTADO (derecha), no empuja el layout. */}
+      {/* Panel: se despliega HACIA EL COSTADO (derecha), no empuja el layout.
+          En el celular no hay costado: queda fijo arriba, a lo ancho. */}
       <div
         className={cn(
           "absolute left-[calc(100%+10px)] top-0 z-30 w-[340px] max-w-[70vw] origin-left overflow-hidden rounded-[14px] border bg-card shadow-2xl transition-all duration-200",
+          "max-lg:fixed max-lg:left-3 max-lg:right-3 max-lg:top-16 max-lg:w-auto max-lg:max-w-none max-lg:origin-top",
           open
             ? "visible translate-x-0 opacity-100"
-            : "pointer-events-none invisible -translate-x-2 opacity-0"
+            : "pointer-events-none invisible -translate-x-2 opacity-0 max-lg:translate-x-0"
         )}
       >
         <div className="flex items-center justify-between border-b border-border2 px-4 py-2.5">

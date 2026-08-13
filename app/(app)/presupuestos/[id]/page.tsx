@@ -166,7 +166,7 @@ export default async function QuoteDetailPage({
           >
             ← Volver a presupuestos
           </Link>
-          <h1 className="mt-2 flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <h1 className="mt-2 flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
             {quote.code}
             {/* El historial de revisiones vive acá (no en la lista) */}
             {groupRevisions.length > 1 && (

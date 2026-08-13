@@ -17,7 +17,8 @@ import {
 const inputClass =
   "w-full rounded-[8px] border border-border bg-field px-3 py-2 text-sm";
 
-const GRID = "grid grid-cols-[2.4fr_1.2fr_1fr_1.8fr] items-center";
+const GRID =
+  "grid min-w-[720px] grid-cols-[2.4fr_1.2fr_1fr_1.8fr] items-center lg:min-w-0";
 
 const STATUS_META: Record<UserStatus, { label: string; variant: TintVariant }> =
   {
@@ -58,7 +59,7 @@ export async function AdminUsersSection({ adminId }: { adminId: string }) {
           : "No hay usuarios pendientes."}
       </p>
 
-      <section className="overflow-hidden rounded-[12px] border bg-card">
+      <section className="overflow-x-auto rounded-[12px] border bg-card">
         <div
           className={`${GRID} border-b border-border2 bg-card2 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground`}
         >

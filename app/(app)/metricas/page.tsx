@@ -43,7 +43,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 const SELLER_GRID =
-  "grid grid-cols-[1.8fr_1.2fr_1.2fr_1fr_1fr] items-center";
+  "grid min-w-[680px] grid-cols-[1.8fr_1.2fr_1.2fr_1fr_1fr] items-center lg:min-w-0";
 
 export default async function MetricsPage({
   searchParams,
@@ -170,7 +170,7 @@ export default async function MetricsPage({
 
       {/* Por vendedor — solo visión general */}
       {data.bySeller && data.bySeller.length > 0 && (
-        <section className="overflow-hidden rounded-[12px] border bg-card">
+        <section className="overflow-x-auto rounded-[12px] border bg-card">
           <div className="border-b border-border2 px-5 py-4">
             <SectionTitle>Por vendedor</SectionTitle>
           </div>
