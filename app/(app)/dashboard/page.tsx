@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { MetricCard, type MetricTrend } from "@/components/metric-card";
 import { DashboardNotifications } from "@/components/dashboard-notifications";
 import { toggleActivityDone } from "../clientes/actions";
-import { formatDateAR, todayKickerAR } from "@/lib/dates";
+import { formatDateAR, formatDateTimeAR, todayKickerAR } from "@/lib/dates";
 
 type Alert = { color: string; title: string; subtitle: string };
 
@@ -768,6 +768,10 @@ export default async function DashboardPage({
                           · delegada a @{t.assignedTo.name ?? t.assignedTo.email}
                         </span>
                       )}
+                      <span className="tabular-nums">
+                        {" "}
+                        · {formatDateTimeAR(t.createdAt)}
+                      </span>
                     </p>
                   </Link>
                   <span

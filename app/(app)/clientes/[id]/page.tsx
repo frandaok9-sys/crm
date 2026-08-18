@@ -23,7 +23,7 @@ import {
   replyAndConfirmTask,
   deleteActivity,
 } from "../actions";
-import { formatDateAR } from "@/lib/dates";
+import { formatDateAR, formatDateTimeAR } from "@/lib/dates";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -304,6 +304,10 @@ export default async function ClientDetailPage({
                             → @{assigneeName}
                           </span>
                         )}
+                        <span className="tabular-nums">
+                          {" "}
+                          · {formatDateTimeAR(a.createdAt)}
+                        </span>
                       </p>
                       {delegated && iAmAssignee && (
                         <form
@@ -388,10 +392,11 @@ export default async function ClientDetailPage({
                         {a.reply}
                       </p>
                     )}
-                    <p className="mt-0.5 text-xs text-zinc-400">
-                      {formatDateAR(a.createdAt)} ·{" "}
+                    <p className="mt-0.5 text-xs tabular-nums text-zinc-400">
+                      {formatDateTimeAR(a.createdAt)} ·{" "}
                       {a.createdBy.name ?? a.createdBy.email}
-                      {a.doneAt && (a.reply ? " · confirmada" : " · completada")}
+                      {a.doneAt &&
+                        `${a.reply ? " · confirmada" : " · completada"} el ${formatDateTimeAR(a.doneAt)}`}
                     </p>
                   </div>
                   {a.type === ClientActivityType.TASK && a.doneAt && (

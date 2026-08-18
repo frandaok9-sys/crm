@@ -3,6 +3,7 @@ import {
   replyAndConfirmTask,
   deleteActivity,
 } from "@/app/(app)/clientes/actions";
+import { formatDateTimeAR } from "@/lib/dates";
 
 const inputClass =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -94,6 +95,10 @@ export function TaskThread({
                         → @{userName(t.assignedTo)}
                       </span>
                     )}
+                    <span className="tabular-nums">
+                      {" "}
+                      · {formatDateTimeAR(t.createdAt)}
+                    </span>
                   </p>
                   {iAmAssignee && (
                     <form
@@ -159,6 +164,12 @@ export function TaskThread({
                 <span className="line-through">{t.title}</span>
                 {t.assignedTo && (
                   <span className="text-xs"> · @{userName(t.assignedTo)}</span>
+                )}
+                {t.doneAt && (
+                  <span className="text-xs tabular-nums">
+                    {" "}
+                    · resuelta el {formatDateTimeAR(t.doneAt)}
+                  </span>
                 )}
                 {t.reply && (
                   <p className="ml-4 text-xs text-zinc-500">“{t.reply}”</p>
