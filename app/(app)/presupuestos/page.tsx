@@ -12,6 +12,7 @@ import { QUOTE_STATUS_LABELS, latestRevisions } from "@/lib/quotes";
 import {
   QuoteStatus,
   LedgerMovementType,
+  FiscalKind,
 } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { TintBadge, type TintVariant } from "@/components/tint-badge";
@@ -65,13 +66,14 @@ export default async function QuotesPage() {
       cbteTipo: true,
       ptoVta: true,
       cbteNro: true,
+      fiscalKind: true,
     },
   });
   const groupOf = new Map(allQuotes.map((q) => [q.id, q.rootId ?? q.id]));
   const codeOf = new Map(allQuotes.map((q) => [q.id, q.code]));
   const invoiceByGroup = new Map<
     string,
-    { number: string | null; date: Date }
+    { number: string | null; date: Date; internal: boolean }
   >();
   for (const inv of invoices) {
     const group = inv.quoteId ? groupOf.get(inv.quoteId) : null;
@@ -84,6 +86,8 @@ export default async function QuotesPage() {
         inv.quoteId ? codeOf.get(inv.quoteId) : null
       ),
       date: inv.date,
+      // Confirmado sin factura: mismo circuito, fuera de la rendición fiscal.
+      internal: inv.fiscalKind === FiscalKind.INTERNAL,
     });
   }
   const quotes = latestRevisions(allQuotes).sort(
@@ -162,7 +166,11 @@ export default async function QuotesPage() {
                   {/* UN solo estado: facturado es el final del circuito y
                       reemplaza al estado comercial. */}
                   {invoice ? (
-                    <TintBadge variant="green">Facturado</TintBadge>
+                    invoice.internal ? (
+                      <TintBadge variant="amber">Confirmado s/factura</TintBadge>
+                    ) : (
+                      <TintBadge variant="green">Facturado</TintBadge>
+                    )
                   ) : (
                     <TintBadge variant={STATUS_VARIANT[quote.status]}>
                       {QUOTE_STATUS_LABELS[quote.status]}

@@ -28,6 +28,7 @@ import {
   QuoteStatus,
   QuoteItemType,
   LedgerMovementType,
+  FiscalKind,
 } from "@/lib/generated/prisma/enums";
 
 const ITEM_TYPES = Object.values(QuoteItemType) as string[];
@@ -654,9 +655,20 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
   const now = new Date();
   const dueDate = new Date(now.getTime() + paymentTermDays * 86_400_000);
 
+  // "Confirmar sin factura": entra a la cuenta corriente y al balance del mes
+  // como cualquier factura, pero queda FUERA de la rendición fiscal (misma
+  // marca M3 que usan gastos y movimientos; los reportes nunca los mezclan).
+  const fiscalKind =
+    formData.get("fiscalKind") === FiscalKind.INTERNAL
+      ? FiscalKind.INTERNAL
+      : FiscalKind.INVOICED;
+
   // N° de factura (opcional mientras se factura a mano; con ARCA lo dará
-  // el web service).
-  const invoiceNumber = cleanInvoiceNumber(formData.get("invoiceNumber") as string);
+  // el web service). Sin factura no hay comprobante que anotar.
+  const invoiceNumber =
+    fiscalKind === FiscalKind.INTERNAL
+      ? null
+      : cleanInvoiceNumber(formData.get("invoiceNumber") as string);
 
   // El freno mira TODAS las revisiones: facturar Rev.1 y después Rev.2
   // duplicaría la deuda del cliente en la cuenta corriente.
@@ -683,7 +695,11 @@ export async function invoiceQuote(formData: FormData): Promise<void> {
         reference:
           invoiceNumber ??
           `${quote.code}${quote.version > 1 ? ` Rev.${quote.version}` : ""}`,
-        description: `Factura por presupuesto ${quote.code}`,
+        description:
+          fiscalKind === FiscalKind.INTERNAL
+            ? `Confirmado sin factura por presupuesto ${quote.code}`
+            : `Factura por presupuesto ${quote.code}`,
+        fiscalKind,
         paymentTermDays,
         dueDate,
         quoteId: id,

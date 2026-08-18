@@ -20,6 +20,7 @@ import {
   QuoteStatus,
   LedgerMovementType,
   UserStatus,
+  FiscalKind,
 } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
@@ -138,8 +139,10 @@ export default async function QuoteDetailPage({
       cbteTipo: true,
       ptoVta: true,
       cbteNro: true,
+      fiscalKind: true,
     },
   });
+  const internalInvoice = invoice?.fiscalKind === FiscalKind.INTERNAL;
   const invoiceNumber = invoice ? formatInvoiceNumber(invoice, quote.code) : null;
   const currency = quote.currency;
   const fmt = (value: string) => formatMoney(value, currency);
@@ -174,11 +177,18 @@ export default async function QuoteDetailPage({
                 Rev.{quote.version} de {groupRevisions.length}
               </span>
             )}
-            {/* UN solo estado: facturado reemplaza al estado comercial. */}
+            {/* UN solo estado: facturado reemplaza al estado comercial.
+                Sin factura = mismo circuito, fuera de la rendición fiscal. */}
             {invoice ? (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                Facturado
-              </span>
+              internalInvoice ? (
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  Confirmado sin factura
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  Facturado
+                </span>
+              )
             ) : (
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${QUOTE_STATUS_STYLES[quote.status]}`}
@@ -293,12 +303,19 @@ export default async function QuoteDetailPage({
         <div className="flex flex-wrap items-center gap-3">
           {invoice ? (
             <>
-              {/* El título ya dice "Facturado": acá va el dato del
+              {/* El título ya dice el estado: acá va el dato del
                   comprobante (número, si existe, y fecha). */}
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                ✓ {invoiceNumber ? `${invoiceNumber} · ` : "Comprobante del "}
-                {formatDateAR(invoice.date)}
-              </span>
+              {internalInvoice ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  ✓ Confirmado sin factura el {formatDateAR(invoice.date)} —
+                  fuera de la rendición fiscal
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  ✓ {invoiceNumber ? `${invoiceNumber} · ` : "Comprobante del "}
+                  {formatDateAR(invoice.date)}
+                </span>
+              )}
               <Link
                 href={`/clientes/${quote.client.id}/cuenta`}
                 className="text-sm font-medium text-primary hover:underline"
@@ -330,6 +347,17 @@ export default async function QuoteDetailPage({
               </select>
               <SubmitButton size="sm" pendingText="Facturando…">
                 Facturar a cuenta corriente
+              </SubmitButton>
+              {/* Sin factura: entra al mes y a la cuenta corriente igual,
+                  pero queda fuera de la rendición fiscal. */}
+              <SubmitButton
+                size="sm"
+                variant="outline"
+                name="fiscalKind"
+                value={FiscalKind.INTERNAL}
+                pendingText="Confirmando…"
+              >
+                Confirmar sin factura
               </SubmitButton>
             </form>
           ) : (
