@@ -322,12 +322,21 @@ export default async function ExpensesPage({
                   </a>
                 )}
                 {(manager || e.createdBy.id === user.id) && (
-                  <form action={deleteExpense}>
-                    <input type="hidden" name="id" value={e.id} />
-                    <button type="submit" title="Borrar" className="text-zinc-400 hover:text-red-600">
-                      ✕
-                    </button>
-                  </form>
+                  <>
+                    <Link
+                      href={`/contabilidad/gastos/${e.id}/editar`}
+                      title="Editar / completar datos"
+                      className="text-muted-foreground hover:text-primary"
+                    >
+                      ✎
+                    </Link>
+                    <form action={deleteExpense}>
+                      <input type="hidden" name="id" value={e.id} />
+                      <button type="submit" title="Borrar" className="text-zinc-400 hover:text-red-600">
+                        ✕
+                      </button>
+                    </form>
+                  </>
                 )}
               </span>
             </div>

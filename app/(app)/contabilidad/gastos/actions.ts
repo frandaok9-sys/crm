@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
@@ -122,6 +123,116 @@ export async function createExpense(formData: FormData): Promise<void> {
   });
   revalidatePath("/contabilidad/gastos");
   revalidatePath("/contabilidad/finanzas");
+}
+
+/**
+ * Edita un gasto ya cargado (completar datos faltantes): su autor, o quien
+ * gestiona gastos. El comprobante solo se reemplaza si se adjunta uno nuevo.
+ */
+export async function updateExpense(formData: FormData): Promise<void> {
+  const user = await requireActiveUser();
+  const id = String(formData.get("id") ?? "");
+  const expense = await prisma.expense.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      createdById: true,
+      categoryId: true,
+      opportunityId: true,
+      amount: true,
+      currency: true,
+    },
+  });
+  if (!expense) throw new Error("Gasto no encontrado.");
+  if (expense.createdById !== user.id && !canManageExpenses(user)) {
+    throw new Error("No tenés permisos para editar este gasto.");
+  }
+
+  const amount = parseAmount(opt(formData, "amount"));
+  const currency =
+    formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
+
+  const dateRaw = opt(formData, "date");
+  if (!dateRaw) throw new Error("La fecha es obligatoria.");
+  const date = new Date(`${dateRaw}T12:00:00-03:00`);
+  if (Number.isNaN(date.getTime())) throw new Error("Fecha inválida.");
+
+  const categoryId = opt(formData, "categoryId");
+  if (!categoryId) throw new Error("Elegí una categoría.");
+  const category = await prisma.expenseCategory.findUnique({
+    where: { id: categoryId },
+  });
+  // Una categoría desactivada sigue siendo válida si es la que ya tenía.
+  if (!category || (!category.isActive && categoryId !== expense.categoryId)) {
+    throw new Error("Categoría inválida.");
+  }
+
+  const opportunityId = opt(formData, "opportunityId");
+  if (opportunityId) {
+    const opp = await prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      select: { id: true },
+    });
+    if (!opp) throw new Error("Obra inválida.");
+  }
+
+  // Comprobante: solo se toca si suben uno nuevo (nunca se pierde el actual).
+  let receiptData: { receipt: string; receiptType: string } | {} = {};
+  const file = formData.get("receipt");
+  if (file instanceof File && file.size > 0) {
+    if (!RECEIPT_TYPES.includes(file.type)) {
+      throw new Error("El comprobante debe ser una foto (JPG/PNG/WebP) o un PDF.");
+    }
+    if (file.size > MAX_RECEIPT_BYTES) {
+      throw new Error("El comprobante no puede superar los 800 KB. Sacá la foto en menor calidad.");
+    }
+    const bytes = Buffer.from(await file.arrayBuffer());
+    receiptData = {
+      receipt: `data:${file.type};base64,${bytes.toString("base64")}`,
+      receiptType: file.type,
+    };
+  }
+
+  const fiscalKind =
+    formData.get("fiscalKind") === FiscalKind.INTERNAL
+      ? FiscalKind.INTERNAL
+      : FiscalKind.INVOICED;
+
+  await prisma.expense.update({
+    where: { id },
+    data: {
+      date,
+      amount,
+      currency,
+      categoryId,
+      paymentMethod: opt(formData, "paymentMethod"),
+      description: opt(formData, "description"),
+      fiscalKind,
+      opportunityId,
+      ...receiptData,
+    },
+  });
+
+  await logAudit({
+    action: "expense.updated",
+    actorId: user.id,
+    targetType: "Expense",
+    targetId: id,
+    metadata: {
+      amount,
+      currency,
+      category: category.name,
+      antes: { amount: expense.amount.toString(), currency: expense.currency },
+    },
+  });
+  revalidatePath("/contabilidad/gastos");
+  revalidatePath("/contabilidad/finanzas");
+  // El panel de costos de la obra (vieja y nueva) lee estos gastos.
+  if (expense.opportunityId) revalidatePath(`/oportunidades/${expense.opportunityId}`);
+  if (opportunityId && opportunityId !== expense.opportunityId) {
+    revalidatePath(`/oportunidades/${opportunityId}`);
+  }
+  redirect("/contabilidad/gastos");
 }
 
 /** Borra un gasto: su autor, o quien gestiona gastos. */
