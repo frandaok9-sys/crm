@@ -1,23 +1,29 @@
 import { requireActiveUser } from "@/lib/auth";
 import { getNavItems } from "@/lib/nav";
+import { getNotifications } from "@/lib/alerts";
 import { APP_GROUP_LABELS, APP_GROUP_ORDER } from "@/lib/nav-registry";
 import { todayKickerAR } from "@/lib/dates";
 import { AppTile } from "@/components/app-tile";
 import { RecentApps } from "@/components/recent-apps";
+import { NotificationsPanel } from "@/components/notifications-panel";
 
 /**
  * Escritorio de aplicaciones: la pantalla de entrada al sistema. Todo lo que
  * antes vivía en la barra lateral está acá como "apps" en cuadrados, por
  * grupo y con sus contadores. Solo muestra lo que el usuario puede abrir
- * (misma capa de permisos que cada módulo).
+ * (misma capa de permisos que cada módulo). A la derecha, las novedades con
+ * detalle (mismas que la campanita del Inicio).
  */
 export default async function AppsPage() {
   const user = await requireActiveUser();
-  const items = await getNavItems(user);
+  const [items, notifications] = await Promise.all([
+    getNavItems(user),
+    getNotifications(user),
+  ]);
   const firstName = (user.name ?? user.email ?? "").split(" ")[0];
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
           {todayKickerAR()}
@@ -27,24 +33,34 @@ export default async function AppsPage() {
         </h1>
       </div>
 
-      <RecentApps items={items} />
+      {/* Escritorio: apps a la izquierda, novedades a la derecha (en el
+          celular, las novedades van arriba). */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="order-2 space-y-7 lg:order-1">
+          <RecentApps items={items} />
 
-      {APP_GROUP_ORDER.map((group) => {
-        const apps = items.filter((i) => i.group === group);
-        if (apps.length === 0) return null;
-        return (
-          <section key={group}>
-            <h2 className="mb-3 text-[12px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              {APP_GROUP_LABELS[group]}
-            </h2>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:gap-[14px]">
-              {apps.map((item) => (
-                <AppTile key={item.href} item={item} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+          {APP_GROUP_ORDER.map((group) => {
+            const apps = items.filter((i) => i.group === group);
+            if (apps.length === 0) return null;
+            return (
+              <section key={group}>
+                <h2 className="mb-3 text-[12px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  {APP_GROUP_LABELS[group]}
+                </h2>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:gap-[14px]">
+                  {apps.map((item) => (
+                    <AppTile key={item.href} item={item} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+
+        <aside className="order-1 lg:sticky lg:top-0 lg:order-2">
+          <NotificationsPanel items={notifications} />
+        </aside>
+      </div>
     </div>
   );
 }
