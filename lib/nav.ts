@@ -47,13 +47,13 @@ export const getNavItems = cache(
       { href: "/oportunidades", label: "Pipeline", hint: "Oportunidades por etapa", group: "comercial", color: color("/oportunidades"), badge: opportunityCount, pinned: true },
       { href: "/presupuestos", label: "Presupuestos", hint: "Cotizaciones y pliegos", group: "comercial", color: color("/presupuestos"), badge: quoteCount, pinned: true },
       { href: "/metricas", label: "Métricas", hint: "Rendimiento comercial", group: "comercial", color: color("/metricas") },
-      { href: "/mapa", label: "Mapa", hint: "Clientes y hojas de ruta", group: "comercial", color: color("/mapa") },
+      { href: "/mapa", label: "Mapa", hint: "Clientes y hojas de ruta", group: "herramientas", color: color("/mapa") },
       { href: "/obras", label: "En obra", hint: "Obras en ejecución", group: "operaciones", color: color("/obras"), badge: obraCount },
       { href: "/productos", label: "Productos", hint: "Catálogo y precios", group: "operaciones", color: color("/productos") },
       ...(canConta
         ? [{ href: "/contabilidad", label: "Contabilidad", hint: contaSub.join(" · "), group: "administracion" as const, color: color("/contabilidad"), pinned: true, sub: contaSub }]
         : []),
-      { href: "/asistente", label: "Asistente IA", hint: "Consultas en lenguaje natural", group: "sistema", color: color("/asistente") },
+      { href: "/asistente", label: "Asistente IA", hint: "Consultas en lenguaje natural", group: "herramientas", color: color("/asistente") },
       ...(canAccessAdminPanel(user)
         ? [{ href: "/admin", label: "Panel de control", hint: "Usuarios, permisos, empresa", group: "sistema" as const, color: color("/admin") }]
         : []),

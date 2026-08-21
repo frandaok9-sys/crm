@@ -7,11 +7,12 @@
  * permisos y los contadores los resuelve lib/nav.ts en el servidor.
  */
 
-export type AppGroup = "comercial" | "operaciones" | "administracion" | "sistema";
+export type AppGroup = "comercial" | "operaciones" | "herramientas" | "administracion" | "sistema";
 
 export const APP_GROUP_LABELS: Record<AppGroup, string> = {
   comercial: "Comercial",
   operaciones: "Operaciones",
+  herramientas: "Herramientas",
   administracion: "Administración",
   sistema: "Sistema",
 };
@@ -19,6 +20,7 @@ export const APP_GROUP_LABELS: Record<AppGroup, string> = {
 export const APP_GROUP_ORDER: AppGroup[] = [
   "comercial",
   "operaciones",
+  "herramientas",
   "administracion",
   "sistema",
 ];
