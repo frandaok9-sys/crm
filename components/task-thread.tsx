@@ -4,6 +4,7 @@ import {
   deleteActivity,
 } from "@/app/(app)/clientes/actions";
 import { formatDateTimeAR } from "@/lib/dates";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 
 const inputClass =
   "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -138,13 +139,13 @@ export function TaskThread({
                 {t.createdById === currentUserId && (
                   <form action={deleteActivity}>
                     <input type="hidden" name="id" value={t.id} />
-                    <button
-                      type="submit"
+                    <ConfirmDeleteButton
                       title="Borrar tarea"
+                      message={"¿Borrar esta tarea del chat?\n\nEsta acción no se puede deshacer."}
                       className="text-zinc-400 hover:text-red-600"
                     >
                       ✕
-                    </button>
+                    </ConfirmDeleteButton>
                   </form>
                 )}
               </li>

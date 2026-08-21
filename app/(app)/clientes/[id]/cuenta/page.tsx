@@ -15,6 +15,7 @@ import {
   FiscalKind,
 } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { SubmitButton } from "@/components/submit-button";
 import { addMovement, deleteMovement } from "./actions";
 import { formatDateAR } from "@/lib/dates";
@@ -448,9 +449,13 @@ export default async function LedgerPage({
                       <td className="px-4 py-3 text-right">
                         <form action={deleteMovement}>
                           <input type="hidden" name="id" value={m.id} />
-                          <Button type="submit" size="sm" variant="ghost">
+                          <ConfirmDeleteButton
+                            title="Borrar movimiento"
+                            message={"¿Borrar este movimiento de la cuenta corriente? El saldo se recalcula.\n\nEsta acción no se puede deshacer."}
+                            className="rounded-[8px] px-2 py-1 text-sm text-muted-foreground hover:bg-hoverbg hover:text-red-600"
+                          >
                             ✕
-                          </Button>
+                          </ConfirmDeleteButton>
                         </form>
                       </td>
                     )}

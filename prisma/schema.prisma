@@ -712,6 +712,15 @@ model Expense {
   /// Con comprobante fiscal o gasto interno (M3).
   fiscalKind FiscalKind @default(INVOICED)
 
+  /// Desglose (M5): importe NETO sin impuestos. Total (amount) = netAmount +
+  /// la suma de taxes. Un gasto cargado sin desglose tiene neto = total.
+  netAmount Decimal      @db.Decimal(14, 2)
+  taxes     ExpenseTax[]
+
+  /// Persona del listado de personal (quién gastó / a quién se paga el sueldo).
+  personId String?
+  person   Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+
   /// Obra asociada (opcional). Null = gasto general de la empresa.
   opportunityId String?
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
@@ -732,6 +741,7 @@ model Expense {
   @@index([categoryId, date])
   @@index([opportunityId])
   @@index([createdById, date])
+  @@index([personId, date])
 }
 
 /// Configuración de la empresa: datos fiscales y branding (logo, colores, pie
@@ -948,4 +958,43 @@ model SavedTrip {
   createdAt DateTime @default(now())
 
   @@index([ownerId, createdAt])
+}
+
+/// Impuesto/agregado de un gasto (M5): IVA, percepción de IIBB, impuestos
+/// internos, retenciones… Cada línea con su etiqueta e importe, para que
+/// Administración pueda liquidar impuestos después con esos datos.
+model ExpenseTax {
+  id        String  @id @default(cuid())
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  label     String
+  amount    Decimal @db.Decimal(14, 2)
+
+  @@index([expenseId])
+}
+
+/// Área del personal (M5): gerencia, administración o empleados.
+enum StaffArea {
+  MANAGEMENT // Gerencia
+  ADMINISTRATION // Administración
+  EMPLOYEE // Empleados
+}
+
+/// Personal de la empresa (M5): quiénes están autorizados a generar gastos
+/// (por área) y a quiénes se les pagan sueldos. NO son usuarios del sistema.
+model Person {
+  id       String    @id @default(cuid())
+  name     String
+  area     StaffArea
+  /// Autorizado a gastar dinero de la empresa.
+  canSpend Boolean   @default(false)
+  isActive Boolean   @default(true)
+  notes    String?
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([area, isActive])
 }

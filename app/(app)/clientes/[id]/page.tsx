@@ -15,6 +15,7 @@ import { ClientForm } from "@/components/client-form";
 import { ActivityForm } from "@/components/activity-form";
 import { DeleteClientButton } from "@/components/delete-client-button";
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import {
   updateClient,
   assignClient,
@@ -341,13 +342,13 @@ export default async function ClientDetailPage({
                     {canEdit && (
                       <form action={deleteActivity}>
                         <input type="hidden" name="id" value={a.id} />
-                        <button
-                          type="submit"
+                        <ConfirmDeleteButton
                           title="Borrar"
+                          message={"¿Borrar esta tarea/actividad?\n\nEsta acción no se puede deshacer."}
                           className="text-zinc-400 hover:text-red-600"
                         >
                           ✕
-                        </button>
+                        </ConfirmDeleteButton>
                       </form>
                     )}
                   </li>
@@ -413,13 +414,13 @@ export default async function ClientDetailPage({
                   {canEdit && (
                     <form action={deleteActivity}>
                       <input type="hidden" name="id" value={a.id} />
-                      <button
-                        type="submit"
+                      <ConfirmDeleteButton
                         title="Borrar"
+                        message={"¿Borrar esta tarea/actividad?\n\nEsta acción no se puede deshacer."}
                         className="text-zinc-400 hover:text-red-600"
                       >
                         ✕
-                      </button>
+                      </ConfirmDeleteButton>
                     </form>
                   )}
                 </li>

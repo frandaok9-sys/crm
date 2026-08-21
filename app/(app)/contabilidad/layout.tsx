@@ -31,7 +31,11 @@ export default async function ContabilidadLayout({
       ? [{ href: "/contabilidad/gastos", label: "Gastos" }]
       : []),
     ...(canManageExpenses(user)
-      ? [{ href: "/contabilidad/finanzas", label: "Finanzas" }]
+      ? [
+          { href: "/contabilidad/finanzas", label: "Finanzas" },
+          { href: "/contabilidad/sueldos", label: "Sueldos" },
+          { href: "/contabilidad/personal", label: "Personal" },
+        ]
       : []),
   ];
   if (tabs.length === 0) redirect("/dashboard");

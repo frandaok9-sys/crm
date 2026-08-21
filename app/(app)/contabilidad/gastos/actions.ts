@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { canLogExpenses, canManageExpenses } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { buildExpenseBreakdown } from "@/lib/expense-calc";
+import { isSalaryCategory } from "@/lib/expenses";
 import {
   Currency,
   FiscalKind,
@@ -45,6 +47,42 @@ function parseAmount(raw: string | null): string {
   return dec.toFixed(2);
 }
 
+/** Líneas de impuestos del formulario: taxLabel[i] ↔ taxAmount[i]. */
+function taxLinesFrom(formData: FormData) {
+  const labels = formData.getAll("taxLabel").map(String);
+  const amounts = formData.getAll("taxAmount").map(String);
+  const n = Math.max(labels.length, amounts.length);
+  return Array.from({ length: n }, (_, i) => ({
+    label: labels[i] ?? "",
+    amount: amounts[i] ?? "",
+  }));
+}
+
+/**
+ * Persona del listado de personal (M5). Para SUELDOS es obligatoria: el
+ * buscador por persona necesita saber a quién se le pagó.
+ */
+async function resolvePersonId(
+  formData: FormData,
+  categoryName: string
+): Promise<string | null> {
+  const personId = opt(formData, "personId");
+  if (personId) {
+    const person = await prisma.person.findUnique({
+      where: { id: personId },
+      select: { id: true },
+    });
+    if (!person) throw new Error("Persona inválida.");
+    return person.id;
+  }
+  if (isSalaryCategory(categoryName)) {
+    throw new Error(
+      "Para registrar un sueldo indicá a qué persona se le pagó (el listado se carga en Contabilidad → Personal)."
+    );
+  }
+  return null;
+}
+
 /** Registra un gasto (con comprobante opcional). Cualquier rol operativo. */
 export async function createExpense(formData: FormData): Promise<void> {
   const user = await requireActiveUser();
@@ -52,7 +90,12 @@ export async function createExpense(formData: FormData): Promise<void> {
     throw new Error("Tu rol es de consulta: no puede cargar gastos.");
   }
 
-  const amount = parseAmount(opt(formData, "amount"));
+  // Desglose M5: neto + agregados/impuestos = total (Decimal, lib/expense-calc).
+  const breakdown = buildExpenseBreakdown({
+    netAmount: opt(formData, "netAmount"),
+    taxes: taxLinesFrom(formData),
+  });
+  const amount = breakdown.total;
   const currency =
     formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
 
@@ -66,6 +109,7 @@ export async function createExpense(formData: FormData): Promise<void> {
     where: { id: categoryId },
   });
   if (!category || !category.isActive) throw new Error("Categoría inválida.");
+  const personId = await resolvePersonId(formData, category.name);
 
   // Obra opcional: debe existir (el gasto de obra alimenta el panel por obra).
   const opportunityId = opt(formData, "opportunityId");
@@ -102,8 +146,11 @@ export async function createExpense(formData: FormData): Promise<void> {
     data: {
       date,
       amount,
+      netAmount: breakdown.netAmount,
+      taxes: { create: breakdown.taxes },
       currency,
       categoryId,
+      personId,
       paymentMethod: opt(formData, "paymentMethod"),
       description: opt(formData, "description"),
       fiscalKind,
@@ -119,10 +166,19 @@ export async function createExpense(formData: FormData): Promise<void> {
     actorId: user.id,
     targetType: "Expense",
     targetId: expense.id,
-    metadata: { amount, currency, category: category.name, fiscalKind },
+    metadata: {
+      amount,
+      netAmount: breakdown.netAmount,
+      taxes: breakdown.taxes,
+      currency,
+      category: category.name,
+      fiscalKind,
+      personId,
+    },
   });
   revalidatePath("/contabilidad/gastos");
   revalidatePath("/contabilidad/finanzas");
+  revalidatePath("/contabilidad/sueldos");
 }
 
 /**
@@ -148,7 +204,11 @@ export async function updateExpense(formData: FormData): Promise<void> {
     throw new Error("No tenés permisos para editar este gasto.");
   }
 
-  const amount = parseAmount(opt(formData, "amount"));
+  const breakdown = buildExpenseBreakdown({
+    netAmount: opt(formData, "netAmount"),
+    taxes: taxLinesFrom(formData),
+  });
+  const amount = breakdown.total;
   const currency =
     formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
 
@@ -166,6 +226,7 @@ export async function updateExpense(formData: FormData): Promise<void> {
   if (!category || (!category.isActive && categoryId !== expense.categoryId)) {
     throw new Error("Categoría inválida.");
   }
+  const personId = await resolvePersonId(formData, category.name);
 
   const opportunityId = opt(formData, "opportunityId");
   if (opportunityId) {
@@ -203,8 +264,12 @@ export async function updateExpense(formData: FormData): Promise<void> {
     data: {
       date,
       amount,
+      netAmount: breakdown.netAmount,
+      // Las líneas de impuestos se reemplazan completas por las del form.
+      taxes: { deleteMany: {}, create: breakdown.taxes },
       currency,
       categoryId,
+      personId,
       paymentMethod: opt(formData, "paymentMethod"),
       description: opt(formData, "description"),
       fiscalKind,
@@ -227,6 +292,7 @@ export async function updateExpense(formData: FormData): Promise<void> {
   });
   revalidatePath("/contabilidad/gastos");
   revalidatePath("/contabilidad/finanzas");
+  revalidatePath("/contabilidad/sueldos");
   // El panel de costos de la obra (vieja y nueva) lee estos gastos.
   if (expense.opportunityId) revalidatePath(`/oportunidades/${expense.opportunityId}`);
   if (opportunityId && opportunityId !== expense.opportunityId) {
@@ -303,6 +369,7 @@ export async function addLaborCost(formData: FormData): Promise<void> {
     data: {
       date: new Date(),
       amount,
+      netAmount: amount, // carga rápida, sin desglose
       currency,
       categoryId: category.id,
       description: `Mano de obra: ${hours} h × ${rate}${detail ? ` — ${detail}` : ""}`,

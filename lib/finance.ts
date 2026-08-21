@@ -29,6 +29,8 @@ export type CurrencyBalance = {
   invoicedIncome: string; // ingresos con comprobante fiscal
   internalIncome: string; // ingresos "sin factura" (interno)
   byCategory: BalanceCategoryRow[]; // costos del mes, de mayor a menor
+  /** Impuestos/agregados cargados en los gastos del mes, por etiqueta (M5). */
+  taxesByLabel: { label: string; total: string }[];
 };
 
 export async function getMonthlyBalance(
@@ -37,7 +39,7 @@ export async function getMonthlyBalance(
   const range = monthRange(month);
   if (!range) return null;
 
-  const [movements, expenses] = await Promise.all([
+  const [movements, expenses, taxLines] = await Promise.all([
     prisma.ledgerMovement.findMany({
       where: { date: { gte: range.gte, lt: range.lt } },
       select: { type: true, currency: true, amount: true, fiscalKind: true },
@@ -49,6 +51,11 @@ export async function getMonthlyBalance(
         currency: true,
         category: { select: { name: true, kind: true } },
       },
+    }),
+    // Desglose impositivo de esos gastos (para liquidar impuestos después).
+    prisma.expenseTax.findMany({
+      where: { expense: { date: { gte: range.gte, lt: range.lt } } },
+      select: { label: true, amount: true, expense: { select: { currency: true } } },
     }),
   ]);
 
@@ -100,6 +107,15 @@ export async function getMonthlyBalance(
     costs.set(e.currency, acc);
   }
 
+  // Impuestos por moneda y etiqueta (Decimal; nunca se mezclan monedas).
+  const taxes = new Map<string, Map<string, Decimal>>();
+  for (const t of taxLines) {
+    const byLabel = taxes.get(t.expense.currency) ?? new Map<string, Decimal>();
+    const key = t.label.trim();
+    byLabel.set(key, (byLabel.get(key) ?? new Decimal(0)).plus(t.amount.toString()));
+    taxes.set(t.expense.currency, byLabel);
+  }
+
   const currencies = [...new Set([...income.keys(), ...costs.keys()])].sort();
   return currencies.map((currency) => {
     const inc = income.get(currency);
@@ -115,6 +131,9 @@ export async function getMonthlyBalance(
       internalIncome: (inc?.internal ?? new Decimal(0)).toFixed(2),
       byCategory: [...(cost?.byCategory.entries() ?? [])]
         .map(([name, v]) => ({ name, kind: v.kind, total: v.total.toFixed(2) }))
+        .sort((a, b) => new Decimal(b.total).comparedTo(a.total)),
+      taxesByLabel: [...(taxes.get(currency)?.entries() ?? [])]
+        .map(([label, v]) => ({ label, total: v.toFixed(2) }))
         .sort((a, b) => new Decimal(b.total).comparedTo(a.total)),
     };
   });

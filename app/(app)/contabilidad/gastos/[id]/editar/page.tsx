@@ -12,6 +12,8 @@ import { COST_KIND_LABELS, PAYMENT_METHODS } from "@/lib/expenses";
 import { AR_TIME_ZONE } from "@/lib/dates";
 import { Currency, FiscalKind } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import { ExpenseBreakdown } from "@/components/expense-breakdown";
+import { PersonSelect } from "@/components/person-select";
 import { updateExpense } from "../../actions";
 
 const inputClass =
@@ -33,15 +35,18 @@ export default async function EditExpensePage({
       id: true,
       date: true,
       amount: true,
+      netAmount: true,
       currency: true,
       categoryId: true,
       paymentMethod: true,
       description: true,
       fiscalKind: true,
       opportunityId: true,
+      personId: true,
       receiptType: true,
       createdById: true,
       createdBy: { select: { name: true, email: true } },
+      taxes: { select: { label: true, amount: true } },
     },
   });
   if (!expense) notFound();
@@ -50,7 +55,7 @@ export default async function EditExpensePage({
     redirect("/contabilidad/gastos");
   }
 
-  const [categories, opportunities, currentOpp] = await Promise.all([
+  const [categories, opportunities, currentOpp, people] = await Promise.all([
     prisma.expenseCategory.findMany({
       orderBy: [{ position: "asc" }, { name: "asc" }],
     }),
@@ -67,6 +72,14 @@ export default async function EditExpensePage({
           select: { id: true, title: true, client: { select: { legalName: true } } },
         })
       : null,
+    // Personal activo + la persona actual del gasto aunque esté dada de baja.
+    prisma.person.findMany({
+      where: expense.personId
+        ? { OR: [{ isActive: true }, { id: expense.personId }] }
+        : { isActive: true },
+      select: { id: true, name: true, area: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   // Categorías activas + la actual del gasto aunque esté desactivada.
@@ -81,6 +94,13 @@ export default async function EditExpensePage({
   const dateValue = expense.date.toLocaleDateString("en-CA", {
     timeZone: AR_TIME_ZONE,
   });
+
+  // Valores del desglose para el formulario, en formato argentino.
+  const ar = (v: { toString(): string }) =>
+    Number(v.toString()).toLocaleString("es-AR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -114,16 +134,6 @@ export default async function EditExpensePage({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">Importe *</span>
-            <input
-              name="amount"
-              required
-              inputMode="decimal"
-              defaultValue={expense.amount.toString()}
-              className={inputClass}
-            />
-          </label>
-          <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Moneda</span>
             <select name="currency" defaultValue={expense.currency} className={inputClass}>
               <option value={Currency.ARS}>Pesos (ARS)</option>
@@ -146,6 +156,17 @@ export default async function EditExpensePage({
               ))}
             </select>
           </label>
+
+          {/* Desglose: neto + agregados/impuestos = total de la factura */}
+          <ExpenseBreakdown
+            symbol=""
+            defaultNet={ar(expense.netAmount)}
+            defaultTaxes={expense.taxes.map((t) => ({
+              label: t.label,
+              amount: ar(t.amount),
+            }))}
+          />
+
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Medio de pago</span>
             <select
@@ -158,6 +179,15 @@ export default async function EditExpensePage({
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-zinc-500">
+              Persona (quién gastó / sueldo de)
+            </span>
+            <PersonSelect people={people} defaultValue={expense.personId ?? ""} />
+            <span className="mt-1 block text-[11px] text-zinc-400">
+              Obligatorio para sueldos.
+            </span>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Obra (opcional)</span>

@@ -1,4 +1,4 @@
-import { CostKind, FiscalKind } from "@/lib/generated/prisma/enums";
+import { CostKind, FiscalKind, StaffArea } from "@/lib/generated/prisma/enums";
 
 /** Etiquetas en español para la UI del módulo de gastos (M1+M2+M3). */
 
@@ -53,4 +53,26 @@ export function monthLabel(month: string): string {
     year: "numeric",
     timeZone: "America/Argentina/Buenos_Aires",
   }).format(mid);
+}
+
+/** Áreas del personal (M5). */
+export const STAFF_AREA_LABELS: Record<StaffArea, string> = {
+  [StaffArea.MANAGEMENT]: "Gerencia",
+  [StaffArea.ADMINISTRATION]: "Administración",
+  [StaffArea.EMPLOYEE]: "Empleados",
+};
+
+/** Orden de presentación de las áreas. */
+export const STAFF_AREA_ORDER: StaffArea[] = [
+  StaffArea.MANAGEMENT,
+  StaffArea.ADMINISTRATION,
+  StaffArea.EMPLOYEE,
+];
+
+/**
+ * ¿La categoría es de sueldos? En ese caso el gasto exige indicar a qué
+ * persona se le pagó (buscador por persona en Sueldos).
+ */
+export function isSalaryCategory(name: string): boolean {
+  return /sueldo|salario|jornal|aguinaldo/i.test(name);
 }

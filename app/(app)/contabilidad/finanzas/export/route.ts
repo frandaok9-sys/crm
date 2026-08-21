@@ -43,6 +43,9 @@ export async function GET(request: Request) {
       select: {
         date: true,
         amount: true,
+        netAmount: true,
+        taxes: { select: { label: true, amount: true } },
+        person: { select: { name: true } },
         currency: true,
         paymentMethod: true,
         description: true,
@@ -146,15 +149,26 @@ export async function GET(request: Request) {
     { header: "Obra", key: "o", width: 30 },
     { header: "Cargado por", key: "u", width: 22 },
     { header: "Fiscal", key: "fk", width: 12 },
+    { header: "Persona", key: "p", width: 22 },
     { header: "Moneda", key: "c", width: 10 },
-    { header: "Importe", key: "v", width: 16 },
+    { header: "Neto", key: "n", width: 16 },
+    { header: "Impuestos", key: "tx", width: 16 },
+    { header: "Detalle impuestos", key: "txd", width: 34 },
+    { header: "Importe total", key: "v", width: 16 },
   ];
   sheet.getRow(1).font = { bold: true };
   for (const e of expenses) {
+    const taxTotal = e.taxes.reduce((acc, t) => acc + Number(t.amount.toString()), 0);
     const row = sheet.addRow({
       f: dateFmt.format(e.date),
       cat: e.category.name,
       t: COST_KIND_LABELS[e.category.kind],
+      p: e.person?.name ?? "",
+      n: Number(e.netAmount.toString()),
+      tx: taxTotal,
+      txd: e.taxes
+        .map((t) => `${t.label}: ${Number(t.amount.toString()).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`)
+        .join(" · "),
       d: e.description ?? "",
       mp: e.paymentMethod ?? "",
       o: e.opportunity
@@ -166,6 +180,23 @@ export async function GET(request: Request) {
       v: Number(e.amount.toString()),
     });
     row.getCell("v").numFmt = MONEY_FMT;
+    row.getCell("n").numFmt = MONEY_FMT;
+    row.getCell("tx").numFmt = MONEY_FMT;
+  }
+
+  // --- Hoja: Impuestos del mes (por etiqueta y moneda, para liquidar) ------
+  const taxSheet = workbook.addWorksheet("Impuestos del mes");
+  taxSheet.columns = [
+    { header: "Moneda", key: "c", width: 10 },
+    { header: "Impuesto / agregado", key: "l", width: 30 },
+    { header: "Total", key: "v", width: 16 },
+  ];
+  taxSheet.getRow(1).font = { bold: true };
+  for (const card of cards ?? []) {
+    for (const t of card.taxesByLabel) {
+      const row = taxSheet.addRow({ c: card.currency, l: t.label, v: Number(t.total) });
+      row.getCell("v").numFmt = MONEY_FMT;
+    }
   }
 
   // --- Hoja 4: Facturación del mes (detalle) -------------------------------

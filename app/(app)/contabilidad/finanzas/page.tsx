@@ -179,6 +179,27 @@ export default async function FinancePage({
                 </div>
               </div>
             )}
+
+            {card.taxesByLabel.length > 0 && (
+              <div className="mt-5">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  Impuestos y agregados en gastos (para liquidar)
+                </h3>
+                <div className="space-y-1">
+                  {card.taxesByLabel.map((t) => (
+                    <div key={t.label} className="flex items-center justify-between gap-3 text-[13px]">
+                      <span className="truncate text-text2">{t.label}</span>
+                      <span className="shrink-0 font-semibold tabular-nums">
+                        {formatMoney(t.total, card.currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Suma de las líneas de impuestos cargadas en cada gasto del mes (neto + impuestos = total).
+                </p>
+              </div>
+            )}
           </section>
         );
       })}

@@ -14,6 +14,7 @@ import { formatMoney } from "@/lib/opportunities";
 import { hasGoogleTasksAccess } from "@/lib/google-tasks";
 import { UserStatus, Currency, FiscalKind } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { ClientCombobox } from "@/components/client-combobox";
 import { DeleteOpportunityButton } from "@/components/delete-opportunity-button";
 import { TaskThread } from "@/components/task-thread";
@@ -371,9 +372,12 @@ export default async function OpportunityDetailPage({
                 {canEdit && (
                   <form action={deleteReminder}>
                     <input type="hidden" name="id" value={reminder.id} />
-                    <Button type="submit" size="sm" variant="ghost">
+                    <ConfirmDeleteButton
+                      message={"¿Borrar este recordatorio?\n\nEsta acción no se puede deshacer."}
+                      className="rounded-[8px] px-2.5 py-1 text-sm text-muted-foreground hover:bg-hoverbg hover:text-red-600"
+                    >
                       Borrar
-                    </Button>
+                    </ConfirmDeleteButton>
                   </form>
                 )}
               </li>

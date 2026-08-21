@@ -21,6 +21,9 @@ import {
 import { Currency, CostKind, FiscalKind } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { TintBadge } from "@/components/tint-badge";
+import { ExpenseBreakdown } from "@/components/expense-breakdown";
+import { PersonSelect } from "@/components/person-select";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import {
   createExpense,
   deleteExpense,
@@ -52,13 +55,14 @@ export default async function ExpensesPage({
     ...(manager ? {} : { createdById: user.id }),
   };
 
-  const [expenses, categories, opportunities] = await Promise.all([
+  const [expenses, categories, opportunities, people] = await Promise.all([
     prisma.expense.findMany({
       where,
       select: {
         id: true,
         date: true,
         amount: true,
+        netAmount: true,
         currency: true,
         paymentMethod: true,
         description: true,
@@ -68,6 +72,8 @@ export default async function ExpensesPage({
         opportunity: {
           select: { id: true, title: true, client: { select: { legalName: true } } },
         },
+        person: { select: { id: true, name: true } },
+        taxes: { select: { label: true, amount: true } },
         createdBy: { select: { id: true, name: true, email: true } },
       },
       orderBy: { date: "desc" },
@@ -82,6 +88,12 @@ export default async function ExpensesPage({
       select: { id: true, title: true, client: { select: { legalName: true } } },
       orderBy: { updatedAt: "desc" },
       take: 60,
+    }),
+    // Personal (M5): quién gastó / a quién se le paga el sueldo.
+    prisma.person.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, area: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -170,10 +182,6 @@ export default async function ExpensesPage({
             <input type="date" name="date" className={inputClass} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">Importe *</span>
-            <input name="amount" required inputMode="decimal" placeholder="25000" className={inputClass} />
-          </label>
-          <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Moneda</span>
             <select name="currency" defaultValue={Currency.ARS} className={inputClass}>
               <option value={Currency.ARS}>Pesos (ARS)</option>
@@ -190,6 +198,10 @@ export default async function ExpensesPage({
               ))}
             </select>
           </label>
+
+          {/* Desglose: neto + agregados/impuestos = total de la factura */}
+          <ExpenseBreakdown symbol="" />
+
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Medio de pago</span>
             <select name="paymentMethod" defaultValue="" className={inputClass}>
@@ -198,6 +210,15 @@ export default async function ExpensesPage({
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-zinc-500">
+              Persona (quién gastó / sueldo de)
+            </span>
+            <PersonSelect people={people} />
+            <span className="mt-1 block text-[11px] text-zinc-400">
+              Obligatorio para sueldos. El listado se carga en Personal.
+            </span>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Obra (opcional)</span>
@@ -270,77 +291,105 @@ export default async function ExpensesPage({
             Sin gastos en este mes{cat ? " para esa categoría" : ""}.
           </div>
         ) : (
-          expenses.map((e) => (
-            <div
-              key={e.id}
-              className="grid min-w-[820px] grid-cols-[100px_1.4fr_1fr_1fr_120px_90px_60px] items-center lg:min-w-0 border-b border-border2 px-5 py-3 text-[13px] last:border-0 hover:bg-hoverbg"
-            >
-              <span className="tabular-nums text-text2">
-                {formatDateAR(e.date)}
-              </span>
-              <span className="min-w-0 pr-2">
-                <span className="font-semibold">{e.category.name}</span>
-                <span className="ml-1.5 text-[11px] text-muted-foreground">
-                  {COST_KIND_LABELS[e.category.kind]}
+          expenses.map((e) => {
+            const taxTotal = e.taxes.reduce(
+              (acc, t) => acc.plus(t.amount.toString()),
+              new Decimal(0)
+            );
+            const hasBreakdown = e.taxes.length > 0;
+            const taxDetail = e.taxes
+              .map((t) => `${t.label}: ${formatMoney(t.amount.toString(), e.currency)}`)
+              .join(" · ");
+            return (
+              <div
+                key={e.id}
+                className="grid min-w-[820px] grid-cols-[100px_1.4fr_1fr_1fr_120px_90px_60px] items-center lg:min-w-0 border-b border-border2 px-5 py-3 text-[13px] last:border-0 hover:bg-hoverbg"
+              >
+                <span className="tabular-nums text-text2">
+                  {formatDateAR(e.date)}
                 </span>
-                {e.description && (
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {e.description}
-                    {e.paymentMethod ? ` · ${e.paymentMethod}` : ""}
+                <span className="min-w-0 pr-2">
+                  <span className="font-semibold">{e.category.name}</span>
+                  <span className="ml-1.5 text-[11px] text-muted-foreground">
+                    {COST_KIND_LABELS[e.category.kind]}
                   </span>
-                )}
-              </span>
-              <span className="min-w-0 truncate pr-2 text-text2">
-                {e.opportunity ? (
-                  <Link href={`/oportunidades/${e.opportunity.id}`} className="hover:underline">
-                    {e.opportunity.client.legalName} — {e.opportunity.title}
-                  </Link>
-                ) : (
-                  <span className="text-muted2">General</span>
-                )}
-              </span>
-              <span className="min-w-0 truncate pr-2 text-text2">
-                {e.createdBy.name ?? e.createdBy.email}
-              </span>
-              <span className="text-right font-semibold tabular-nums">
-                {formatMoney(e.amount.toString(), e.currency)}
-              </span>
-              <span className="text-center">
-                <TintBadge variant={e.fiscalKind === FiscalKind.INVOICED ? "blue" : "amber"}>
-                  {FISCAL_KIND_LABELS[e.fiscalKind]}
-                </TintBadge>
-              </span>
-              <span className="flex items-center justify-end gap-2">
-                {e.receiptType && (
-                  <a
-                    href={`/contabilidad/gastos/${e.id}/comprobante`}
-                    target="_blank"
-                    title="Ver comprobante"
-                    className="text-muted-foreground hover:text-primary"
-                  >
-                    📎
-                  </a>
-                )}
-                {(manager || e.createdBy.id === user.id) && (
-                  <>
-                    <Link
-                      href={`/contabilidad/gastos/${e.id}/editar`}
-                      title="Editar / completar datos"
+                  {(e.description || e.person || e.paymentMethod) && (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {e.person && (
+                        <span className="font-medium text-text2">{e.person.name}</span>
+                      )}
+                      {e.person && (e.description || e.paymentMethod) ? " · " : ""}
+                      {e.description}
+                      {e.paymentMethod
+                        ? `${e.description ? " · " : ""}${e.paymentMethod}`
+                        : ""}
+                    </span>
+                  )}
+                </span>
+                <span className="min-w-0 truncate pr-2 text-text2">
+                  {e.opportunity ? (
+                    <Link href={`/oportunidades/${e.opportunity.id}`} className="hover:underline">
+                      {e.opportunity.client.legalName} — {e.opportunity.title}
+                    </Link>
+                  ) : (
+                    <span className="text-muted2">General</span>
+                  )}
+                </span>
+                <span className="min-w-0 truncate pr-2 text-text2">
+                  {e.createdBy.name ?? e.createdBy.email}
+                </span>
+                <span className="text-right tabular-nums">
+                  <span className="block font-semibold">
+                    {formatMoney(e.amount.toString(), e.currency)}
+                  </span>
+                  {hasBreakdown && (
+                    <span className="block text-[11px] text-muted-foreground" title={taxDetail}>
+                      neto {formatMoney(e.netAmount.toString(), e.currency)} · imp.{" "}
+                      {formatMoney(taxTotal.toFixed(2), e.currency)}
+                    </span>
+                  )}
+                </span>
+                <span className="text-center">
+                  <TintBadge variant={e.fiscalKind === FiscalKind.INVOICED ? "blue" : "amber"}>
+                    {FISCAL_KIND_LABELS[e.fiscalKind]}
+                  </TintBadge>
+                </span>
+                <span className="flex items-center justify-end gap-2">
+                  {e.receiptType && (
+                    <a
+                      href={`/contabilidad/gastos/${e.id}/comprobante`}
+                      target="_blank"
+                      title="Ver comprobante"
                       className="text-muted-foreground hover:text-primary"
                     >
-                      ✎
-                    </Link>
-                    <form action={deleteExpense}>
-                      <input type="hidden" name="id" value={e.id} />
-                      <button type="submit" title="Borrar" className="text-zinc-400 hover:text-red-600">
-                        ✕
-                      </button>
-                    </form>
-                  </>
-                )}
-              </span>
-            </div>
-          ))
+                      📎
+                    </a>
+                  )}
+                  {(manager || e.createdBy.id === user.id) && (
+                    <>
+                      <Link
+                        href={`/contabilidad/gastos/${e.id}/editar`}
+                        title="Editar / completar datos"
+                        className="text-muted-foreground hover:text-primary"
+                      >
+                        ✎
+                      </Link>
+                      <form action={deleteExpense}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <ConfirmDeleteButton
+                          title="Borrar"
+                          message={`¿Borrar el gasto de ${e.category.name} por ${formatMoney(e.amount.toString(), e.currency)} del ${formatDateAR(e.date)}?\n\nEsta acción no se puede deshacer.`}
+                          className="text-zinc-400 hover:text-red-600"
+                        >
+                          ✕
+                        </ConfirmDeleteButton>
+                      </form>
+                    </>
+                  )}
+                </span>
+              </div>
+            );
+          })
         )}
       </section>
 
