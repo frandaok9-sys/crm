@@ -24,8 +24,9 @@ export default async function AppsPage() {
 
   return (
     <div className="space-y-7">
-      {/* Saludo a la izquierda, novedades a la derecha (en el celular, debajo). */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* Saludo a la izquierda; novedades a la derecha: campanita en el
+          celular, cabecera desplegable en escritorio. */}
+      <div className="flex items-center justify-between gap-4 lg:items-start">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
             {todayKickerAR()}
@@ -34,7 +35,7 @@ export default async function AppsPage() {
             Hola, {firstName}
           </h1>
         </div>
-        <div className="w-full lg:w-[380px]">
+        <div className="shrink-0 lg:w-[380px]">
           <NotificationsPanel items={notifications} />
         </div>
       </div>
