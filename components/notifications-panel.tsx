@@ -219,7 +219,7 @@ export function NotificationsPanel({ items }: { items: AppNotification[] }) {
       </div>
 
       {/* ---------- Escritorio: cabecera desplegable ---------- */}
-      <section className="relative hidden rounded-[16px] border border-border bg-card shadow-[var(--shadow-sm)] lg:block">
+      <section className="relative z-30 hidden rounded-[16px] border border-border bg-card shadow-[var(--shadow-sm)] lg:block">
         <button
           type="button"
           onClick={toggleOpen}
