@@ -10,7 +10,7 @@ export default async function LoginPage({
   searchParams: Promise<{ demo?: string; pw?: string }>;
 }) {
   const session = await auth();
-  if (session?.user) redirect("/dashboard");
+  if (session?.user) redirect("/apps");
   const settings = await getCompanySettings();
   const params = await searchParams;
   const demoEnabled = Boolean(process.env.DEMO_PASSWORD);
@@ -61,7 +61,7 @@ export default async function LoginPage({
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/dashboard" });
+            await signIn("google", { redirectTo: "/apps" });
           }}
         >
           <Button type="submit" className="h-10 w-full uppercase tracking-wider">

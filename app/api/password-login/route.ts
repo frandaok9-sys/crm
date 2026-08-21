@@ -98,7 +98,7 @@ export async function POST(request: Request): Promise<Response> {
     ? "__Secure-authjs.session-token"
     : "authjs.session-token";
 
-  const response = NextResponse.redirect(new URL("/dashboard", request.url), 303);
+  const response = NextResponse.redirect(new URL("/apps", request.url), 303);
   response.cookies.set(cookieName, sessionToken, {
     httpOnly: true,
     sameSite: "lax",

@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
   globalSearchAction,
   type GlobalSearchHit,
 } from "@/app/(app)/global-search-action";
+import { appMatches } from "@/lib/nav-registry";
 
 const KIND_LABELS: Record<GlobalSearchHit["kind"], string> = {
   client: "Cliente",
@@ -20,11 +21,18 @@ const KIND_ICONS: Record<GlobalSearchHit["kind"], string> = {
   quote: "🧾",
 };
 
+export type PaletteApp = { href: string; label: string; hint: string; sub?: string[] };
+
+type Entry =
+  | { kind: "app"; href: string; title: string; subtitle: string }
+  | (GlobalSearchHit & { kind: GlobalSearchHit["kind"] });
+
 /**
- * Búsqueda global (Ctrl+K / Cmd+K): clientes, oportunidades y presupuestos
- * desde cualquier pantalla. Flechas para moverse, Enter para abrir, Esc cierra.
+ * Búsqueda global (Ctrl+K / Cmd+K): primero las APPS que coinciden ("gastos"
+ * → Contabilidad), después clientes, oportunidades y presupuestos. Flechas
+ * para moverse, Enter para abrir, Esc cierra.
  */
-export function CommandPalette() {
+export function CommandPalette({ apps = [] }: { apps?: PaletteApp[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -48,7 +56,7 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Móvil: no hay Ctrl+K con el dedo; la hoja "Más" dispara este evento.
+  // Barra superior / hoja móvil: no hay Ctrl+K con el dedo.
   useEffect(() => {
     const onOpen = () => setOpen(true);
     window.addEventListener("rc:abrir-buscador", onOpen);
@@ -65,7 +73,7 @@ export function CommandPalette() {
     }
   }, [open]);
 
-  // Búsqueda con debounce; descarta respuestas viejas.
+  // Búsqueda de registros con debounce; descarta respuestas viejas.
   useEffect(() => {
     if (!open) return;
     const q = query.trim();
@@ -92,10 +100,21 @@ export function CommandPalette() {
     return () => clearTimeout(timer);
   }, [query, open]);
 
+  // Apps que coinciden (sin ir al servidor): van primero.
+  const entries = useMemo<Entry[]>(() => {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const appEntries: Entry[] = apps
+      .filter((a) => appMatches(a, q))
+      .slice(0, 4)
+      .map((a) => ({ kind: "app", href: a.href, title: a.label, subtitle: a.hint }));
+    return [...appEntries, ...hits];
+  }, [apps, hits, query]);
+
   const go = useCallback(
-    (hit: GlobalSearchHit) => {
+    (entry: Entry) => {
       setOpen(false);
-      router.push(hit.href);
+      router.push(entry.href);
     },
     [router]
   );
@@ -120,16 +139,16 @@ export function CommandPalette() {
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") {
                 e.preventDefault();
-                setActive((i) => Math.min(i + 1, hits.length - 1));
+                setActive((i) => Math.min(i + 1, entries.length - 1));
               } else if (e.key === "ArrowUp") {
                 e.preventDefault();
                 setActive((i) => Math.max(i - 1, 0));
-              } else if (e.key === "Enter" && hits[active]) {
+              } else if (e.key === "Enter" && entries[active]) {
                 e.preventDefault();
-                go(hits[active]);
+                go(entries[active]);
               }
             }}
-            placeholder="Buscar cliente, oportunidad o presupuesto…"
+            placeholder="Ir a una app o buscar cliente, oportunidad o presupuesto…"
             className="w-full bg-transparent py-3.5 text-sm outline-none placeholder:text-muted2"
           />
           <kbd className="shrink-0 rounded border border-border2 px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -140,23 +159,25 @@ export function CommandPalette() {
         <div className="max-h-[50vh] overflow-y-auto p-2">
           {query.trim().length < 2 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-              Escribí al menos 2 letras. Abrís esta búsqueda con{" "}
+              Escribí al menos 2 letras: el nombre de una app (gastos,
+              pipeline…) o de un cliente, oportunidad o presupuesto. Abrís esta
+              búsqueda con{" "}
               <kbd className="rounded border border-border2 px-1 text-[11px]">Ctrl</kbd>{" "}
               + <kbd className="rounded border border-border2 px-1 text-[11px]">K</kbd>{" "}
               desde cualquier pantalla.
             </p>
-          ) : loading && hits.length === 0 ? (
+          ) : loading && entries.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               Buscando…
             </p>
-          ) : hits.length === 0 ? (
+          ) : entries.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               Sin resultados para “{query.trim()}”.
             </p>
           ) : (
             <ul>
-              {hits.map((h, i) => (
-                <li key={`${h.kind}-${h.id}`}>
+              {entries.map((h, i) => (
+                <li key={`${h.kind}-${h.kind === "app" ? h.href : h.id}`}>
                   <button
                     type="button"
                     onMouseEnter={() => setActive(i)}
@@ -165,7 +186,7 @@ export function CommandPalette() {
                       i === active ? "bg-hoverbg" : ""
                     }`}
                   >
-                    <span aria-hidden>{KIND_ICONS[h.kind]}</span>
+                    <span aria-hidden>{h.kind === "app" ? "⊞" : KIND_ICONS[h.kind]}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{h.title}</span>
                       {h.subtitle && (
@@ -174,8 +195,8 @@ export function CommandPalette() {
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 rounded-full bg-chip px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {KIND_LABELS[h.kind]}
+                    <span className="shrink-0 rounded-full bg-chip px-2 py-0.5 text-[10.5px] font-medium text-text2">
+                      {h.kind === "app" ? "Ir a la app" : KIND_LABELS[h.kind]}
                     </span>
                   </button>
                 </li>
