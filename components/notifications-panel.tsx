@@ -20,6 +20,7 @@ const TONE_META: Record<
 
 const TONE_ORDER: AppNotification["tone"][] = ["red", "amber", "blue"];
 const INITIAL_VISIBLE = 6;
+const OPEN_KEY = "rc-novedades-abierto";
 
 /**
  * Panel de novedades con detalle (escritorio de apps): cada novedad con su
@@ -29,15 +30,29 @@ const INITIAL_VISIBLE = 6;
 export function NotificationsPanel({ items }: { items: AppNotification[] }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState(false);
+  // Desplegable: cerrado por defecto; recuerda cómo lo dejaste.
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(DISMISSED_KEY);
       if (raw) setDismissed(new Set(JSON.parse(raw) as string[]));
+      if (localStorage.getItem(OPEN_KEY) === "1") setOpen(true);
     } catch {
       /* localStorage no disponible */
     }
   }, []);
+
+  function toggleOpen() {
+    setOpen((v) => {
+      try {
+        localStorage.setItem(OPEN_KEY, v ? "0" : "1");
+      } catch {
+        /* localStorage no disponible */
+      }
+      return !v;
+    });
+  }
 
   function dismiss(id: string) {
     setDismissed((prev) => {
@@ -59,8 +74,13 @@ export function NotificationsPanel({ items }: { items: AppNotification[] }) {
   const urgent = visible.filter((n) => n.tone === "red").length;
 
   return (
-    <section className="overflow-hidden rounded-[16px] border border-border bg-card shadow-[var(--shadow-sm)]">
-      <div className="flex items-center gap-2 border-b border-border2 px-4 py-3">
+    <section className="relative rounded-[16px] border border-border bg-card shadow-[var(--shadow-sm)]">
+      <button
+        type="button"
+        onClick={toggleOpen}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 rounded-[16px] px-4 py-3 text-left transition-colors hover:bg-hoverbg"
+      >
         <svg
           width="18"
           height="18"
@@ -85,7 +105,23 @@ export function NotificationsPanel({ items }: { items: AppNotification[] }) {
             {urgent} urgente{urgent === 1 ? "" : "s"}
           </span>
         )}
-      </div>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`shrink-0 text-muted-foreground transition-transform ${urgent > 0 ? "" : "ml-auto"} ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="max-h-[70vh] overflow-y-auto border-t border-border2 lg:absolute lg:right-0 lg:top-full lg:z-30 lg:mt-2 lg:w-[380px] lg:rounded-[16px] lg:border lg:border-border lg:bg-card lg:shadow-2xl">
 
       {visible.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -140,6 +176,8 @@ export function NotificationsPanel({ items }: { items: AppNotification[] }) {
         >
           {showAll ? "Ver menos" : `Ver las ${visible.length} novedades`}
         </button>
+      )}
+        </div>
       )}
     </section>
   );
