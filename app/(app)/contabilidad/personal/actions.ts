@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { canManageExpenses } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
-import { StaffArea } from "@/lib/generated/prisma/enums";
+import { StaffArea, UserStatus } from "@/lib/generated/prisma/enums";
 
 /**
  * Personal de la empresa (M5): listado de quiénes pueden generar gastos y a
@@ -57,6 +57,46 @@ export async function createPerson(formData: FormData): Promise<void> {
     targetType: "Person",
     targetId: person.id,
     metadata: { name, area, canSpend },
+  });
+  touch();
+}
+
+/**
+ * Alta desde un usuario del sistema: toma su nombre y lo deja VINCULADO (una
+ * sola ficha por usuario). Así no hay que tipearlo de nuevo y, al cargar un
+ * gasto, el sistema propone a esa persona como "quién gastó".
+ */
+export async function createPersonFromUser(formData: FormData): Promise<void> {
+  const admin = await requireFinance();
+  const userId = String(formData.get("userId") ?? "");
+  const area = parseArea(formData.get("area"));
+  const canSpend = formData.get("canSpend") === "on";
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, status: true, person: { select: { id: true } } },
+  });
+  if (!target || target.status !== UserStatus.ACTIVE) {
+    throw new Error("Elegí un usuario activo del sistema.");
+  }
+  if (target.person) {
+    throw new Error("Ese usuario ya está en el listado de personal.");
+  }
+
+  const person = await prisma.person.create({
+    data: {
+      name: cleanName(target.name ?? target.email),
+      area,
+      canSpend,
+      userId: target.id,
+    },
+  });
+  await logAudit({
+    action: "person.created",
+    actorId: admin.id,
+    targetType: "Person",
+    targetId: person.id,
+    metadata: { name: person.name, area, canSpend, fromUserId: target.id },
   });
   touch();
 }

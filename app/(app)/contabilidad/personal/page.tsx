@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { canManageExpenses } from "@/lib/permissions";
 import { STAFF_AREA_LABELS, STAFF_AREA_ORDER } from "@/lib/expenses";
-import { StaffArea } from "@/lib/generated/prisma/enums";
+import { StaffArea, UserStatus } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { TintBadge } from "@/components/tint-badge";
 import {
   createPerson,
+  createPersonFromUser,
   updatePerson,
   togglePersonCanSpend,
   togglePersonActive,
@@ -21,14 +22,24 @@ const inputClass =
  * Personal (M5): listado del personal separado por gerencia, administración
  * y empleados, con la marca de quiénes están autorizados a generar gastos.
  * Es también el padrón que usa Sueldos y el campo "Persona" de cada gasto.
+ * Se puede cargar a mano o eligiendo un usuario del sistema (queda vinculado).
  */
 export default async function PersonalPage() {
   const user = await requireActiveUser();
   if (!canManageExpenses(user)) redirect("/contabilidad");
 
-  const people = await prisma.person.findMany({
-    orderBy: [{ isActive: "desc" }, { name: "asc" }],
-  });
+  const [people, users] = await Promise.all([
+    prisma.person.findMany({
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      include: { user: { select: { email: true } } },
+    }),
+    // Usuarios activos que todavía no están en el listado de personal.
+    prisma.user.findMany({
+      where: { status: UserStatus.ACTIVE, person: null },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
   const authorized = people.filter((p) => p.isActive && p.canSpend).length;
 
   return (
@@ -42,37 +53,87 @@ export default async function PersonalPage() {
         </p>
       </div>
 
-      {/* Alta */}
-      <section className="rounded-[12px] border bg-card p-5">
-        <h2 className="mb-4 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
-          Agregar persona
-        </h2>
-        <form action={createPerson} className="grid gap-3 sm:grid-cols-4">
-          <label className="block sm:col-span-2">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">Nombre y apellido *</span>
-            <input name="name" required placeholder="Ej: Juan Pérez" className={inputClass} />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">Área</span>
-            <select name="area" defaultValue={StaffArea.EMPLOYEE} className={inputClass}>
-              {STAFF_AREA_ORDER.map((a) => (
-                <option key={a} value={a}>{STAFF_AREA_LABELS[a]}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-end gap-2 pb-2 text-sm">
-            <input type="checkbox" name="canSpend" className="h-4 w-4" />
-            Autorizado a gastar
-          </label>
-          <label className="block sm:col-span-3">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">Notas (opcional)</span>
-            <input name="notes" placeholder="Ej: tope mensual, tarjeta corporativa…" className={inputClass} />
-          </label>
-          <div className="flex items-end justify-end">
-            <Button type="submit">Agregar</Button>
-          </div>
-        </form>
-      </section>
+      <div className="grid gap-[14px] lg:grid-cols-2">
+        {/* Alta desde usuarios del sistema */}
+        <section className="rounded-[12px] border bg-card p-5">
+          <h2 className="mb-1 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
+            Agregar desde usuarios del sistema
+          </h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Toma el nombre del usuario y lo deja vinculado: al cargar un gasto,
+            el sistema le propone su propia persona como &quot;quién gastó&quot;.
+          </p>
+          {users.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Todos los usuarios activos ya están en el listado.
+            </p>
+          ) : (
+            <form action={createPersonFromUser} className="grid gap-3 sm:grid-cols-2">
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">Usuario *</span>
+                <select name="userId" required defaultValue="" className={inputClass}>
+                  <option value="" disabled>Elegí un usuario…</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name ?? u.email}{u.name ? ` — ${u.email}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-zinc-500">Área</span>
+                <select name="area" defaultValue={StaffArea.EMPLOYEE} className={inputClass}>
+                  {STAFF_AREA_ORDER.map((a) => (
+                    <option key={a} value={a}>{STAFF_AREA_LABELS[a]}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-end gap-2 pb-2 text-sm">
+                <input type="checkbox" name="canSpend" className="h-4 w-4" />
+                Autorizado a gastar
+              </label>
+              <div className="flex justify-end sm:col-span-2">
+                <Button type="submit">Agregar usuario</Button>
+              </div>
+            </form>
+          )}
+        </section>
+
+        {/* Alta manual (gente que no usa el sistema) */}
+        <section className="rounded-[12px] border bg-card p-5">
+          <h2 className="mb-1 text-[13px] font-semibold tracking-[0.06em] text-muted-foreground">
+            Agregar a mano
+          </h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Para personal que no usa el CRM (operarios, empleados sin usuario).
+          </p>
+          <form action={createPerson} className="grid gap-3 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">Nombre y apellido *</span>
+              <input name="name" required placeholder="Ej: Juan Pérez" className={inputClass} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">Área</span>
+              <select name="area" defaultValue={StaffArea.EMPLOYEE} className={inputClass}>
+                {STAFF_AREA_ORDER.map((a) => (
+                  <option key={a} value={a}>{STAFF_AREA_LABELS[a]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-end gap-2 pb-2 text-sm">
+              <input type="checkbox" name="canSpend" className="h-4 w-4" />
+              Autorizado a gastar
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">Notas (opcional)</span>
+              <input name="notes" placeholder="Ej: tope mensual, tarjeta corporativa…" className={inputClass} />
+            </label>
+            <div className="flex justify-end sm:col-span-2">
+              <Button type="submit">Agregar</Button>
+            </div>
+          </form>
+        </section>
+      </div>
 
       {/* Listado por área */}
       {STAFF_AREA_ORDER.map((area) => {
@@ -122,6 +183,11 @@ export default async function PersonalPage() {
                         Guardar
                       </button>
                     </form>
+                    {p.user && (
+                      <span title={p.user.email}>
+                        <TintBadge variant="blue">Usuario del sistema</TintBadge>
+                      </span>
+                    )}
                     <form action={togglePersonCanSpend}>
                       <input type="hidden" name="id" value={p.id} />
                       <button type="submit" title="Cambiar autorización para gastar">

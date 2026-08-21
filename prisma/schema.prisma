@@ -60,6 +60,7 @@ model User {
   assignedActivities ClientActivity[] @relation("ActivityAssignee")
   uploadedDocuments  OpportunityDocument[] @relation("DocumentUploader")
   expenses      Expense[]        @relation("ExpenseAuthor")
+  person        Person?          @relation("PersonUser")
   assistantLogs AssistantLog[]   @relation("AssistantLogUser")
 
   createdAt DateTime @default(now())
@@ -990,6 +991,11 @@ model Person {
   canSpend Boolean   @default(false)
   isActive Boolean   @default(true)
   notes    String?
+
+  /// Si la persona es además usuario del sistema, queda vinculada (una sola
+  /// ficha de personal por usuario). Permite proponer "quién gastó" solo.
+  userId String? @unique
+  user   User?   @relation("PersonUser", fields: [userId], references: [id], onDelete: SetNull)
 
   expenses Expense[]
 

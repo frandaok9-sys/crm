@@ -55,7 +55,7 @@ export default async function ExpensesPage({
     ...(manager ? {} : { createdById: user.id }),
   };
 
-  const [expenses, categories, opportunities, people] = await Promise.all([
+  const [expenses, categories, opportunities, people, myPerson] = await Promise.all([
     prisma.expense.findMany({
       where,
       select: {
@@ -94,6 +94,11 @@ export default async function ExpensesPage({
       where: { isActive: true },
       select: { id: true, name: true, area: true },
       orderBy: { name: "asc" },
+    }),
+    // Si quien carga es también persona del listado, se la propone por defecto.
+    prisma.person.findUnique({
+      where: { userId: user.id },
+      select: { id: true, isActive: true },
     }),
   ]);
 
@@ -215,7 +220,10 @@ export default async function ExpensesPage({
             <span className="mb-1 block text-xs font-medium text-zinc-500">
               Persona (quién gastó / sueldo de)
             </span>
-            <PersonSelect people={people} />
+            <PersonSelect
+              people={people}
+              defaultValue={myPerson?.isActive ? myPerson.id : ""}
+            />
             <span className="mt-1 block text-[11px] text-zinc-400">
               Obligatorio para sueldos. El listado se carga en Personal.
             </span>
