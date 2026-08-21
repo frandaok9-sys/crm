@@ -6,6 +6,10 @@ import { TAX_LABEL_SUGGESTIONS } from "@/lib/expense-calc";
 
 const inputClass =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+// Campos de la fila de impuestos: SIN w-full (el ancho lo reparte el flex;
+// con w-full el importe ocupaba todo y la cruz se salía del margen).
+const rowInputClass =
+  "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
 
 type Line = { label: string; amount: string };
 
@@ -68,7 +72,7 @@ export function ExpenseBreakdown({
         </span>
       </label>
 
-      <div className="block sm:col-span-2">
+      <div className="block min-w-0 sm:col-span-2">
         <span className="mb-1 block text-xs font-medium text-zinc-500">
           Agregados / impuestos
         </span>
@@ -79,14 +83,14 @@ export function ExpenseBreakdown({
         </datalist>
         <div className="space-y-2">
           {lines.map((line, i) => (
-            <div key={i} className="flex items-center gap-2">
+            <div key={i} className="flex min-w-0 items-center gap-2">
               <input
                 name="taxLabel"
                 list="tax-label-suggestions"
                 placeholder="Ej: IVA 21%, percepción IIBB…"
                 value={line.label}
                 onChange={(e) => updateLine(i, { label: e.target.value })}
-                className={`${inputClass} min-w-0 flex-1`}
+                className={`${rowInputClass} min-w-0 flex-1`}
               />
               <input
                 name="taxAmount"
@@ -94,7 +98,7 @@ export function ExpenseBreakdown({
                 placeholder="0,00"
                 value={line.amount}
                 onChange={(e) => updateLine(i, { amount: e.target.value })}
-                className={`${inputClass} w-[130px] shrink-0 text-right`}
+                className={`${rowInputClass} w-[130px] shrink-0 text-right`}
               />
               <button
                 type="button"
