@@ -25,11 +25,6 @@ export default async function AppsPage() {
         <h1 className="mt-1 text-[30px] font-semibold leading-tight">
           Hola, {firstName}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Elegí una aplicación. Desde cualquier pantalla volvés acá con el logo
-          o el botón ⊞ del dock; con el buscador de arriba (o Ctrl K) saltás
-          directo a otra app.
-        </p>
       </div>
 
       <RecentApps items={items} />
