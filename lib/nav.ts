@@ -21,7 +21,9 @@ import { APP_COLORS, type NavItem } from "@/lib/nav-registry";
  * layout y el escritorio de apps lo piden en la misma petición.
  */
 export const getNavItems = cache(
-  async (user: Principal & { id: string }): Promise<NavItem[]> => {
+  async (
+    user: Principal & { id: string; dockHrefs?: string[] }
+  ): Promise<NavItem[]> => {
     const [clientCount, opportunityCount, obraCount, quoteCount] =
       await Promise.all([
         prisma.client.count({ where: clientScope(user) }),
@@ -59,6 +61,29 @@ export const getNavItems = cache(
         : []),
       { href: "/cuenta", label: "Mi cuenta", hint: "Perfil y contraseña", group: "sistema", color: color("/cuenta") },
     ];
+    // Barra de accesos rápidos personalizada (dockHrefs en el usuario): si
+    // la eligió, manda su lista y su orden; si está vacía, la barra por
+    // defecto (pinned de arriba). Solo apps que puede abrir.
+    const custom = (user.dockHrefs ?? []).filter((h) =>
+      items.some((i) => i.href === h)
+    );
+    if (custom.length > 0) {
+      for (const item of items) {
+        const idx = custom.indexOf(item.href);
+        item.pinned = idx >= 0;
+        item.dockOrder = idx >= 0 ? idx : undefined;
+      }
+    } else {
+      items.forEach((item, idx) => {
+        if (item.pinned) item.dockOrder = idx;
+      });
+    }
     return items;
   }
 );
+
+/** Barra por defecto del sistema (para "Restablecer" en el editor). */
+export function defaultDockHrefs(items: NavItem[]): string[] {
+  return DEFAULT_DOCK.filter((h) => items.some((i) => i.href === h));
+}
+const DEFAULT_DOCK = ["/dashboard", "/clientes", "/oportunidades", "/presupuestos", "/contabilidad"];

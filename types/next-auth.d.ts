@@ -9,6 +9,8 @@ declare module "next-auth" {
       role: Role | null;
       status: UserStatus;
       permissions: string[];
+      /** Barra de accesos rápidos personalizada (rutas en orden). */
+      dockHrefs: string[];
     } & DefaultSession["user"];
   }
 }

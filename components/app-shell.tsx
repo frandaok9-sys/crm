@@ -49,6 +49,7 @@ function ThemeIcon({ dark }: { dark: boolean }) {
 }
 
 const LAUNCHPAD_EVENT = "rc:abrir-lanzador";
+import { DOCK_EDITOR_EVENT } from "@/components/dock-editor";
 
 /**
  * Armazón "tipo software": barra superior (logo → escritorio de apps,
@@ -86,7 +87,13 @@ export function AppShell({
 
   const current = items.find((i) => isItemActive(pathname, i.href)) ?? null;
   const onLauncher = pathname === "/apps";
-  const pinned = items.filter((i) => i.pinned);
+  const pinned = items
+    .filter((i) => i.pinned)
+    .sort((a, b) => (a.dockOrder ?? 99) - (b.dockOrder ?? 99));
+  const openDockEditor = () => {
+    setPadOpen(false);
+    window.dispatchEvent(new Event(DOCK_EDITOR_EVENT));
+  };
 
   // Al navegar: cerrar lo abierto y anotar la app como reciente.
   useEffect(() => {
@@ -346,6 +353,15 @@ export function AppShell({
             </Link>
           );
         })}
+        <span className="mx-1 h-7 w-px bg-border" />
+        <button
+          type="button"
+          onClick={openDockEditor}
+          title="Editar accesos rápidos (agregar, quitar, ordenar)"
+          className="flex h-12 w-9 items-center justify-center rounded-[13px] text-muted-foreground transition-colors hover:bg-hoverbg hover:text-foreground"
+        >
+          <Icon size={16} d="M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
+        </button>
       </nav>
 
       {/* ---------- Barra inferior (celular) ---------- */}
@@ -415,6 +431,14 @@ export function AppShell({
                 placeholder="Escribí para buscar una app… (Enter abre, Esc cierra)"
                 className="h-9 w-full bg-transparent text-[14px] outline-none placeholder:text-muted2"
               />
+              <button
+                type="button"
+                onClick={openDockEditor}
+                title="Editar accesos rápidos"
+                className="shrink-0 rounded-[8px] border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-hoverbg hover:text-foreground"
+              >
+                Editar accesos
+              </button>
               <button
                 type="button"
                 onClick={() => setPadOpen(false)}

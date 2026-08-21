@@ -49,6 +49,10 @@ model User {
   /// SIEMPRE hash bcrypt, nunca texto plano. Null = solo entra con Google.
   passwordHash String?
 
+  /// Barra de accesos rápidos (dock / barra inferior del celular) elegida por
+  /// el usuario: rutas en orden. Vacío = la barra por defecto del sistema.
+  dockHrefs String[] @default([])
+
   accounts  Account[]
   sessions  Session[]
   auditLogs AuditLog[] @relation("AuditLogActor")

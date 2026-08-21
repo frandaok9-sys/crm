@@ -4,7 +4,8 @@ import { signOut } from "@/auth";
 import { requireActiveUser } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { getCompanySettings } from "@/lib/company";
-import { getNavItems } from "@/lib/nav";
+import { getNavItems, defaultDockHrefs } from "@/lib/nav";
+import { DockEditor } from "@/components/dock-editor";
 import { AppShell } from "@/components/app-shell";
 import { CommandPalette } from "@/components/command-palette";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -51,6 +52,9 @@ export default async function AppLayout({
           sub: i.sub,
         }))}
       />
+      {/* Editor de la barra de accesos rápidos (se abre desde el dock o el
+          lanzador); guarda en el usuario y refresca el armazón. */}
+      <DockEditor items={items} defaultHrefs={defaultDockHrefs(items)} />
       {/* Notificaciones y tareas al día: refresco de datos cada 60 s
           sin recargar la página (se pausa si estás escribiendo). */}
       <AutoRefresh seconds={60} />

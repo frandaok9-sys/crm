@@ -92,11 +92,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: Role | null;
           status: UserStatus;
           permissions: string[];
+          dockHrefs?: string[];
         };
         session.user.id = user.id;
         session.user.role = dbUser.role;
         session.user.status = dbUser.status;
         session.user.permissions = dbUser.permissions ?? [];
+        // Barra de accesos rápidos elegida por el usuario (dock / barra móvil).
+        session.user.dockHrefs = dbUser.dockHrefs ?? [];
       }
       return session;
     },

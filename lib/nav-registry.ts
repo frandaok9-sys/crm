@@ -25,6 +25,9 @@ export const APP_GROUP_ORDER: AppGroup[] = [
   "sistema",
 ];
 
+/** Tope de accesos rápidos en la barra (dock / barra inferior): que siga siendo una barra. */
+export const DOCK_MAX = 7;
+
 /** Ítem de navegación ya resuelto para un usuario (con contador si aplica). */
 export type NavItem = {
   href: string;
@@ -36,6 +39,8 @@ export type NavItem = {
   badge?: number;
   /** Va en el dock de escritorio y en la barra inferior del celular. */
   pinned?: boolean;
+  /** Posición en la barra cuando el usuario la personalizó. */
+  dockOrder?: number;
   /** Sub-apps (pestañas internas), solo informativo para el escritorio. */
   sub?: string[];
 };
