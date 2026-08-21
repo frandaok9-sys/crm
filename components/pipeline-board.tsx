@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -44,6 +44,51 @@ export function PipelineBoard({
   const [board, setBoard] = useState(columns);
   const [, startTransition] = useTransition();
   const router = useRouter();
+
+  // Desplazamiento lateral desde ARRIBA: una barra espejo (sincronizada con
+  // la del tablero) que queda pegada arriba al bajar, más flechas ‹ › para
+  // moverse de a una columna. Así no hay que bajar hasta el final del
+  // tablero para desplazarse de costado.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const mirrorRef = useRef<HTMLDivElement>(null);
+  const syncing = useRef(false);
+  const [scrollWidth, setScrollWidth] = useState(0);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const measure = () => {
+      setScrollWidth(el.scrollWidth);
+      setHasOverflow(el.scrollWidth > el.clientWidth + 2);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [board]);
+
+  function syncFrom(source: "board" | "mirror") {
+    if (syncing.current) return;
+    const b = boardRef.current;
+    const m = mirrorRef.current;
+    if (!b || !m) return;
+    syncing.current = true;
+    if (source === "board") m.scrollLeft = b.scrollLeft;
+    else b.scrollLeft = m.scrollLeft;
+    requestAnimationFrame(() => {
+      syncing.current = false;
+    });
+  }
+
+  function scrollByColumn(dir: -1 | 1) {
+    // Una columna (276px) + separación (14px).
+    boardRef.current?.scrollBy({ left: dir * 290, behavior: "smooth" });
+  }
 
   function onDragEnd(result: DropResult) {
     const { destination, source, draggableId } = result;
@@ -118,7 +163,45 @@ export function PipelineBoard({
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-[14px] overflow-x-auto pb-4">
+      {/* Barra superior de desplazamiento (espejo) + flechas. Pegada arriba
+          mientras se baja por las columnas. Solo si el tablero desborda. */}
+      {hasOverflow && (
+        <div className="sticky top-0 z-20 -mx-1 mb-2 bg-background/95 px-1 pb-1 pt-1 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollByColumn(-1)}
+              title="Columna anterior"
+              aria-label="Desplazar a la izquierda"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-border bg-card text-text2 transition-colors hover:bg-hoverbg"
+            >
+              ‹
+            </button>
+            <div
+              ref={mirrorRef}
+              onScroll={() => syncFrom("mirror")}
+              title="Deslizá para mover el tablero"
+              className="h-3.5 min-w-0 flex-1 overflow-x-auto overflow-y-hidden rounded-full border border-border2 bg-card2 [scrollbar-width:thin]"
+            >
+              <div style={{ width: scrollWidth }} className="h-px" />
+            </div>
+            <button
+              type="button"
+              onClick={() => scrollByColumn(1)}
+              title="Columna siguiente"
+              aria-label="Desplazar a la derecha"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-border bg-card text-text2 transition-colors hover:bg-hoverbg"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      )}
+      <div
+        ref={boardRef}
+        onScroll={() => syncFrom("board")}
+        className="flex gap-[14px] overflow-x-auto pb-4"
+      >
         {board.map((col) => (
           <div key={col.id} className="w-[276px] flex-shrink-0">
             {/* Header de columna */}
