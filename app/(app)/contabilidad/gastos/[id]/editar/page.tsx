@@ -6,9 +6,11 @@ import { requireActiveUser } from "@/lib/auth";
 import {
   canLogExpenses,
   canManageExpenses,
+  canAccessSensitiveAccounting,
   opportunityScope,
 } from "@/lib/permissions";
 import { COST_KIND_LABELS, PAYMENT_METHODS } from "@/lib/expenses";
+import { formatMoney } from "@/lib/opportunities";
 import { AR_TIME_ZONE } from "@/lib/dates";
 import { Currency, FiscalKind } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,8 @@ export default async function EditExpensePage({
   const { id } = await params;
   const user = await requireActiveUser();
   if (!canLogExpenses(user)) redirect("/dashboard");
+  // Zona reservada (nominal): desglose impositivo y persona del listado.
+  const sensitive = canAccessSensitiveAccounting(user);
 
   const expense = await prisma.expense.findUnique({
     where: { id },
@@ -72,14 +76,17 @@ export default async function EditExpensePage({
           select: { id: true, title: true, client: { select: { legalName: true } } },
         })
       : null,
-    // Personal activo + la persona actual del gasto aunque esté dada de baja.
-    prisma.person.findMany({
-      where: expense.personId
-        ? { OR: [{ isActive: true }, { id: expense.personId }] }
-        : { isActive: true },
-      select: { id: true, name: true, area: true },
-      orderBy: { name: "asc" },
-    }),
+    // Personal activo + la persona actual del gasto aunque esté dada de baja
+    // (solo se muestra en la zona reservada).
+    sensitive
+      ? prisma.person.findMany({
+          where: expense.personId
+            ? { OR: [{ isActive: true }, { id: expense.personId }] }
+            : { isActive: true },
+          select: { id: true, name: true, area: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   // Categorías activas + la actual del gasto aunque esté desactivada.
@@ -95,12 +102,13 @@ export default async function EditExpensePage({
     timeZone: AR_TIME_ZONE,
   });
 
-  // Valores del desglose para el formulario, en formato argentino.
+  // Valores en formato argentino para los campos.
   const ar = (v: { toString(): string }) =>
     Number(v.toString()).toLocaleString("es-AR", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  const hasBreakdown = expense.taxes.length > 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -157,15 +165,41 @@ export default async function EditExpensePage({
             </select>
           </label>
 
-          {/* Desglose: neto + agregados/impuestos = total de la factura */}
-          <ExpenseBreakdown
-            symbol=""
-            defaultNet={ar(expense.netAmount)}
-            defaultTaxes={expense.taxes.map((t) => ({
-              label: t.label,
-              amount: ar(t.amount),
-            }))}
-          />
+          {/* Importe: desglose completo en la zona reservada; si no, total. */}
+          {sensitive ? (
+            <ExpenseBreakdown
+              symbol=""
+              defaultNet={ar(expense.netAmount)}
+              defaultTaxes={expense.taxes.map((t) => ({
+                label: t.label,
+                amount: ar(t.amount),
+              }))}
+            />
+          ) : hasBreakdown ? (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">Importe total</span>
+              <input
+                value={formatMoney(expense.amount.toString(), expense.currency) ?? ""}
+                disabled
+                className={`${inputClass} opacity-70`}
+              />
+              <span className="mt-1 block text-[11px] text-zinc-400">
+                Este gasto tiene desglose impositivo cargado por Administración:
+                el importe se conserva.
+              </span>
+            </label>
+          ) : (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">Importe total *</span>
+              <input
+                name="amount"
+                required
+                inputMode="decimal"
+                defaultValue={ar(expense.amount)}
+                className={inputClass}
+              />
+            </label>
+          )}
 
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Medio de pago</span>
@@ -180,15 +214,17 @@ export default async function EditExpensePage({
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">
-              Persona (quién gastó / sueldo de)
-            </span>
-            <PersonSelect people={people} defaultValue={expense.personId ?? ""} />
-            <span className="mt-1 block text-[11px] text-zinc-400">
-              Obligatorio para sueldos.
-            </span>
-          </label>
+          {sensitive && (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                Persona (quién gastó / sueldo de)
+              </span>
+              <PersonSelect people={people} defaultValue={expense.personId ?? ""} />
+              <span className="mt-1 block text-[11px] text-zinc-400">
+                Obligatorio para sueldos.
+              </span>
+            </label>
+          )}
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Obra (opcional)</span>
             <select

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { canLogExpenses, canManageExpenses } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
-import { buildExpenseBreakdown } from "@/lib/expense-calc";
+import { buildExpenseBreakdown, type ExpenseBreakdown } from "@/lib/expense-calc";
 import { isSalaryCategory } from "@/lib/expenses";
 import {
   Currency,
@@ -45,6 +45,11 @@ function parseAmount(raw: string | null): string {
   const dec = new Decimal(s).toDecimalPlaces(2);
   if (dec.lte(0)) throw new Error("El importe debe ser un número mayor a cero.");
   return dec.toFixed(2);
+}
+
+/** Carga simple (sin desglose): el neto es el total y no hay impuestos. */
+function simpleBreakdown(total: string): ExpenseBreakdown {
+  return { netAmount: total, taxes: [], total };
 }
 
 /** Líneas de impuestos del formulario: taxLabel[i] ↔ taxAmount[i]. */
@@ -90,11 +95,14 @@ export async function createExpense(formData: FormData): Promise<void> {
     throw new Error("Tu rol es de consulta: no puede cargar gastos.");
   }
 
-  // Desglose M5: neto + agregados/impuestos = total (Decimal, lib/expense-calc).
-  const breakdown = buildExpenseBreakdown({
-    netAmount: opt(formData, "netAmount"),
-    taxes: taxLinesFrom(formData),
-  });
+  // Desglose M5 (zona reservada): neto + agregados/impuestos = total. Si el
+  // formulario no trae desglose (carga simple), el neto es el total.
+  const breakdown = formData.has("netAmount")
+    ? buildExpenseBreakdown({
+        netAmount: opt(formData, "netAmount"),
+        taxes: taxLinesFrom(formData),
+      })
+    : simpleBreakdown(parseAmount(opt(formData, "amount")));
   const amount = breakdown.total;
   const currency =
     formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
@@ -195,8 +203,11 @@ export async function updateExpense(formData: FormData): Promise<void> {
       createdById: true,
       categoryId: true,
       opportunityId: true,
+      personId: true,
       amount: true,
+      netAmount: true,
       currency: true,
+      taxes: { select: { id: true } },
     },
   });
   if (!expense) throw new Error("Gasto no encontrado.");
@@ -204,10 +215,25 @@ export async function updateExpense(formData: FormData): Promise<void> {
     throw new Error("No tenés permisos para editar este gasto.");
   }
 
-  const breakdown = buildExpenseBreakdown({
-    netAmount: opt(formData, "netAmount"),
-    taxes: taxLinesFrom(formData),
-  });
+  let breakdown: ExpenseBreakdown;
+  let replaceTaxes = true;
+  if (formData.has("netAmount")) {
+    breakdown = buildExpenseBreakdown({
+      netAmount: opt(formData, "netAmount"),
+      taxes: taxLinesFrom(formData),
+    });
+  } else if (expense.taxes.length > 0) {
+    // Edición simple de un gasto que YA tiene desglose: el desglose lo
+    // administra la zona reservada; el importe se conserva tal cual.
+    breakdown = {
+      netAmount: expense.netAmount.toString(),
+      taxes: [],
+      total: expense.amount.toString(),
+    };
+    replaceTaxes = false;
+  } else {
+    breakdown = simpleBreakdown(parseAmount(opt(formData, "amount")));
+  }
   const amount = breakdown.total;
   const currency =
     formData.get("currency") === Currency.USD ? Currency.USD : Currency.ARS;
@@ -226,7 +252,13 @@ export async function updateExpense(formData: FormData): Promise<void> {
   if (!category || (!category.isActive && categoryId !== expense.categoryId)) {
     throw new Error("Categoría inválida.");
   }
-  const personId = await resolvePersonId(formData, category.name);
+  // Persona: si el formulario no trae el campo (edición simple), se conserva.
+  const personId = formData.has("personId")
+    ? await resolvePersonId(formData, category.name)
+    : expense.personId;
+  if (!personId && isSalaryCategory(category.name)) {
+    throw new Error("Para registrar un sueldo indicá a qué persona se le pagó.");
+  }
 
   const opportunityId = opt(formData, "opportunityId");
   if (opportunityId) {
@@ -265,8 +297,11 @@ export async function updateExpense(formData: FormData): Promise<void> {
       date,
       amount,
       netAmount: breakdown.netAmount,
-      // Las líneas de impuestos se reemplazan completas por las del form.
-      taxes: { deleteMany: {}, create: breakdown.taxes },
+      // Las líneas de impuestos se reemplazan completas por las del form
+      // (salvo edición simple, que no las toca).
+      ...(replaceTaxes
+        ? { taxes: { deleteMany: {}, create: breakdown.taxes } }
+        : {}),
       currency,
       categoryId,
       personId,

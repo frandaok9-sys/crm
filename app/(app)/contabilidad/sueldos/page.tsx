@@ -4,7 +4,7 @@ import Decimal from "decimal.js";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageExpenses } from "@/lib/permissions";
+import { canAccessSensitiveAccounting } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import {
   STAFF_AREA_LABELS,
@@ -49,7 +49,7 @@ export default async function SueldosPage({
 }) {
   const { q, p, m } = await searchParams;
   const user = await requireActiveUser();
-  if (!canManageExpenses(user)) redirect("/contabilidad");
+  if (!canAccessSensitiveAccounting(user)) redirect("/contabilidad");
 
   const month = monthRange(m ?? "") ? (m as string) : currentMonth();
   const range = monthRange(month)!;

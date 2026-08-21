@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { requireActiveUser } from "@/lib/auth";
-import { canManageExpenses } from "@/lib/permissions";
+import { canManageExpenses, canAccessSensitiveAccounting } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
 import { getMonthlyBalance } from "@/lib/finance";
 import {
@@ -27,6 +27,8 @@ export default async function FinancePage({
   const { m } = await searchParams;
   const user = await requireActiveUser();
   if (!canManageExpenses(user)) redirect("/dashboard");
+  // Los impuestos por etiqueta son parte de la zona reservada.
+  const sensitive = canAccessSensitiveAccounting(user);
 
   const month = monthRange(m ?? "") ? (m as string) : currentMonth();
   const cards = (await getMonthlyBalance(month)) ?? [];
@@ -180,7 +182,7 @@ export default async function FinancePage({
               </div>
             )}
 
-            {card.taxesByLabel.length > 0 && (
+            {sensitive && card.taxesByLabel.length > 0 && (
               <div className="mt-5">
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                   Impuestos y agregados en gastos (para liquidar)

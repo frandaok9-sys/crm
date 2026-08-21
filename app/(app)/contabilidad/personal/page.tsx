@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageExpenses } from "@/lib/permissions";
+import { canAccessSensitiveAccounting } from "@/lib/permissions";
 import { STAFF_AREA_LABELS, STAFF_AREA_ORDER } from "@/lib/expenses";
 import { StaffArea, UserStatus } from "@/lib/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ const inputClass =
  */
 export default async function PersonalPage() {
   const user = await requireActiveUser();
-  if (!canManageExpenses(user)) redirect("/contabilidad");
+  if (!canAccessSensitiveAccounting(user)) redirect("/contabilidad");
 
   const [people, users] = await Promise.all([
     prisma.person.findMany({

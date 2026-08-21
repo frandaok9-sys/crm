@@ -7,7 +7,9 @@ import { Role, UserStatus } from "@/lib/generated/prisma/enums";
  *
  * Model: each user carries an explicit `permissions` list. Assigning a role
  * initializes it with that role's defaults; an Admin can then adjust each
- * user's permissions individually. ADMIN bypasses permission checks.
+ * user's permissions individually. ADMIN bypasses permission checks —
+ * EXCEPT the RESTRICTED keys (ver RESTRICTED_KEYS): esos son nominales y hay
+ * que otorgarlos uno por uno, también a los administradores.
  */
 export type Principal = {
   id: string;
@@ -64,6 +66,12 @@ export const PERMISSIONS = [
     help: "Ver todos los gastos, administrar categorías de costo y el balance mensual.",
   },
   {
+    key: "accounting.sensitive",
+    group: "Financiero",
+    label: "Contabilidad reservada (personal, sueldos e impuestos)",
+    help: "Listado de personal, sueldos por persona y desglose impositivo de los gastos. Es NOMINAL: ni siquiera los Administradores lo tienen si no se les otorga acá.",
+  },
+  {
     key: "products.manage",
     group: "Catálogo",
     label: "Gestionar productos y precios",
@@ -89,9 +97,15 @@ export const ALL_PERMISSION_KEYS: PermissionKey[] = PERMISSIONS.map(
   (p) => p.key
 );
 
+/**
+ * Permisos RESERVADOS: no vienen con ningún rol (tampoco con Administrador) y
+ * el bypass de ADMIN no los cubre. Se otorgan por persona desde el panel.
+ */
+export const RESTRICTED_KEYS: PermissionKey[] = ["accounting.sensitive"];
+
 /** Paquete de permisos inicial de cada rol (ajustable por usuario después). */
 export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
-  [Role.ADMIN]: [...ALL_PERMISSION_KEYS],
+  [Role.ADMIN]: ALL_PERMISSION_KEYS.filter((k) => !RESTRICTED_KEYS.includes(k)),
   [Role.MANAGER]: [
     "records.view_all",
     "clients.manage",
@@ -300,6 +314,18 @@ export function canManageExpenses(
   principal: Principal | null | undefined
 ): boolean {
   return hasPermission(principal, "expenses.manage");
+}
+
+/**
+ * Contabilidad RESERVADA (M5): personal autorizado, sueldos por persona y
+ * desglose impositivo de gastos. Chequeo EXPLÍCITO: sin bypass de ADMIN.
+ * Hoy lo tienen solo el administrador del sistema y el contador.
+ */
+export function canAccessSensitiveAccounting(
+  principal: Principal | null | undefined
+): boolean {
+  if (!isActive(principal)) return false;
+  return principal!.permissions?.includes("accounting.sensitive") ?? false;
 }
 
 export function canManageProducts(

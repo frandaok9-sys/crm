@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageExpenses } from "@/lib/permissions";
+import { canManageExpenses, canAccessSensitiveAccounting } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { getMonthlyBalance } from "@/lib/finance";
 import {
@@ -29,6 +29,8 @@ export async function GET(request: Request) {
   if (!canManageExpenses(user)) {
     return new Response("No autorizado", { status: 403 });
   }
+  // Persona, neto/impuestos y la hoja de impuestos: solo zona reservada.
+  const sensitive = canAccessSensitiveAccounting(user);
 
   const url = new URL(request.url);
   const mParam = url.searchParams.get("m") ?? "";
@@ -149,12 +151,16 @@ export async function GET(request: Request) {
     { header: "Obra", key: "o", width: 30 },
     { header: "Cargado por", key: "u", width: 22 },
     { header: "Fiscal", key: "fk", width: 12 },
-    { header: "Persona", key: "p", width: 22 },
+    ...(sensitive ? [{ header: "Persona", key: "p", width: 22 }] : []),
     { header: "Moneda", key: "c", width: 10 },
-    { header: "Neto", key: "n", width: 16 },
-    { header: "Impuestos", key: "tx", width: 16 },
-    { header: "Detalle impuestos", key: "txd", width: 34 },
-    { header: "Importe total", key: "v", width: 16 },
+    ...(sensitive
+      ? [
+          { header: "Neto", key: "n", width: 16 },
+          { header: "Impuestos", key: "tx", width: 16 },
+          { header: "Detalle impuestos", key: "txd", width: 34 },
+        ]
+      : []),
+    { header: sensitive ? "Importe total" : "Importe", key: "v", width: 16 },
   ];
   sheet.getRow(1).font = { bold: true };
   for (const e of expenses) {
@@ -180,11 +186,14 @@ export async function GET(request: Request) {
       v: Number(e.amount.toString()),
     });
     row.getCell("v").numFmt = MONEY_FMT;
-    row.getCell("n").numFmt = MONEY_FMT;
-    row.getCell("tx").numFmt = MONEY_FMT;
+    if (sensitive) {
+      row.getCell("n").numFmt = MONEY_FMT;
+      row.getCell("tx").numFmt = MONEY_FMT;
+    }
   }
 
   // --- Hoja: Impuestos del mes (por etiqueta y moneda, para liquidar) ------
+  if (sensitive) {
   const taxSheet = workbook.addWorksheet("Impuestos del mes");
   taxSheet.columns = [
     { header: "Moneda", key: "c", width: 10 },
@@ -197,6 +206,7 @@ export async function GET(request: Request) {
       const row = taxSheet.addRow({ c: card.currency, l: t.label, v: Number(t.total) });
       row.getCell("v").numFmt = MONEY_FMT;
     }
+  }
   }
 
   // --- Hoja 4: Facturación del mes (detalle) -------------------------------

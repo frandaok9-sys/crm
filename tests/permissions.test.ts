@@ -9,6 +9,8 @@ import {
   canEditClient,
   canCreateTrips,
   canManageTrip,
+  canAccessSensitiveAccounting,
+  RESTRICTED_KEYS,
   clientScope,
   ROLE_DEFAULT_PERMISSIONS,
   type Principal,
@@ -104,5 +106,35 @@ describe("hojas de ruta (SavedTrip)", () => {
     // READ_ONLY y ADMINISTRATION tienen records.view_all, pero no gestionan hojas.
     expect(canManageTrip(principal(Role.READ_ONLY), { ownerId: "otro" })).toBe(false);
     expect(canManageTrip(principal(Role.ADMINISTRATION), { ownerId: "otro" })).toBe(false);
+  });
+});
+
+describe("contabilidad reservada (permiso nominal, sin bypass de ADMIN)", () => {
+  it("un ADMIN sin el permiso NO entra; con el permiso sí", () => {
+    const adminSin = principal(Role.ADMIN, []);
+    const adminCon = principal(Role.ADMIN, ["accounting.sensitive"]);
+    expect(canAccessSensitiveAccounting(adminSin)).toBe(false);
+    expect(canAccessSensitiveAccounting(adminCon)).toBe(true);
+    // El resto de los permisos sigue con bypass para ADMIN.
+    expect(canManageLedger(adminSin)).toBe(true);
+  });
+  it("ningún paquete de rol lo incluye (ni Administración ni Administrador)", () => {
+    for (const role of Object.values(Role)) {
+      expect(ROLE_DEFAULT_PERMISSIONS[role]).not.toContain("accounting.sensitive");
+    }
+    expect(RESTRICTED_KEYS).toContain("accounting.sensitive");
+  });
+  it("el contador lo tiene solo si se le otorga explícitamente", () => {
+    const contador = principal(Role.ADMINISTRATION);
+    expect(canAccessSensitiveAccounting(contador)).toBe(false);
+    const contadorCon = principal(Role.ADMINISTRATION, [
+      ...ROLE_DEFAULT_PERMISSIONS[Role.ADMINISTRATION],
+      "accounting.sensitive",
+    ]);
+    expect(canAccessSensitiveAccounting(contadorCon)).toBe(true);
+  });
+  it("usuario inactivo: siempre denegado", () => {
+    const inactivo = principal(Role.ADMIN, ["accounting.sensitive"], UserStatus.DISABLED);
+    expect(canAccessSensitiveAccounting(inactivo)).toBe(false);
   });
 });

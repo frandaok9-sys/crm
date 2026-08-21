@@ -6,6 +6,7 @@ import { requireActiveUser } from "@/lib/auth";
 import {
   canManageUsers,
   PERMISSIONS,
+  RESTRICTED_KEYS,
   ROLE_LABELS,
 } from "@/lib/permissions";
 import { Role } from "@/lib/generated/prisma/enums";
@@ -42,10 +43,58 @@ export default async function UserPermissionsPage({
       </div>
 
       {isAdminUser ? (
-        <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900">
-          Los <strong>Administradores</strong> tienen todos los permisos
-          siempre. Para limitar a esta persona, cambiale primero el rol desde
-          la pestaña Usuarios.
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500 dark:bg-zinc-900">
+            Los <strong>Administradores</strong> tienen todos los permisos
+            siempre. Para limitar a esta persona, cambiale primero el rol desde
+            la pestaña Usuarios.
+          </div>
+          {/* Excepción: los permisos RESERVADOS son nominales, también para
+              administradores (no vienen con el rol). */}
+          <form
+            action={updateUserPermissions}
+            className="rounded-xl border bg-white p-5 dark:bg-zinc-900"
+          >
+            <input type="hidden" name="userId" value={user.id} />
+            <h2 className="mb-1 text-sm font-medium text-zinc-500">
+              Permisos reservados (nominales)
+            </h2>
+            <p className="mb-3 text-xs text-zinc-500">
+              No vienen con el rol: se otorgan persona por persona, también a
+              los administradores.
+            </p>
+            <div className="space-y-3">
+              {PERMISSIONS.filter((p) =>
+                (RESTRICTED_KEYS as string[]).includes(p.key)
+              ).map((permission) => (
+                <label
+                  key={permission.key}
+                  className="flex cursor-pointer items-start gap-3"
+                >
+                  <input
+                    type="checkbox"
+                    name="perm"
+                    value={permission.key}
+                    defaultChecked={user.permissions.includes(permission.key)}
+                    className="mt-1 h-4 w-4 accent-[var(--primary)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">
+                      {permission.label}
+                    </span>
+                    <span className="block text-xs text-zinc-500">
+                      {permission.help}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <SubmitButton pendingText="Guardando…">
+                Guardar permisos
+              </SubmitButton>
+            </div>
+          </form>
         </div>
       ) : (
         <form action={updateUserPermissions} className="space-y-4">

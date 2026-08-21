@@ -5,6 +5,7 @@ import {
   canManageLedger,
   canLogExpenses,
   canManageExpenses,
+  canAccessSensitiveAccounting,
 } from "@/lib/permissions";
 import {
   ContabilidadTabs,
@@ -31,8 +32,11 @@ export default async function ContabilidadLayout({
       ? [{ href: "/contabilidad/gastos", label: "Gastos" }]
       : []),
     ...(canManageExpenses(user)
+      ? [{ href: "/contabilidad/finanzas", label: "Finanzas" }]
+      : []),
+    // Zona reservada: permiso nominal (ni siquiera los admins sin otorgar).
+    ...(canAccessSensitiveAccounting(user)
       ? [
-          { href: "/contabilidad/finanzas", label: "Finanzas" },
           { href: "/contabilidad/sueldos", label: "Sueldos" },
           { href: "/contabilidad/personal", label: "Personal" },
         ]

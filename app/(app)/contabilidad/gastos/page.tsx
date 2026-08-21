@@ -7,6 +7,7 @@ import { requireActiveUser } from "@/lib/auth";
 import {
   canLogExpenses,
   canManageExpenses,
+  canAccessSensitiveAccounting,
   opportunityScope,
 } from "@/lib/permissions";
 import { formatMoney } from "@/lib/opportunities";
@@ -44,6 +45,8 @@ export default async function ExpensesPage({
   const user = await requireActiveUser();
   if (!canLogExpenses(user)) redirect("/dashboard");
   const manager = canManageExpenses(user);
+  // Zona reservada (nominal): desglose impositivo y persona del listado.
+  const sensitive = canAccessSensitiveAccounting(user);
 
   const month = monthRange(m ?? "") ? (m as string) : currentMonth();
   const range = monthRange(month)!;
@@ -204,8 +207,16 @@ export default async function ExpensesPage({
             </select>
           </label>
 
-          {/* Desglose: neto + agregados/impuestos = total de la factura */}
-          <ExpenseBreakdown symbol="" />
+          {/* Desglose (neto + impuestos) solo en la zona reservada; el resto
+              carga el importe total y listo. */}
+          {sensitive ? (
+            <ExpenseBreakdown symbol="" />
+          ) : (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">Importe total *</span>
+              <input name="amount" required inputMode="decimal" placeholder="25.000,00" className={inputClass} />
+            </label>
+          )}
 
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Medio de pago</span>
@@ -216,18 +227,26 @@ export default async function ExpensesPage({
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">
-              Persona (quién gastó / sueldo de)
-            </span>
-            <PersonSelect
-              people={people}
-              defaultValue={myPerson?.isActive ? myPerson.id : ""}
-            />
-            <span className="mt-1 block text-[11px] text-zinc-400">
-              Obligatorio para sueldos. El listado se carga en Personal.
-            </span>
-          </label>
+          {sensitive ? (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">
+                Persona (quién gastó / sueldo de)
+              </span>
+              <PersonSelect
+                people={people}
+                defaultValue={myPerson?.isActive ? myPerson.id : ""}
+              />
+              <span className="mt-1 block text-[11px] text-zinc-400">
+                Obligatorio para sueldos. El listado se carga en Personal.
+              </span>
+            </label>
+          ) : (
+            // Fuera de la zona reservada no se ve el listado: si quien carga
+            // está en Personal, el gasto queda a su nombre automáticamente.
+            myPerson?.isActive && (
+              <input type="hidden" name="personId" value={myPerson.id} />
+            )
+          )}
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-zinc-500">Obra (opcional)</span>
             <select name="opportunityId" defaultValue="" className={inputClass}>
@@ -321,12 +340,12 @@ export default async function ExpensesPage({
                   <span className="ml-1.5 text-[11px] text-muted-foreground">
                     {COST_KIND_LABELS[e.category.kind]}
                   </span>
-                  {(e.description || e.person || e.paymentMethod) && (
+                  {(e.description || (sensitive && e.person) || e.paymentMethod) && (
                     <span className="block truncate text-xs text-muted-foreground">
-                      {e.person && (
+                      {sensitive && e.person && (
                         <span className="font-medium text-text2">{e.person.name}</span>
                       )}
-                      {e.person && (e.description || e.paymentMethod) ? " · " : ""}
+                      {sensitive && e.person && (e.description || e.paymentMethod) ? " · " : ""}
                       {e.description}
                       {e.paymentMethod
                         ? `${e.description ? " · " : ""}${e.paymentMethod}`
@@ -350,7 +369,7 @@ export default async function ExpensesPage({
                   <span className="block font-semibold">
                     {formatMoney(e.amount.toString(), e.currency)}
                   </span>
-                  {hasBreakdown && (
+                  {sensitive && hasBreakdown && (
                     <span className="block text-[11px] text-muted-foreground" title={taxDetail}>
                       neto {formatMoney(e.netAmount.toString(), e.currency)} · imp.{" "}
                       {formatMoney(taxTotal.toFixed(2), e.currency)}

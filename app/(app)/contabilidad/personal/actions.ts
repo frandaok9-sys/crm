@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
-import { canManageExpenses } from "@/lib/permissions";
+import { canAccessSensitiveAccounting } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { StaffArea, UserStatus } from "@/lib/generated/prisma/enums";
 
@@ -29,8 +29,8 @@ function cleanName(raw: FormDataEntryValue | null): string {
 
 async function requireFinance() {
   const user = await requireActiveUser();
-  if (!canManageExpenses(user)) {
-    throw new Error("No tenés permisos para administrar el personal.");
+  if (!canAccessSensitiveAccounting(user)) {
+    throw new Error("No tenés permiso para la contabilidad reservada (personal).");
   }
   return user;
 }
