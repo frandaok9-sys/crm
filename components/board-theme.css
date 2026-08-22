@@ -1,0 +1,52 @@
+/**
+ * Tema "Lucid" para la Pizarra: lienzo gris claro con grilla de puntos y
+ * paneles planos, blancos, con borde suave y esquinas redondeadas (en vez
+ * del look sketch por defecto de Excalidraw). Todo va scopeado a .rc-board
+ * para no tocar nada más del sistema. El modo oscuro conserva el tema
+ * oscuro propio de Excalidraw.
+ */
+
+/* ---- Paleta / variables (modo claro) ---- */
+.rc-board .excalidraw:not(.theme--dark) {
+  --color-primary: #2f6fed;
+  --color-primary-darker: #2a63d4;
+  --color-primary-darkest: #234fab;
+  --color-primary-light: #dbe7ff;
+  --default-bg-color: #ffffff;
+  --island-bg-color: #ffffff;
+  --input-border-color: #e6e6ea;
+  --default-border-color: #e6e6ea;
+  --button-hover-bg: #f4f5f7;
+}
+
+/* ---- Paneles/islas flotantes: planos, blancos, borde suave ---- */
+.rc-board .excalidraw:not(.theme--dark) .Island {
+  border: 1px solid #e6e6ea;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 20px rgba(15, 23, 42, 0.08);
+  backdrop-filter: none;
+}
+
+/* Barra de herramientas superior un poco más aireada */
+.rc-board .excalidraw:not(.theme--dark) .App-toolbar {
+  border-radius: 12px;
+}
+
+/* Botones activos con el azul del tema (como Lucid) */
+.rc-board .excalidraw:not(.theme--dark) .ToolIcon__icon[aria-checked="true"],
+.rc-board .excalidraw:not(.theme--dark) .ToolIcon_type_radio[aria-checked="true"] .ToolIcon__icon {
+  background: var(--color-primary-light);
+  color: var(--color-primary-darkest);
+}
+
+/* Bordes de campos/selects más suaves */
+.rc-board .excalidraw:not(.theme--dark) .dropdown-menu-container,
+.rc-board .excalidraw:not(.theme--dark) .Modal__content {
+  border-radius: 14px;
+}
+
+/* Redondeo general de botones para el aire Lucid */
+.rc-board .excalidraw:not(.theme--dark) button.ToolIcon,
+.rc-board .excalidraw:not(.theme--dark) .ToolIcon {
+  border-radius: 10px;
+}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import "@excalidraw/excalidraw/index.css";
+import "./board-theme.css";
 
 import { renameBoard, saveBoard, toggleBoardShare } from "@/app/(app)/pizarra/actions";
 import { templateSkeleton, type BoardTemplateId } from "@/lib/board-templates";
@@ -332,7 +333,7 @@ export function BoardEditor({
       )}
 
       {/* Lienzo */}
-      <div ref={wrapperRef} className="relative min-h-0 flex-1 bg-background">
+      <div ref={wrapperRef} className="rc-board relative min-h-0 flex-1 bg-background">
         <Excalidraw
           excalidrawAPI={onApiReady as never}
           langCode="es-ES"
@@ -340,8 +341,11 @@ export function BoardEditor({
           initialData={{
             elements: (doc?.elements ?? []) as never,
             appState: {
-              viewBackgroundColor: (doc?.appState?.viewBackgroundColor as string | undefined) ?? (theme === "dark" ? "#121212" : "#ffffff"),
-              gridModeEnabled: Boolean(doc?.appState?.gridModeEnabled),
+              // Estilo Lucid: lienzo gris muy claro (los puntos de la grilla
+              // resaltan suave). En pizarras ya guardadas se respeta su color.
+              viewBackgroundColor: (doc?.appState?.viewBackgroundColor as string | undefined) ?? (theme === "dark" ? "#121212" : "#f4f5f7"),
+              // Grilla de puntos encendida por defecto (si no venía definida).
+              gridModeEnabled: doc?.appState?.gridModeEnabled === undefined ? true : Boolean(doc?.appState?.gridModeEnabled),
               currentItemRoughness: 0,
               currentItemFontFamily: 2,
             } as never,
