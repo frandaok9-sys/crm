@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
@@ -17,7 +17,9 @@ export default async function BoardPage({
     where: { id },
     include: { owner: { select: { name: true, email: true } } },
   });
-  if (!board) notFound();
+  // Pizarra borrada o inexistente: a la lista (evita un 404 sin salida si
+  // quedó una dirección vieja abierta o en el historial).
+  if (!board) redirect("/pizarra");
   const isOwner = board.ownerId === user.id;
   if (!isOwner && !board.isShared) redirect("/pizarra");
 
