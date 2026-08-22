@@ -7,7 +7,8 @@ import { useSearchParams } from "next/navigation";
 import "@excalidraw/excalidraw/index.css";
 import "./board-theme.css";
 
-import { renameBoard, saveBoard, toggleBoardShare } from "@/app/(app)/pizarra/actions";
+import { renameBoard, saveBoard } from "@/app/(app)/pizarra/actions";
+import { BoardShareMenu, type ShareMode, type ShareUser } from "@/components/board-share-menu";
 import { templateSkeleton, type BoardTemplateId } from "@/lib/board-templates";
 import { formatDateTimeAR } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,9 @@ const SAVE_DEBOUNCE_MS = 1500;
 export function BoardEditor({
   id,
   title,
-  isShared,
+  shareMode,
+  sharedUserIds,
+  shareableUsers,
   canEdit,
   ownerName,
   updatedAt,
@@ -64,7 +67,9 @@ export function BoardEditor({
 }: {
   id: string;
   title: string;
-  isShared: boolean;
+  shareMode: ShareMode;
+  sharedUserIds: string[];
+  shareableUsers: ShareUser[];
   canEdit: boolean;
   ownerName: string;
   updatedAt: string;
@@ -305,21 +310,12 @@ export function BoardEditor({
             </span>
           )}
           {canEdit && (
-            <form action={toggleBoardShare}>
-              <input type="hidden" name="id" value={id} />
-              <button
-                type="submit"
-                title={isShared ? "Compartida con toda la empresa (solo lectura). Clic para hacerla privada." : "Privada. Clic para compartirla con toda la empresa (solo lectura)."}
-                className={cn(
-                  "h-8 rounded-[8px] border px-2.5 text-[12px] font-semibold",
-                  isShared
-                    ? "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
-                    : "border-border bg-card text-muted-foreground hover:bg-hoverbg"
-                )}
-              >
-                {isShared ? "Compartida" : "Compartir"}
-              </button>
-            </form>
+            <BoardShareMenu
+              id={id}
+              initialMode={shareMode}
+              initialUserIds={sharedUserIds}
+              users={shareableUsers}
+            />
           )}
           <button
             type="button"

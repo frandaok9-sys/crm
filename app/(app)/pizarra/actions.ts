@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { UserStatus } from "@/lib/generated/prisma/enums";
 
 /**
  * Pizarra (M6): tableros libres para presentaciones y bajada de ideas.
@@ -73,20 +74,41 @@ export async function renameBoard(id: string, title: string): Promise<void> {
   revalidatePath(`/pizarra/${id}`);
 }
 
-/** Compartir con toda la empresa (solo lectura) / volver a privada. */
-export async function toggleBoardShare(formData: FormData): Promise<void> {
+/**
+ * Visibilidad de la pizarra (3 modos): privada (solo el dueño), toda la
+ * empresa (solo lectura) o personas específicas elegidas por el dueño (solo
+ * lectura). Devuelve void; la usa el menú de compartir del editor.
+ */
+export async function setBoardVisibility(
+  id: string,
+  mode: "private" | "company" | "users",
+  userIds: string[] = []
+): Promise<void> {
   const user = await requireActiveUser();
-  const id = String(formData.get("id") ?? "");
-  const board = await prisma.board.findUnique({ where: { id }, select: { ownerId: true, isShared: true, title: true } });
+  const board = await prisma.board.findUnique({ where: { id }, select: { ownerId: true, title: true } });
   if (!board) throw new Error("Pizarra no encontrada.");
   if (board.ownerId !== user.id) throw new Error("Solo el dueño puede compartir esta pizarra.");
-  await prisma.board.update({ where: { id }, data: { isShared: !board.isShared } });
+
+  let isShared = false;
+  let sharedUserIds: string[] = [];
+  if (mode === "company") {
+    isShared = true;
+  } else if (mode === "users") {
+    // Solo usuarios activos y reales; nunca el propio dueño.
+    const valid = await prisma.user.findMany({
+      where: { id: { in: userIds }, status: UserStatus.ACTIVE, NOT: { id: user.id } },
+      select: { id: true },
+    });
+    sharedUserIds = valid.map((u) => u.id);
+  }
+
+  await prisma.board.update({ where: { id }, data: { isShared, sharedUserIds } });
   await logAudit({
-    action: board.isShared ? "board.unshared" : "board.shared",
+    action: mode === "private" ? "board.unshared" : "board.shared",
     actorId: user.id,
     targetType: "Board",
     targetId: id,
-    metadata: { title: board.title },
+    metadata: { title: board.title, mode, count: sharedUserIds.length },
   });
   revalidatePath("/pizarra");
   revalidatePath(`/pizarra/${id}`);
@@ -98,7 +120,8 @@ export async function duplicateBoard(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const source = await prisma.board.findUnique({ where: { id } });
   if (!source) throw new Error("Pizarra no encontrada.");
-  if (source.ownerId !== user.id && !source.isShared) throw new Error("No tenés acceso a esta pizarra.");
+  const puedeVer = source.ownerId === user.id || source.isShared || source.sharedUserIds.includes(user.id);
+  if (!puedeVer) throw new Error("No tenés acceso a esta pizarra.");
   const copy = await prisma.board.create({
     data: {
       title: `${source.title} (copia)`.slice(0, 120),

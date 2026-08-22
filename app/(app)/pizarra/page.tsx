@@ -17,11 +17,12 @@ import { NewBoardButton } from "@/components/new-board-button";
 export default async function BoardsPage() {
   const user = await requireActiveUser();
   const boards = await prisma.board.findMany({
-    where: { OR: [{ ownerId: user.id }, { isShared: true }] },
+    where: { OR: [{ ownerId: user.id }, { isShared: true }, { sharedUserIds: { has: user.id } }] },
     select: {
       id: true,
       title: true,
       isShared: true,
+      sharedUserIds: true,
       updatedAt: true,
       ownerId: true,
       owner: { select: { name: true, email: true } },
@@ -53,7 +54,9 @@ export default async function BoardsPage() {
         </Link>
         <div className="mt-3 flex items-center justify-between gap-2">
           {b.isShared ? (
-            <TintBadge variant="blue">Compartida</TintBadge>
+            <TintBadge variant="blue">Toda la empresa</TintBadge>
+          ) : b.sharedUserIds.length > 0 ? (
+            <TintBadge variant="blue">Compartida · {b.sharedUserIds.length}</TintBadge>
           ) : (
             <TintBadge variant="gray">Privada</TintBadge>
           )}
