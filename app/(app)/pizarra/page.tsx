@@ -3,14 +3,11 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireActiveUser } from "@/lib/auth";
 import { formatDateTimeAR } from "@/lib/dates";
-import { Button } from "@/components/ui/button";
 import { TintBadge } from "@/components/tint-badge";
 import { InitialsAvatar } from "@/components/initials-avatar";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { createBoard, deleteBoard, duplicateBoard } from "./actions";
-
-const inputClass =
-  "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800";
+import { deleteBoard, duplicateBoard } from "./actions";
+import { NewBoardButton } from "@/components/new-board-button";
 
 /**
  * Pizarra (M6): mis tableros y los compartidos por la empresa. Cada tablero
@@ -95,15 +92,7 @@ export default async function BoardsPage() {
             {boards.length > 0 && ` ${mine.length} propia(s) · ${shared.length} compartida(s).`}
           </p>
         </div>
-        <form action={createBoard} className="flex flex-wrap items-center gap-2">
-          <input
-            name="title"
-            maxLength={120}
-            placeholder="Nombre de la pizarra (opcional)"
-            className={`${inputClass} w-[260px] max-w-full`}
-          />
-          <Button type="submit" size="cta">+ Nueva pizarra</Button>
-        </form>
+        <NewBoardButton />
       </div>
 
       {boards.length === 0 ? (

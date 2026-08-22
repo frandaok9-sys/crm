@@ -24,6 +24,7 @@ function cleanTitle(raw: unknown): string {
 
 export async function createBoard(formData: FormData): Promise<void> {
   const user = await requireActiveUser();
+  const template = String(formData.get("template") ?? "blank");
   const board = await prisma.board.create({
     data: { title: cleanTitle(formData.get("title")), ownerId: user.id },
   });
@@ -32,10 +33,12 @@ export async function createBoard(formData: FormData): Promise<void> {
     actorId: user.id,
     targetType: "Board",
     targetId: board.id,
-    metadata: { title: board.title },
+    metadata: { title: board.title, template },
   });
   revalidatePath("/pizarra");
-  redirect(`/pizarra/${board.id}`);
+  // El editor siembra la plantilla al abrir (convertToExcalidrawElements corre
+  // en el navegador); "blank" no agrega nada.
+  redirect(template && template !== "blank" ? `/pizarra/${board.id}?plantilla=${template}` : `/pizarra/${board.id}`);
 }
 
 /** Guardado automático del lienzo (solo el dueño). Devuelve la hora guardada. */

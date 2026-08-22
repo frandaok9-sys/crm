@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
@@ -21,6 +22,7 @@ export default async function BoardPage({
   if (!isOwner && !board.isShared) redirect("/pizarra");
 
   return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando la pizarra…</div>}>
     <BoardEditor
       id={board.id}
       title={board.title}
@@ -30,5 +32,6 @@ export default async function BoardPage({
       updatedAt={board.updatedAt.toISOString()}
       document={(board.data as BoardDocument | null) ?? null}
     />
+    </Suspense>
   );
 }
