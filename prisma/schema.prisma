@@ -65,6 +65,7 @@ model User {
   uploadedDocuments  OpportunityDocument[] @relation("DocumentUploader")
   expenses      Expense[]        @relation("ExpenseAuthor")
   person        Person?          @relation("PersonUser")
+  boards        Board[]          @relation("BoardOwner")
   assistantLogs AssistantLog[]   @relation("AssistantLogUser")
 
   createdAt DateTime @default(now())
@@ -1007,4 +1008,24 @@ model Person {
   updatedAt DateTime @updatedAt
 
   @@index([area, isActive])
+}
+
+/// Pizarra (M6): tablero libre tipo Lucid para presentaciones y bajada de
+/// ideas. El contenido es el documento del lienzo (elementos, estado y
+/// archivos) en JSON. La edita su dueño; si está compartida, la ve toda la
+/// empresa (solo lectura).
+model Board {
+  id       String  @id @default(cuid())
+  title    String
+  data     Json?
+  isShared Boolean @default(false)
+
+  ownerId String
+  owner   User   @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, updatedAt])
+  @@index([isShared, updatedAt])
 }

@@ -55,6 +55,7 @@ export const ICON_PATHS: Record<string, string> = {
   "/oportunidades": "M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 100 8 4 4 0 000-8z",
   "/obras": "M3 21h18M5 21V10l7-6 7 6v11M9 21v-6h6v6",
   "/mapa": "M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11zM12 10a2 2 0 100-4 2 2 0 000 4",
+  "/pizarra": "M3 4h18v13H3zM8 21l4-4 4 4M8 12l3-3 2 2 3-4",
   "/presupuestos": "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
   "/productos": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
   // Contabilidad (Cobranzas + Gastos + Finanzas): libro contable.
@@ -74,6 +75,7 @@ export const APP_COLORS: Record<string, string> = {
   "/presupuestos": "#8e6bd6",
   "/metricas": "#d65b8e",
   "/mapa": "#2aa79b",
+  "/pizarra": "#0ea5e9",
   "/obras": "#d9a03c",
   "/productos": "#6b7280",
   "/contabilidad": "#34a853",
@@ -98,6 +100,7 @@ export const APP_KEYWORDS: Record<string, string> = {
   "/presupuestos": "cotizacion cotizaciones pliego pdf revision",
   "/metricas": "reportes rendimiento kpi conversion",
   "/mapa": "hojas de ruta gira geolocalizacion",
+  "/pizarra": "pizarra tablero lucid miro presentacion ideas diagrama lluvia de ideas",
   "/obras": "en obra ejecucion costos avance",
   "/productos": "catalogo precios ashford lista",
   "/contabilidad": "cobranzas gastos finanzas sueldos personal cuenta corriente facturas balance",

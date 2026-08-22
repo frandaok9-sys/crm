@@ -50,6 +50,7 @@ export const getNavItems = cache(
       { href: "/presupuestos", label: "Presupuestos", hint: "Cotizaciones y pliegos", group: "comercial", color: color("/presupuestos"), badge: quoteCount, pinned: true },
       { href: "/metricas", label: "Métricas", hint: "Rendimiento comercial", group: "comercial", color: color("/metricas") },
       { href: "/mapa", label: "Mapa", hint: "Clientes y hojas de ruta", group: "herramientas", color: color("/mapa") },
+      { href: "/pizarra", label: "Pizarra", hint: "Ideas, diagramas y presentaciones", group: "herramientas", color: color("/pizarra") },
       { href: "/obras", label: "En obra", hint: "Obras en ejecución", group: "operaciones", color: color("/obras"), badge: obraCount },
       { href: "/productos", label: "Productos", hint: "Catálogo y precios", group: "operaciones", color: color("/productos") },
       ...(canConta
