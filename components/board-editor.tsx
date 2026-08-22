@@ -341,11 +341,14 @@ export function BoardEditor({
           initialData={{
             elements: (doc?.elements ?? []) as never,
             appState: {
-              // Estilo Lucid: lienzo gris muy claro (los puntos de la grilla
-              // resaltan suave). En pizarras ya guardadas se respeta su color.
-              viewBackgroundColor: (doc?.appState?.viewBackgroundColor as string | undefined) ?? (theme === "dark" ? "#121212" : "#f4f5f7"),
-              // Grilla de puntos encendida por defecto (si no venía definida).
-              gridModeEnabled: doc?.appState?.gridModeEnabled === undefined ? true : Boolean(doc?.appState?.gridModeEnabled),
+              // Estilo Lucid: el fondo real (gris claro + puntitos suaves) lo
+              // dibuja el CSS del contenedor (.rc-board); el lienzo va
+              // transparente para dejarlos ver. Las pizarras guardadas con un
+              // color propio lo conservan.
+              viewBackgroundColor: (doc?.appState?.viewBackgroundColor as string | undefined) ?? "transparent",
+              // Grilla de LÍNEAS de Excalidraw apagada (era muy marcada); usamos
+              // los puntos del CSS.
+              gridModeEnabled: Boolean(doc?.appState?.gridModeEnabled),
               currentItemRoughness: 0,
               currentItemFontFamily: 2,
             } as never,

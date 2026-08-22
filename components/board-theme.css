@@ -6,6 +6,25 @@
  * oscuro propio de Excalidraw.
  */
 
+/* ---- Fondo estilo Lucid: gris claro con puntitos finos y suaves ----
+   La grilla de líneas de Excalidraw queda apagada; estos puntos los dibuja
+   el contenedor (el lienzo va transparente por encima). Patrón calmo, tenue. */
+.rc-board {
+  background-color: #f3f4f6;
+  background-image: radial-gradient(circle, rgba(90, 96, 112, 0.16) 1px, transparent 1.6px);
+  background-size: 26px 26px;
+  background-position: 13px 13px;
+}
+:root.dark .rc-board {
+  background-color: #17181c;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1.6px);
+}
+/* El lienzo transparente deja ver los puntos del contenedor. */
+.rc-board .excalidraw,
+.rc-board .excalidraw .excalidraw__canvas {
+  background: transparent !important;
+}
+
 /* ---- Paleta / variables (modo claro) ---- */
 .rc-board .excalidraw:not(.theme--dark) {
   --color-primary: #2f6fed;
